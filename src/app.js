@@ -1,0 +1,1069 @@
+// ── Constants ──
+const STORAGE_KEY = 'fitness-island-state';
+const NAME_KEY = 'fitness-island-name';
+const ROOM_KEY = 'fitness-island-v1';
+const ANIMALS = ['🐱','🐰','🐻','🦊','🐶','🐨','🐼','🐸','🐵','🐯','🦁','🐮'];
+const COLORS = ['#59c9a5','#ef8354','#ffd166','#6c5ce7','#00b894','#e17055','#0984e3','#fdcb6e'];
+const DIFFICULTIES = {
+  easy: { label: '轻松', multiplier: 1, hint: '保连续，少一点也算上岛。' },
+  standard: { label: '标准', multiplier: 2, hint: '按今天计划完成，奖励稳定。' },
+  challenge: { label: '挑战', multiplier: 3, hint: '状态好再选，可能触发稀有彩蛋。' }
+};
+const ITEMS = {
+  branch: ['树枝', '🌿', './assets/acnh-icons/branch.png'],
+  wood: ['木材', '🪵', './assets/acnh-icons/wood.png'],
+  softwood: ['软木材', '🪵', './assets/acnh-icons/softwood.png'],
+  hardwood: ['硬木材', '🪵', './assets/acnh-icons/hardwood.png'],
+  stone: ['石头', '🪨', './assets/acnh-icons/stone.png'],
+  ironNugget: ['铁矿石', '⛏', './assets/acnh-icons/ironNugget.png'],
+  clay: ['黏土', '🧱', './assets/acnh-icons/clay.png'],
+  weed: ['杂草', '☘', './assets/acnh-icons/weed.png'],
+  shell: ['贝壳', '🐚', './assets/acnh-icons/shell.png'],
+  starFragment: ['星星碎片', '⭐', './assets/acnh-icons/starFragment.png'],
+  bells: ['铃钱', '🔔', './assets/acnh-icons/bells.png'],
+  nookMilesTicket: ['里数券', '🎫', './assets/acnh-icons/nookMilesTicket.png'],
+  goldenLeaf: ['金色树叶', '🍂']
+};
+const BUILDINGS = [
+  { id: 'resident_services_tent', name: '服务处帐篷', icon: '⛺', need: 0, metric: 'checkins', x: 49, y: 43, desc: '小基地的入口，记录两个人今天有没有登岛。', reward: '默认开放，负责查看今日状态。' },
+  { id: 'storage', name: '收纳仓库', icon: '📦', img: './assets/acnh-icons/storage.png', need: 3, metric: 'checkins', x: 25, y: 34, desc: '把打卡得到的木材、石头和贝壳存进共同仓库。', reward: '累计打卡 3 天后开放仓库进度。' },
+  { id: 'nook_stop', name: '狸端机', icon: '🏧', img: './assets/acnh-icons/nookMilesTicket.png', need: 5, metric: 'checkins', x: 70, y: 33, desc: '用连续出现换里数券，适合当作双人同日登岛奖励。', reward: '累计打卡 5 天后开放里数券提示。' },
+  { id: 'museum', name: '博物馆', icon: '🏛', img: './assets/acnh-icons/museum.png', need: 10, metric: 'collection', x: 34, y: 66, desc: '收藏材料、建筑和隐藏任务，逐步补齐图鉴。', reward: '图鉴发现 10 项后解锁博物馆。' },
+  { id: 'pier', name: '海边码头', icon: '🌊', img: './assets/acnh-icons/shell.png', need: 120, metric: 'minutes', x: 74, y: 73, desc: '训练分钟数累计到一定程度后，海边会出现新的奖励点。', reward: '累计训练 120 分钟后开放码头。' }
+];
+
+// ── Gun.js sync ──
+const gun = Gun(['https://gun-manhattan.herokuapp.com/gun', 'https://gun-us.herokuapp.com/gun']);
+const room = gun.get(ROOM_KEY);
+
+// ── State ──
+let plan = null;
+let allDays = [];
+let currentDayIndex = 0;
+let dayStates = {};
+let username = '';
+let peers = {}; // other users' data from Gun
+let inventory = createInventory();
+let warehouseContribution = createWarehouse();
+let collection = { discovered: ['resident_services_tent'], completed: [] };
+let activeView = 'today';
+let selectedDifficulty = 'standard';
+let collectionFilter = 'all';
+
+// ── Username ──
+function getStoredName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } }
+function storeName(n) { try { localStorage.setItem(NAME_KEY, n); } catch {} }
+
+const savedName = getStoredName();
+const nameOverlay = document.getElementById('nameOverlay');
+const nameInput = document.getElementById('nameInput');
+const nameBtn = document.getElementById('nameBtn');
+
+if (savedName) {
+  username = savedName;
+  nameOverlay.classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+  initApp();
+} else {
+  nameInput.focus();
+}
+nameBtn.addEventListener('click', submitName);
+nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
+
+function submitName() {
+  const n = nameInput.value.trim();
+  if (!n) { nameInput.style.borderColor = 'var(--animal-error-color)'; return; }
+  username = n;
+  storeName(n);
+  nameOverlay.classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+  initApp();
+}
+
+document.getElementById('changeName').addEventListener('click', () => {
+  nameInput.value = '';
+  nameOverlay.classList.remove('hidden');
+  setTimeout(() => nameInput.focus(), 100);
+});
+
+// ── Init ──
+async function initApp() {
+  const bar = document.getElementById('loadingBar');
+  try {
+    bar.style.width = '30%';
+    const res = await fetch('plan.json');
+    if (!res.ok) throw new Error(res.status);
+    bar.style.width = '70%';
+    plan = await res.json();
+    bar.style.width = '100%';
+
+    flattenDays();
+    loadLocal();
+    findTodayIndex();
+
+    // Start Gun sync
+    syncMyState();
+    listenPeers();
+
+    setTimeout(() => {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('app').style.display = '';
+      document.getElementById('floatingNav').style.display = '';
+      render();
+    }, 400);
+  } catch (e) {
+    bar.style.width = '100%';
+    console.error('Load failed:', e);
+  }
+}
+
+function flattenDays() {
+  allDays = [];
+  plan.weeks.forEach((w, wi) => {
+    w.days.forEach((d, di) => {
+      allDays.push({ ...d, weekIndex: wi, weekTheme: w.theme, weekSignal: w.signal, weekPlant: w.plant || 'sprout', dayInWeek: di });
+    });
+  });
+}
+
+function findTodayIndex() {
+  for (let i = 0; i < allDays.length; i++) {
+    if (!getDayState(i).settled) { currentDayIndex = i; return; }
+  }
+  currentDayIndex = 0;
+}
+
+function getDayState(i) {
+  if (!dayStates[i]) dayStates[i] = { checked: new Set(), settled: false, difficulty: selectedDifficulty, score: 0, rewards: [], hiddenTasks: [], settledAt: null };
+  if (!dayStates[i].checked) dayStates[i].checked = new Set();
+  if (!dayStates[i].difficulty) dayStates[i].difficulty = selectedDifficulty;
+  if (!dayStates[i].rewards) dayStates[i].rewards = [];
+  if (!dayStates[i].hiddenTasks) dayStates[i].hiddenTasks = [];
+  return dayStates[i];
+}
+
+function createInventory() {
+  return { branch: 0, wood: 0, softwood: 0, hardwood: 0, stone: 0, ironNugget: 0, clay: 0, weed: 0, shell: 0, starFragment: 0, bells: 0, nookMilesTicket: 0, goldenLeaf: 0 };
+}
+
+function createWarehouse() {
+  return { wood: 0, shell: 0, stone: 0, ironNugget: 0 };
+}
+
+function normalizeCounts(base, saved) {
+  return { ...base, ...(saved || {}) };
+}
+
+function discover(id) {
+  if (!collection.discovered.includes(id)) collection.discovered.push(id);
+}
+
+function addCounts(target, delta) {
+  Object.entries(delta).forEach(([k, v]) => { target[k] = (target[k] || 0) + v; });
+}
+
+function countSettledStates(states) {
+  return Object.values(states || {}).filter(s => s && s.settled).length;
+}
+
+function countMinutes(states) {
+  let minutes = 0;
+  Object.entries(states || {}).forEach(([idx, s]) => {
+    if (s && s.settled && allDays[idx]) minutes += allDays[idx].minutes || 0;
+  });
+  return minutes;
+}
+
+// ── Local storage ──
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      applyArchivePayload(saved.dayStates && !saved.version ? { dayStates: saved } : saved);
+    }
+  } catch {}
+}
+
+function saveLocal() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(createArchivePayload()));
+  } catch {}
+}
+
+function createArchivePayload() {
+  const out = {};
+  for (const [k, v] of Object.entries(dayStates)) {
+    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null };
+  }
+  return {
+    version: 3,
+    app: 'fitness-island',
+    exportedAt: new Date().toISOString(),
+    username,
+    currentDayIndex,
+    dayStates: out,
+    inventory,
+    warehouseContribution,
+    collection,
+    selectedDifficulty,
+    activeView
+  };
+}
+
+function applyArchivePayload(saved) {
+  if (!saved || typeof saved !== 'object') throw new Error('存档格式不正确');
+  const savedDays = saved.dayStates || {};
+  dayStates = {};
+  for (const [k, v] of Object.entries(savedDays)) {
+    dayStates[k] = {
+      checked: new Set(v.checked || []),
+      settled: v.settled || false,
+      difficulty: v.difficulty || selectedDifficulty,
+      score: v.score || 0,
+      rewards: v.rewards || [],
+      hiddenTasks: v.hiddenTasks || [],
+      settledAt: v.settledAt || null
+    };
+  }
+  currentDayIndex = Number.isInteger(saved.currentDayIndex) ? Math.max(0, Math.min(saved.currentDayIndex, Math.max(0, allDays.length - 1))) : currentDayIndex;
+  inventory = normalizeCounts(createInventory(), saved.inventory);
+  warehouseContribution = normalizeCounts(createWarehouse(), saved.warehouseContribution);
+  collection = { discovered: saved.collection?.discovered || ['resident_services_tent'], completed: saved.collection?.completed || [] };
+  selectedDifficulty = saved.selectedDifficulty || 'standard';
+  activeView = saved.activeView || 'today';
+}
+
+// ── Gun sync ──
+function getSerializableStates() {
+  const out = {};
+  for (const [k, v] of Object.entries(dayStates)) {
+    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null };
+  }
+  return out;
+}
+
+function syncMyState() {
+  if (!username) return;
+  room.get('users').get(username).put({
+    dayStates: JSON.stringify(getSerializableStates()),
+    currentDayIndex: currentDayIndex,
+    inventory: JSON.stringify(inventory),
+    warehouseContribution: JSON.stringify(warehouseContribution),
+    collection: JSON.stringify(collection),
+    selectedDifficulty: selectedDifficulty,
+    lastActive: Date.now(),
+    updated: Date.now()
+  });
+}
+
+function listenPeers() {
+  room.get('users').map().on(function(data, name) {
+    if (!data || !data.dayStates || name === username) return;
+    try {
+      const ds = JSON.parse(data.dayStates);
+      peers[name] = {
+        dayStates: ds,
+        currentDayIndex: data.currentDayIndex || 0,
+        inventory: data.inventory ? JSON.parse(data.inventory) : createInventory(),
+        warehouseContribution: data.warehouseContribution ? JSON.parse(data.warehouseContribution) : createWarehouse(),
+        collection: data.collection ? JSON.parse(data.collection) : { discovered: [], completed: [] },
+        selectedDifficulty: data.selectedDifficulty || 'standard',
+        lastActive: data.lastActive || 0
+      };
+    } catch {}
+    renderBuddies();
+    renderLeaderboard();
+    renderIsland();
+  });
+}
+
+// ── Render ──
+function render() {
+  const day = allDays[currentDayIndex];
+  const state = getDayState(currentDayIndex);
+
+  document.getElementById('userAvatar').textContent = username.charAt(0).toUpperCase();
+  document.getElementById('userDisplayName').textContent = username;
+  document.getElementById('heroDate').textContent = formatDate();
+  document.getElementById('heroPrompt').textContent = day.summary || '';
+  document.getElementById('heroMinutes').textContent = `${day.minutes || 0} 分钟`;
+  document.getElementById('heroPhase').textContent = day.phase || '';
+  document.getElementById('heroAnimal').textContent = '';
+  document.getElementById('heroAnimal').setAttribute('aria-label', ANIMALS[currentDayIndex % ANIMALS.length]);
+
+  const total = day.exercises.length;
+  const done = state.checked.size;
+  document.getElementById('progressFill').style.width = (total > 0 ? done / total * 100 : 0) + '%';
+  document.getElementById('progressCount').textContent = `${done}/${total}`;
+
+  renderRoute(day);
+  renderTasks(day, state);
+  renderCompleteStrip(day, state);
+  renderDifficulty(day, state);
+  renderReview(day);
+  renderArchive();
+  renderBuddies();
+  renderLeaderboard();
+  renderIsland();
+  renderInventory();
+  renderCollection();
+  renderView();
+}
+
+function formatDate() {
+  const d = new Date();
+  const w = ['日','一','二','三','四','五','六'];
+  return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日 周${w[d.getDay()]}`;
+}
+
+function getGlobalIndex(wi, di) {
+  let idx = 0;
+  for (let i = 0; i < wi; i++) idx += plan.weeks[i].days.length;
+  return idx + di;
+}
+
+function renderRoute(day) {
+  const wi = day.weekIndex;
+  const week = plan.weeks[wi];
+  document.getElementById('routeWeek').textContent = `第 ${wi+1} 周 · ${week.theme}`;
+  document.getElementById('routePill').textContent = week.signal || week.theme;
+  const c = document.getElementById('routeNodes');
+  c.innerHTML = '';
+  week.days.forEach((d, di) => {
+    const gi = getGlobalIndex(wi, di);
+    const n = document.createElement('div');
+    n.className = 'route-node';
+    n.dataset.day = String(di + 1);
+    const isCurrent = gi === currentDayIndex;
+    const ds = getDayState(gi);
+    if (isCurrent) n.classList.add('selected','today');
+    if (ds.settled && ds.checked.size === d.exercises.length) n.classList.add('done');
+    else if (ds.settled) n.classList.add('appeared');
+    else if (gi < currentDayIndex && !ds.settled) n.classList.add('late');
+    n.textContent = di + 1;
+    n.setAttribute('aria-label', `${week.theme} 第${di+1}天 ${d.title}`);
+    n.addEventListener('click', () => { currentDayIndex = gi; render(); window.scrollTo({top:0,behavior:'smooth'}); });
+    c.appendChild(n);
+  });
+}
+
+function renderTasks(day, state) {
+  document.getElementById('taskTitle').textContent = day.title || '今日训练';
+  const list = document.getElementById('taskList');
+  list.innerHTML = '';
+  day.exercises.forEach((ex, i) => {
+    const card = document.createElement('div');
+    card.className = 'task-card' + (state.checked.has(i) ? ' checked' : '');
+    const cb = document.createElement('div');
+    cb.className = 'task-checkbox'; cb.textContent = '✓';
+    cb.addEventListener('click', () => toggleTask(i));
+    const info = document.createElement('div');
+    info.className = 'task-info';
+    info.innerHTML = `<div class="task-name">${ex[0]}</div><div class="task-detail">${ex[1]}</div><div class="task-note">${ex[2]}</div>`;
+    card.appendChild(cb); card.appendChild(info);
+    list.appendChild(card);
+  });
+}
+
+function toggleTask(i) {
+  const state = getDayState(currentDayIndex);
+  if (state.settled) return;
+  if (state.checked.has(i)) state.checked.delete(i); else state.checked.add(i);
+  saveLocal();
+  syncMyState();
+  render();
+}
+
+function renderCompleteStrip(day, state) {
+  const strip = document.getElementById('completeStrip');
+  const btn = document.getElementById('completeBtn');
+  const total = day.exercises.length;
+  const done = state.checked.size;
+  strip.classList.remove('settled');
+  if (state.settled) { strip.classList.add('settled'); btn.textContent = '今天已完成'; }
+  else if (done === 0) btn.textContent = '完成今天';
+  else if (done >= total) btn.textContent = '完成今天';
+  else btn.textContent = '今天到这';
+}
+
+function renderDifficulty(day, state) {
+  const currentDifficulty = state.difficulty || selectedDifficulty;
+  document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => {
+    const isActive = btn.dataset.difficulty === currentDifficulty;
+    btn.classList.toggle('active', isActive);
+    btn.disabled = !!state.settled;
+  });
+  const diff = DIFFICULTIES[currentDifficulty] || DIFFICULTIES.standard;
+  const fullScore = (day.exercises.length || 0) * diff.multiplier;
+  const preview = document.getElementById('rewardPreview');
+  preview.innerHTML = `<div class="reward-line"><span>${diff.label}奖励</span><span>${fullScore} 积分 · ${diff.multiplier} 份材料</span></div>`;
+  document.getElementById('hiddenQuestHint').textContent = getHiddenQuestHint(currentDifficulty, day);
+}
+
+function getHiddenQuestHint(difficulty, day) {
+  if (day.review) return '周复盘日完成后，博物馆会新增一条图鉴记录。';
+  if (difficulty === 'challenge') return '挑战完整完成时，可能获得铃钱袋。';
+  if (difficulty === 'easy') return '轻松难度连续 3 天，会发现一片金色树叶。';
+  return '如果两个人今天都登岛，服务处会送出里数券。';
+}
+
+// ── Buddies ──
+function renderBuddies() {
+  const list = document.getElementById('buddyList');
+  const names = Object.keys(peers);
+  if (names.length === 0) {
+    list.innerHTML = '<div class="buddy-empty">还没有训练伙伴加入，让对方也打开这个页面吧 🌟</div>';
+    return;
+  }
+  list.innerHTML = '';
+  names.forEach((name, idx) => {
+    const p = peers[name];
+    const color = COLORS[(idx + 1) % COLORS.length];
+    const isOnline = (Date.now() - (p.lastActive || 0)) < 120000; // 2 min
+    const ds = p.dayStates || {};
+    const ci = p.currentDayIndex || 0;
+    let settledDays = 0;
+    allDays.forEach((d, i) => { if (ds[i] && ds[i].settled) settledDays++; });
+    const currentDay = allDays[ci] || allDays[0];
+    const currentDs = ds[ci] || { checked: [], settled: false };
+    const checkedCount = (currentDs.checked || []).length;
+    const exTotal = currentDay.exercises.length;
+    const pct = exTotal > 0 ? Math.round(checkedCount / exTotal * 100) : 0;
+
+    let statusText = '还没有开始';
+    if (currentDs.settled && checkedCount === exTotal) statusText = '✓ 今天已完成';
+    else if (currentDs.settled) statusText = `今天到这 (${checkedCount}/${exTotal})`;
+    else if (checkedCount > 0) statusText = `训练中 (${checkedCount}/${exTotal})`;
+    else if (ci > 0) statusText = `第 ${ci + 1} 天`;
+
+    const card = document.createElement('div');
+    card.className = 'buddy-card';
+    card.innerHTML = `
+      <div class="buddy-avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div>
+      <div class="buddy-info">
+        <div class="buddy-name">${name} ${isOnline ? '<span class="online-dot"></span>' : '<span class="offline-dot"></span>'}</div>
+        <div class="buddy-status">${statusText} · 累计 ${settledDays} 天</div>
+        <div class="buddy-progress"><div class="buddy-progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+// ── Leaderboard ──
+function renderLeaderboard() {
+  const body = document.getElementById('weeklyContributionBody') || document.getElementById('leaderboardBody');
+  const allUsers = {};
+
+  // Add me
+  let mySettled = 0, myChecked = 0, myScore = 0;
+  allDays.forEach((d, i) => {
+    const s = getDayState(i);
+    if (s.checked.size > 0) myChecked += s.checked.size;
+    if (s.settled) mySettled++;
+    myScore += s.score || 0;
+  });
+  allUsers[username] = { settledDays: mySettled, totalChecked: myChecked, totalScore: myScore, currentDay: currentDayIndex, lastActive: Date.now(), warehouse: sumCounts(warehouseContribution), materials: warehouseContribution };
+
+  // Add peers
+  Object.entries(peers).forEach(([name, p]) => {
+    const ds = p.dayStates || {};
+    let settled = 0, checked = 0, score = 0;
+    allDays.forEach((d, i) => {
+      if (ds[i]) {
+        checked += (ds[i].checked || []).length;
+        if (ds[i].settled) settled++;
+        score += ds[i].score || 0;
+      }
+    });
+    allUsers[name] = { settledDays: settled, totalChecked: checked, totalScore: score, currentDay: p.currentDayIndex || 0, lastActive: p.lastActive || 0, warehouse: sumCounts(p.warehouseContribution || {}), materials: p.warehouseContribution || {} };
+  });
+
+  const rankings = Object.entries(allUsers).map(([name, r]) => ({
+    name, ...r, score: r.totalScore || (r.settledDays * 10 + r.totalChecked)
+  })).sort((a, b) => b.score - a.score);
+
+  const rankClasses = ['gold','silver','bronze'];
+  body.innerHTML = '';
+  rankings.forEach((r, i) => {
+    const rc = i < 3 ? rankClasses[i] : 'normal';
+    const isMe = r.name === username;
+    const isOnline = (Date.now() - r.lastActive) < 120000;
+    const row = document.createElement('div');
+    row.className = 'lb-row';
+    row.style.background = isMe ? 'rgba(89,201,165,0.06)' : '';
+    row.style.borderRadius = 'var(--animal-radius-base)';
+    row.style.padding = '10px 8px';
+    row.innerHTML = `
+      <div class="lb-rank ${rc}">${i + 1}</div>
+      <div class="lb-info">
+        <div class="lb-name">${r.name} ${isMe ? '(我)' : ''} ${isOnline ? '<span class="online-dot" style="display:inline-block;vertical-align:middle"></span>' : ''}</div>
+        <div class="lb-stats">完成 ${r.settledDays} 天 · 仓库贡献 ${r.warehouse || 0} · 第 ${r.currentDay + 1} 天</div>
+        <div class="contribution-materials">${formatMaterialChips(r.materials)}</div>
+      </div>
+      <div class="lb-score">
+        <div class="lb-score-num">${r.score}</div>
+        <div class="lb-score-label">积分</div>
+      </div>`;
+    body.appendChild(row);
+  });
+}
+
+function sumCounts(obj) {
+  return Object.values(obj || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+}
+
+function formatMaterialChips(materials) {
+  const entries = Object.entries(materials || {}).filter(([, value]) => Number(value) > 0);
+  if (!entries.length) return '<span class="contribution-chip">还没有入库材料</span>';
+  return entries.map(([key, value]) => `<span class="contribution-chip">${ITEMS[key]?.[0] || key} ${value}</span>`).join('');
+}
+
+function iconMarkup(metaOrIcon, fallback = '') {
+  if (Array.isArray(metaOrIcon)) {
+    const [label, emoji, img] = metaOrIcon;
+    return img ? `<img class="acnh-icon" src="${img}" alt="${label}">` : (emoji || fallback);
+  }
+  if (metaOrIcon && metaOrIcon.img) return `<img class="acnh-icon" src="${metaOrIcon.img}" alt="${metaOrIcon.name}">`;
+  return metaOrIcon?.icon || fallback;
+}
+
+function renderIsland() {
+  const map = document.getElementById('islandMap');
+  const wh = document.getElementById('warehouseGrid');
+  if (!map || !wh || !allDays.length) return;
+  const metrics = getCoopMetrics();
+  const stats = document.getElementById('islandStats');
+  if (stats) {
+    stats.innerHTML = `
+      <div class="island-stat"><strong>${metrics.checkins}</strong><span>打卡天数</span></div>
+      <div class="island-stat"><strong>${metrics.minutes}</strong><span>训练分钟</span></div>
+      <div class="island-stat"><strong>${metrics.collection}</strong><span>图鉴发现</span></div>`;
+  }
+  map.innerHTML = '';
+  [
+    ['map-tree', '18%', '22%'], ['map-tree', '78%', '22%'], ['map-tree', '20%', '74%'],
+    ['map-tree', '62%', '63%'], ['map-rock', '58%', '24%'], ['map-rock', '16%', '55%'],
+    ['map-bridge', '', '']
+  ].forEach(([cls, left, top]) => {
+    const deco = document.createElement('span');
+    deco.className = cls;
+    if (left) deco.style.left = left;
+    if (top) deco.style.top = top;
+    map.appendChild(deco);
+  });
+  if (hasPeerSettledToday() && getDayState(currentDayIndex).settled) {
+    const bubble = document.createElement('div');
+    bubble.className = 'coop-bubble';
+    bubble.innerHTML = `${iconMarkup(ITEMS.nookMilesTicket)} <span>双人同日登岛 · 里数券</span>`;
+    map.appendChild(bubble);
+  }
+  const bottle = document.createElement('button');
+  bottle.type = 'button';
+  bottle.className = 'bottle-point';
+  bottle.textContent = '💌';
+  bottle.setAttribute('aria-label', '瓶中信隐藏任务线索');
+  bottle.addEventListener('click', showBottleHints);
+  map.appendChild(bottle);
+  renderMapResidents(map);
+  const warehouse = getSharedWarehouse();
+  BUILDINGS.forEach(building => {
+    const status = getBuildingStatus(building, metrics, warehouse);
+    const stage = getBuildingStage(status);
+    const { value, unlocked, pct } = status;
+    if (unlocked) discover(building.id);
+    const point = document.createElement('button');
+    point.type = 'button';
+    point.className = `map-point ${unlocked ? 'unlocked' : 'locked'} ${!unlocked && pct >= 80 ? 'almost' : ''} ${stage.className}`;
+    point.style.setProperty('--x', `${building.x}%`);
+    point.style.setProperty('--y', `${building.y}%`);
+    point.setAttribute('aria-label', `${building.name}，${unlocked ? '已解锁' : '建设中'}，进度 ${value}/${building.need || value}`);
+    point.innerHTML = `
+      <span class="map-point-status">${getBuildingStatusLabel(status)}</span>
+      <span class="map-point-icon">${iconMarkup(building)}</span>
+      <span class="map-point-label">${building.name}</span>
+      <span class="map-point-stage">${stage.label}</span>
+      <span class="map-point-progress"><span style="width:${pct}%"></span></span>`;
+    point.addEventListener('click', () => showIslandPoint(building, status));
+    map.appendChild(point);
+  });
+  wh.innerHTML = '';
+  Object.entries(warehouse).forEach(([key, value]) => {
+    const chip = document.createElement('div');
+    chip.className = 'warehouse-chip';
+    chip.textContent = `${ITEMS[key]?.[0] || key} ${value}`;
+    wh.appendChild(chip);
+  });
+}
+
+function getBuildingStatus(building, metrics, warehouse = getSharedWarehouse()) {
+  const value = building.metric === 'checkins' ? metrics.checkins : building.metric === 'minutes' ? metrics.minutes : metrics.collection;
+  const need = building.need || value || 1;
+  const unlocked = value >= building.need;
+  const pct = building.need ? Math.min(100, Math.round(value / building.need * 100)) : 100;
+  const material = getMaterialReadiness(building.id, warehouse);
+  return { value, need, unlocked, pct, materialPct: material.pct, materialText: material.text };
+}
+
+function getBuildingStatusLabel(status) {
+  if (status.unlocked) return '已开放';
+  if (status.pct >= 80) return '快完成';
+  return '建设中';
+}
+
+function getBuildingStage(status) {
+  if (status.unlocked) return { label: '完成', className: 'stage-built' };
+  const buildPct = Math.max(status.pct, status.materialPct || 0);
+  if (buildPct >= 70) return { label: '小屋', className: 'stage-frame' };
+  if (buildPct >= 30) return { label: '帐篷', className: 'stage-frame' };
+  return { label: '地基', className: 'stage-foundation' };
+}
+
+function getMaterialReadiness(id, warehouse) {
+  const needs = {
+    storage: { wood: 2, stone: 1 },
+    nook_stop: { wood: 2, ironNugget: 1 },
+    museum: { stone: 2, shell: 2 },
+    pier: { wood: 3, shell: 2 }
+  }[id];
+  if (!needs) return { pct: 100, text: '材料已备齐。' };
+  const parts = Object.entries(needs).map(([key, need]) => {
+    const have = warehouse[key] || 0;
+    return { key, have, need, pct: Math.min(1, have / need) };
+  });
+  const pct = Math.round(parts.reduce((sum, p) => sum + p.pct, 0) / parts.length * 100);
+  const text = parts.map(p => `${ITEMS[p.key]?.[0] || p.key} ${p.have}/${p.need}`).join(' · ');
+  return { pct, text };
+}
+
+function getRemainingText(building, status) {
+  if (status.unlocked) return '已经开放，可以查看。';
+  const rest = Math.max(0, building.need - status.value);
+  if (building.metric === 'checkins') return `还差 ${rest} 次打卡。`;
+  if (building.metric === 'minutes') return `还差 ${rest} 分钟训练。`;
+  return `还差 ${rest} 个图鉴发现。`;
+}
+
+function metricLabel(metric) {
+  if (metric === 'checkins') return '双人累计打卡';
+  if (metric === 'minutes') return '累计训练分钟';
+  return '图鉴发现数量';
+}
+
+function showIslandPoint(building, status) {
+  const modal = document.getElementById('islandPointModal');
+  document.getElementById('islandDetailIcon').innerHTML = iconMarkup(building);
+  document.getElementById('islandDetailTitle').textContent = building.name;
+  const stage = getBuildingStage(status);
+  document.getElementById('islandDetailMeta').innerHTML = `${getBuildingStatusLabel(status)} · ${stage.label}阶段 · ${metricLabel(building.metric)}<br>${building.desc}<br>${building.reward}<br>${getRemainingText(building, status)}<br>共同材料：${status.materialText}`;
+  document.getElementById('islandDetailFill').style.width = `${status.pct}%`;
+  document.getElementById('islandDetailCount').textContent = building.need ? `进度 ${status.value}/${building.need}` : '进度 100%';
+  modal.classList.add('show');
+}
+
+function renderMapResidents(map) {
+  const residents = [{ name: username, x: 45, y: 58, color: COLORS[0] }];
+  Object.keys(peers).slice(0, 1).forEach((name, idx) => residents.push({ name, x: 55 + idx * 8, y: 58, color: COLORS[(idx + 1) % COLORS.length] }));
+  residents.forEach(r => {
+    if (!r.name) return;
+    const node = document.createElement('div');
+    node.className = 'map-resident';
+    node.style.setProperty('--x', `${r.x}%`);
+    node.style.setProperty('--y', `${r.y}%`);
+    node.innerHTML = `<div class="resident-avatar" style="background:${r.color}">${r.name.charAt(0).toUpperCase()}</div><div class="resident-name">${r.name}</div>`;
+    map.appendChild(node);
+  });
+}
+
+function showBottleHints() {
+  const clues = [
+    { id: 'starFragment', found: collection.discovered.includes('starFragment'), text: '夜色落下后，海边有时会闪一下。' },
+    { id: 'same_day_checkin', found: collection.discovered.includes('same_day_checkin'), text: '如果两位岛民同一天盖章，码头会送来船票。' },
+    { id: 'bells_bag', found: collection.discovered.includes('bells_bag'), text: '状态很好时走完整条挑战路线，铃声会更响。' },
+    { id: 'goldenLeaf', found: collection.discovered.includes('goldenLeaf'), text: '轻轻地连续出现几天，树叶可能变成金色。' }
+  ];
+  document.getElementById('bottleHintBody').innerHTML = `<div class="bottle-clues">${clues.map(c => `<div class="bottle-clue ${c.found ? 'found' : ''}">${c.found ? '已记录 · ' : '线索 · '}${c.text}</div>`).join('')}</div>`;
+  document.getElementById('bottleModal').classList.add('show');
+}
+
+function getCoopMetrics() {
+  let checkins = countSettledStates(dayStates);
+  let minutes = countMinutes(dayStates);
+  let collectionCount = collection.discovered.length;
+  Object.values(peers).forEach(p => {
+    checkins += countSettledStates(p.dayStates || {});
+    minutes += countMinutes(p.dayStates || {});
+    collectionCount += (p.collection?.discovered || []).length;
+  });
+  return { checkins, minutes, collection: collectionCount };
+}
+
+function getSharedWarehouse() {
+  const out = createWarehouse();
+  addCounts(out, warehouseContribution);
+  Object.values(peers).forEach(p => addCounts(out, p.warehouseContribution || {}));
+  return out;
+}
+
+function renderInventory() {
+  const grid = document.getElementById('inventoryGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  Object.entries(ITEMS).forEach(([key, meta]) => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.innerHTML = `<div class="item-top"><div><div class="item-name">${meta[0]}</div><div class="item-meta">${key}</div></div><div class="item-icon">${iconMarkup(meta)}</div></div><div class="item-count">${inventory[key] || 0}</div><div class="item-source">${getItemSource(key)}</div>`;
+    card.addEventListener('click', () => showItemDetail(key));
+    grid.appendChild(card);
+  });
+}
+
+function renderCollection() {
+  const grid = document.getElementById('collectionGrid');
+  if (!grid) return;
+  const entries = [
+    ...Object.entries(ITEMS).map(([id, meta]) => ({ id, name: meta[0], icon: meta[1], img: meta[2], type: '材料' })),
+    ...BUILDINGS.map(b => ({ id: b.id, name: b.name, icon: b.icon, img: b.img, type: '建筑' })),
+    { id: 'same_day_checkin', name: '双人同日登岛', icon: '🎫', type: '隐藏任务' },
+    { id: 'museum_entry', name: '博物馆图鉴条目', icon: '🏛', type: '隐藏任务' },
+    { id: 'bells_bag', name: '铃钱袋', icon: '🔔', type: '隐藏任务' }
+  ];
+  grid.innerHTML = '';
+  entries.filter(entry => collectionFilter === 'all' || entry.type === collectionFilter).forEach(entry => {
+    const found = collection.discovered.includes(entry.id);
+    const card = document.createElement('div');
+    card.className = 'collection-card' + (found ? ' discovered' : '');
+    card.innerHTML = `<div class="collection-top"><div><div class="collection-name">${found ? entry.name : '???'}</div><div class="collection-meta">${entry.type}</div></div><div class="collection-icon">${found ? iconMarkup(entry, entry.icon) : '？'}</div></div><span class="collection-status">${found ? '已发现' : '未发现'}</span>`;
+    grid.appendChild(card);
+  });
+  document.querySelectorAll('#collectionTabs .collection-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.filter === collectionFilter));
+}
+
+function getItemSource(key) {
+  const sources = {
+    branch: '轻松难度常见奖励，可作为小基地启动材料。',
+    wood: '标准训练奖励，也会计入共同仓库。',
+    softwood: '标准训练奖励，用来建设岛上设施。',
+    hardwood: '标准训练奖励，适合积累到仓库。',
+    stone: '标准训练奖励，也会计入共同仓库。',
+    ironNugget: '挑战难度奖励，稀有建设材料。',
+    clay: '挑战难度奖励，适合后续扩建。',
+    weed: '轻松难度奖励，保连续时也会出现。',
+    shell: '标准训练奖励，和海边码头相关。',
+    starFragment: '夜间打卡隐藏奖励。',
+    bells: '每次结算按积分获得。',
+    nookMilesTicket: '双人同日登岛或挑战奖励。',
+    goldenLeaf: '连续轻松难度隐藏奖励。'
+  };
+  return sources[key] || '来自训练结算或隐藏任务。';
+}
+
+function showItemDetail(key) {
+  const meta = ITEMS[key];
+  if (!meta) return;
+  document.getElementById('itemDetailIcon').innerHTML = iconMarkup(meta);
+  document.getElementById('itemDetailTitle').textContent = meta[0];
+  document.getElementById('itemDetailMeta').innerHTML = `当前数量：${inventory[key] || 0}<br>${getItemSource(key)}<br>${getItemUse(key)}`;
+  document.getElementById('itemDetailModal').classList.add('show');
+}
+
+function getItemUse(key) {
+  if (['wood','stone','shell','ironNugget'].includes(key)) return '用途：可进入共同仓库，推进小基地建设。';
+  if (key === 'bells') return '用途：作为每次训练结算的积分化奖励。';
+  if (key === 'nookMilesTicket') return '用途：标记双人合作或挑战完成。';
+  if (key === 'starFragment') return '用途：记录夜间隐藏任务。';
+  return '用途：补齐图鉴，作为训练出现的纪念。';
+}
+
+function renderView() {
+  document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('active', v.id === `view${activeView.charAt(0).toUpperCase()}${activeView.slice(1)}`));
+  document.querySelectorAll('.floating-nav .nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.view === activeView));
+}
+
+// ── Review ──
+function renderReview(day) {
+  const section = document.getElementById('reviewSection');
+  if (!day.review) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  const body = document.getElementById('reviewBody');
+  body.innerHTML = '';
+  const wi = day.weekIndex;
+  const week = plan.weeks[wi];
+  const dayCount = week.days.length;
+  let appeared = 0, fullDone = 0;
+  const chips = [];
+  for (let di = 0; di < dayCount; di++) {
+    const gi = getGlobalIndex(wi, di);
+    const ds = getDayState(gi);
+    const d = week.days[di];
+    if (ds.settled && ds.checked.size === d.exercises.length) { fullDone++; appeared++; chips.push('<span class="review-chip done"></span>'); }
+    else if (ds.settled) { appeared++; chips.push('<span class="review-chip appeared"></span>'); }
+    else { chips.push('<span class="review-chip missed"></span>'); }
+  }
+  const rows = [
+    ['周期', `第 ${wi+1} 周 · ${week.theme}`, dayCount + ' 天'],
+    ['出现', `${appeared}/${dayCount} 天`, appeared >= dayCount ? '✓' : '继续'],
+    ['完成', `${fullDone}/${dayCount} 天`, chips.join('')],
+    ['最稳', '—', '记录后填写'],
+    ['最弱', '—', '记录后填写'],
+    ['连续', `${calcStreak()} 天`, ''],
+  ];
+  rows.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>`; body.appendChild(tr); });
+}
+
+function calcStreak() {
+  let s = 0;
+  for (let i = allDays.length - 1; i >= 0; i--) { if (getDayState(i).settled) s++; else break; }
+  return s;
+}
+
+// ── Archive ──
+function renderArchive() {
+  const content = document.getElementById('archiveContent');
+  content.innerHTML = '';
+  plan.weeks.forEach((week, wi) => {
+    const wd = document.createElement('div');
+    wd.className = 'archive-week';
+    wd.innerHTML = `<div class="archive-week-title">第 ${wi+1} 周 · ${week.theme}</div>`;
+    week.days.forEach((d, di) => {
+      const gi = getGlobalIndex(wi, di);
+      const ds = getDayState(gi);
+      let cls = 'pending';
+      if (ds.settled && ds.checked.size === d.exercises.length) cls = 'done';
+      else if (ds.settled) cls = 'appeared';
+      else if (gi < currentDayIndex) cls = 'missed';
+      const row = document.createElement('div');
+      row.className = 'archive-day-row';
+      row.innerHTML = `<div class="archive-day-num ${cls}">${di+1}</div><span>${d.title}</span><span style="margin-left:auto;color:var(--animal-text-color-muted);font-size:12px">${d.minutes || 0}min</span>`;
+      wd.appendChild(row);
+    });
+    content.appendChild(wd);
+  });
+}
+
+function applySettlementRewards(state, day) {
+  const difficulty = state.difficulty || selectedDifficulty;
+  const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.standard;
+  const total = day.exercises.length;
+  const fullDone = state.checked.size >= total;
+  const base = Math.max(1, state.checked.size);
+  const score = base * diff.multiplier;
+  const materialCount = fullDone ? diff.multiplier : 1;
+  const rewards = chooseRewards(difficulty, materialCount);
+  const hiddenTasks = detectHiddenTasks(difficulty, day, fullDone);
+
+  state.difficulty = difficulty;
+  state.score = score;
+  state.rewards = rewards;
+  state.hiddenTasks = hiddenTasks;
+  state.settledAt = Date.now();
+
+  addCounts(inventory, rewardCounts(rewards, score));
+  addCounts(warehouseContribution, warehouseCounts(rewards));
+  rewards.concat(hiddenTasks).forEach(discover);
+  discover(difficulty);
+}
+
+function chooseRewards(difficulty, count) {
+  const pools = {
+    easy: ['branch', 'wood', 'weed'],
+    standard: ['wood', 'softwood', 'hardwood', 'shell', 'stone'],
+    challenge: ['ironNugget', 'clay', 'starFragment', 'nookMilesTicket']
+  };
+  const pool = pools[difficulty] || pools.standard;
+  const rewards = [];
+  for (let i = 0; i < count; i++) rewards.push(pool[(currentDayIndex + i) % pool.length]);
+  return rewards;
+}
+
+function rewardCounts(rewards, score) {
+  const out = { bells: score * 100 };
+  rewards.forEach(r => { out[r] = (out[r] || 0) + 1; });
+  return out;
+}
+
+function warehouseCounts(rewards) {
+  const out = {};
+  rewards.forEach(r => { if (['wood','shell','stone','ironNugget'].includes(r)) out[r] = (out[r] || 0) + 1; });
+  return out;
+}
+
+function detectHiddenTasks(difficulty, day, fullDone) {
+  const tasks = [];
+  const hour = new Date().getHours();
+  if (hour >= 20 || hour < 5) tasks.push('starFragment');
+  if (difficulty === 'challenge' && fullDone) tasks.push('bells_bag');
+  if (day.review && fullDone) tasks.push('museum_entry');
+  if (difficulty === 'easy' && countRecentDifficulty('easy') >= 2) tasks.push('goldenLeaf');
+  if (hasPeerSettledToday()) tasks.push('same_day_checkin');
+  tasks.forEach(t => {
+    if (t === 'goldenLeaf') inventory.goldenLeaf = (inventory.goldenLeaf || 0) + 1;
+    if (t === 'same_day_checkin') inventory.nookMilesTicket = (inventory.nookMilesTicket || 0) + 1;
+    if (t === 'starFragment') inventory.starFragment = (inventory.starFragment || 0) + 1;
+    if (t === 'bells_bag') inventory.bells = (inventory.bells || 0) + 1000;
+  });
+  return tasks;
+}
+
+function countRecentDifficulty(difficulty) {
+  let count = 0;
+  for (let i = Math.max(0, currentDayIndex - 2); i <= currentDayIndex; i++) {
+    const s = getDayState(i);
+    if (s.settled && s.difficulty === difficulty) count++;
+  }
+  return count;
+}
+
+function hasPeerSettledToday() {
+  return Object.values(peers).some(p => {
+    const s = p.dayStates?.[currentDayIndex];
+    return s && s.settled;
+  });
+}
+
+// ── Actions ──
+function handleSettle() {
+  const state = getDayState(currentDayIndex);
+  if (state.settled) return;
+  const day = allDays[currentDayIndex];
+  const total = day.exercises.length;
+  if (state.checked.size === 0) { for (let i = 0; i < total; i++) state.checked.add(i); }
+  state.difficulty = state.difficulty || selectedDifficulty;
+  state.settled = true;
+  applySettlementRewards(state, day);
+  saveLocal();
+  syncMyState();
+  if (state.checked.size === total) showRewardModal(state);
+  else showToast('今天到这，已结算');
+  for (let i = currentDayIndex + 1; i < allDays.length; i++) {
+    if (!getDayState(i).settled) { currentDayIndex = i; break; }
+  }
+  render();
+}
+
+function showRewardModal(state) {
+  const diff = DIFFICULTIES[state?.difficulty || selectedDifficulty] || DIFFICULTIES.standard;
+  const title = document.querySelector('#rewardModal .reward-title');
+  if (title) title.textContent = `盖章啦 · ${diff.label} +${state?.score || 0}`;
+  const list = document.getElementById('rewardList');
+  if (list) {
+    const rewardItems = rewardCounts(state?.rewards || [], state?.score || 0);
+    const hiddenItems = {};
+    (state?.hiddenTasks || []).forEach(id => { hiddenItems[id] = (hiddenItems[id] || 0) + 1; });
+    const entries = Object.entries({...rewardItems, ...hiddenItems}).filter(([, count]) => count > 0);
+    list.innerHTML = entries.length ? entries.map(([key, count]) => {
+      const meta = ITEMS[key] || { name: key, icon: '？' };
+      const name = Array.isArray(meta) ? meta[0] : meta.name;
+      return `<span class="reward-chip">${iconMarkup(meta)}<span>${name} x${count}</span></span>`;
+    }).join('') : '<span class="reward-chip">今天已记录</span>';
+  }
+  document.getElementById('rewardModal').classList.add('show');
+}
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+
+document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const state = getDayState(currentDayIndex);
+    if (state.settled) return;
+    selectedDifficulty = btn.dataset.difficulty || 'standard';
+    state.difficulty = selectedDifficulty;
+    saveLocal();
+    syncMyState();
+    render();
+  });
+});
+
+document.getElementById('completeBtn').addEventListener('click', handleSettle);
+document.getElementById('completeStrip').addEventListener('click', e => { if (e.target.id !== 'completeBtn') handleSettle(); });
+document.getElementById('rewardBtn').addEventListener('click', () => document.getElementById('rewardModal').classList.remove('show'));
+document.getElementById('rewardModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('rewardModal').classList.remove('show'); });
+document.getElementById('islandDetailBtn').addEventListener('click', () => document.getElementById('islandPointModal').classList.remove('show'));
+document.getElementById('islandPointModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('islandPointModal').classList.remove('show'); });
+document.getElementById('itemDetailBtn').addEventListener('click', () => document.getElementById('itemDetailModal').classList.remove('show'));
+document.getElementById('itemDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('itemDetailModal').classList.remove('show'); });
+document.getElementById('bottleBtn').addEventListener('click', () => document.getElementById('bottleModal').classList.remove('show'));
+document.getElementById('bottleModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('bottleModal').classList.remove('show'); });
+document.querySelectorAll('#collectionTabs .collection-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    collectionFilter = btn.dataset.filter || 'all';
+    renderCollection();
+  });
+});
+
+document.querySelectorAll('.floating-nav .nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeView = btn.dataset.view || 'today';
+    saveLocal();
+    renderView();
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+});
+
+document.getElementById('archiveToggle').addEventListener('click', function() {
+  const body = document.getElementById('archiveBody');
+  const expanded = this.getAttribute('aria-expanded') === 'true';
+  this.setAttribute('aria-expanded', !expanded);
+  body.classList.toggle('open', !expanded);
+});
+
+function openExportModal() {
+  const lines = ['# 动森训练岛 - Agent 训练数据', ''];
+  plan.weeks.forEach((week, wi) => {
+    lines.push(`## 第 ${wi+1} 周 · ${week.theme}`);
+    lines.push(`信号: ${week.signal}`);
+    week.days.forEach((d, di) => {
+      const gi = getGlobalIndex(wi, di);
+      const ds = getDayState(gi);
+      const status = ds.settled ? (ds.checked.size === d.exercises.length ? '✓ 完成' : `◐ ${ds.checked.size}/${d.exercises.length}`) : '○ 未完成';
+      lines.push(`- Day ${di+1} ${d.title}: ${status} (${d.minutes}min)`);
+      d.exercises.forEach((ex, ei) => { lines.push(`  ${ds.checked.has(ei) ? '✓' : '○'} ${ex[0]} | ${ex[1]} | ${ex[2]}`); });
+    });
+    lines.push('');
+  });
+  document.getElementById('exportText').value = lines.join('\n');
+  document.getElementById('exportModal').classList.add('show');
+}
+
+document.getElementById('heroExportBtn').addEventListener('click', openExportModal);
+document.getElementById('navRanking').addEventListener('dblclick', openExportModal);
+document.getElementById('exportCopyBtn').addEventListener('click', () => {
+  const ta = document.getElementById('exportText');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => { showToast('已复制到剪贴板'); document.getElementById('exportModal').classList.remove('show'); }).catch(() => { document.execCommand('copy'); showToast('已复制'); document.getElementById('exportModal').classList.remove('show'); });
+});
+document.getElementById('archiveExportBtn').addEventListener('click', () => {
+  const payload = createArchivePayload();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = URL.createObjectURL(blob);
+  a.download = `fitness-island-save-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(a.href);
+  a.remove();
+  showToast('存档已导出');
+});
+document.getElementById('archiveImportBtn').addEventListener('click', () => document.getElementById('archiveImportInput').click());
+document.getElementById('archiveImportInput').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(String(reader.result || ''));
+      applyArchivePayload(payload);
+      saveLocal();
+      syncMyState();
+      render();
+      document.getElementById('exportModal').classList.remove('show');
+      showToast('存档已导入');
+    } catch (err) {
+      showToast('存档导入失败');
+    } finally {
+      e.target.value = '';
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+});
+document.getElementById('exportModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('exportModal').classList.remove('show'); });

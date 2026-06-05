@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "fitness-island": {
+      "source": "hiyeshu/fitness-island",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "3fd965a40dba62a9dbed26fa10bf8d0127d41282dc2faae4e7680208a346d2b0"
+    }
+  }
+}

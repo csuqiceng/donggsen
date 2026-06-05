@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__web-reader__webReader",
+      "WebSearch",
+      "mcp__web-search-prime__web_search_prime",
+      "Bash(curl -sL --connect-timeout 10 \"https://redskill.xiaohongshu.net/install.md\")",
+      "Bash(curl -sL \"https://redskill.xiaohongshu.net/install.md\")",
+      "Bash(ls ~/.local/bin/redskill 2>/dev/null || echo \"NOT_IN_LOCAL_BIN\")",
+      "Read(//c/Users/a/.local/bin/**)",
+      "Bash(curl -fsSL https://fe-video-qc.xhscdn.com/fe-platform-file/104101b8320fbjem2620653u0hejenq0004pf88g6ask5i.sh)",
+      "Bash(bash -s -- --cli-only)",
+      "Bash(mkdir -p ~/.local/bin)",
+      "Bash(cp /e/VeighNa/python ~/.local/bin/python3)",
+      "Bash(ln -sf /e/VeighNa/python ~/.local/bin/python3)",
+      "Read(//c/Users/a/.redskill/src/**)",
+      "Bash(~/.local/bin/redskill install *)",
+      "Bash(python ~/.redskill/src/redskill.py install fitness-island --dir \"d:/learn/动森/skills\")",
+      "Read(//c/Users/a/.redskill/**)",
+      "Bash(python redskill.py install fitness-island --dir \"d:/learn/donggsen/skills\")",
+      "Bash(PYTHONIOENCODING=utf-8 python redskill.py install fitness-island --dir \"d:/learn/donggsen/skills\")",
+      "Bash(PYTHONIOENCODING=utf-8 python redskill.py install fitness-island --dir \"d:/learn/donggsen/skills\" --force)",
+      "Bash(python -m http.server 4173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4173/index.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4173/plan.json)",
+      "Bash(curl -s http://localhost:4173/index.html)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\a\\.redskill\\src"
+    ]
+  }
+}

@@ -458,8 +458,17 @@ function normalizeRemoteObject(value, fallback) {
 function applySharedState(payload) {
   const users = payload?.users || {};
   const nextPeers = {};
+  // 用名字去重：同名 = 同一个人，保留 lastActive 最新的那条
+  const nameMap = {}; // name → { id, data }
   Object.entries(users).forEach(([id, data]) => {
     if (!data || id === clientId || data.clientId === clientId) return;
+    const name = data.displayName || data.username || id;
+    const lastActive = data.lastActive || 0;
+    if (!nameMap[name] || lastActive > (nameMap[name].data?.lastActive || 0)) {
+      nameMap[name] = { id, data };
+    }
+  });
+  Object.values(nameMap).forEach(({ id, data }) => {
     nextPeers[id] = {
       name: data.displayName || data.username || id,
       avatar: data.avatar || '',
@@ -835,7 +844,7 @@ function renderLeaderboard() {
     if (s.settled) mySettled++;
     myScore += s.score || 0;
   });
-  rows.push({ name: username, isMe: true, settledDays: mySettled, totalChecked: myChecked, totalScore: myScore, currentDay: currentDayIndex, lastActive: Date.now(), warehouse: sumCounts(warehouseContribution), materials: warehouseContribution });
+  rows.push({ name: username, isMe: true, avatar: userAvatar, settledDays: mySettled, totalChecked: myChecked, totalScore: myScore, currentDay: currentDayIndex, lastActive: Date.now(), warehouse: sumCounts(warehouseContribution), materials: warehouseContribution });
 
   // Add peers
   Object.entries(peers).forEach(([id, p]) => {
@@ -848,7 +857,7 @@ function renderLeaderboard() {
         score += ds[i].score || 0;
       }
     });
-    rows.push({ name: p.name || id, isMe: false, settledDays: settled, totalChecked: checked, totalScore: score, currentDay: p.currentDayIndex || 0, lastActive: p.lastActive || 0, warehouse: sumCounts(p.warehouseContribution || {}), materials: p.warehouseContribution || {} });
+    rows.push({ name: p.name || id, isMe: false, avatar: p.avatar || '', settledDays: settled, totalChecked: checked, totalScore: score, currentDay: p.currentDayIndex || 0, lastActive: p.lastActive || 0, warehouse: sumCounts(p.warehouseContribution || {}), materials: p.warehouseContribution || {} });
   });
 
   const rankings = rows.map(r => ({
@@ -866,8 +875,12 @@ function renderLeaderboard() {
     row.style.background = isMe ? 'rgba(89,201,165,0.06)' : '';
     row.style.borderRadius = 'var(--animal-radius-base)';
     row.style.padding = '10px 8px';
+    const avatarMeta = getAvatarMeta(r.avatar);
+    const rankEl = (i < 3 && avatarMeta)
+      ? `<img class="lb-avatar" src="${avatarMeta.img}" alt="${r.name}" />`
+      : `<div class="lb-rank ${rc}">${i + 1}</div>`;
     row.innerHTML = `
-      <div class="lb-rank ${rc}">${i + 1}</div>
+      ${rankEl}
       <div class="lb-info">
         <div class="lb-name">${r.name} ${isMe ? '(我)' : ''} ${isOnline ? '<span class="online-dot" style="display:inline-block;vertical-align:middle"></span>' : ''}</div>
         <div class="lb-stats">完成 ${r.settledDays} 天 · 仓库贡献 ${r.warehouse || 0} · 第 ${r.currentDay + 1} 天</div>

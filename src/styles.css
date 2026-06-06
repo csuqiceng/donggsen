@@ -185,6 +185,7 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 .lb-rank.silver{background:linear-gradient(135deg,#e0e0e0,#bdbdbd);color:white;box-shadow:0 2px 8px rgba(192,192,192,.4)}
 .lb-rank.bronze{background:linear-gradient(135deg,#cd7f32,#a0522d);color:white;box-shadow:0 2px 8px rgba(205,127,50,.4)}
 .lb-rank.normal{background:var(--animal-border-soft);color:var(--animal-text-color-muted)}
+.lb-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--animal-accent-warm);box-shadow:0 2px 6px rgba(0,0,0,.1)}
 .lb-info{flex:1}
 .lb-name{font-size:15px;font-weight:700}
 .lb-stats{font-size:12px;color:var(--animal-text-color-muted);margin-top:2px}

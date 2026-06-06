@@ -1,7 +1,9 @@
 // ── Constants ──
 const STORAGE_KEY = 'fitness-island-state';
 const NAME_KEY = 'fitness-island-name';
+const CLIENT_KEY = 'fitness-island-client-id';
 const ROOM_KEY = 'fitness-island-v1';
+const SYNC_API = './api/state.php';
 const ANIMALS = ['🐱','🐰','🐻','🦊','🐶','🐨','🐼','🐸','🐵','🐯','🦁','🐮'];
 const COLORS = ['#59c9a5','#ef8354','#ffd166','#6c5ce7','#00b894','#e17055','#0984e3','#fdcb6e'];
 const DIFFICULTIES = {
@@ -32,17 +34,14 @@ const BUILDINGS = [
   { id: 'pier', name: '海边码头', icon: '🌊', img: './assets/acnh-icons/shell.png', need: 120, metric: 'minutes', x: 74, y: 73, desc: '训练分钟数累计到一定程度后，海边会出现新的奖励点。', reward: '累计训练 120 分钟后开放码头。' }
 ];
 
-// ── Gun.js sync ──
-const gun = Gun(['https://gun-manhattan.herokuapp.com/gun', 'https://gun-us.herokuapp.com/gun']);
-const room = gun.get(ROOM_KEY);
-
 // ── State ──
 let plan = null;
 let allDays = [];
 let currentDayIndex = 0;
 let dayStates = {};
 let username = '';
-let peers = {}; // other users' data from Gun
+let clientId = getClientId();
+let peers = {}; // other users' data from shared PHP JSON storage
 let inventory = createInventory();
 let warehouseContribution = createWarehouse();
 let collection = { discovered: ['resident_services_tent'], completed: [] };
@@ -50,10 +49,23 @@ let activeView = 'today';
 let selectedDifficulty = 'standard';
 let collectionFilter = 'all';
 let queuedBuildUpdates = [];
+let syncTimer = null;
 
 // ── Username ──
 function getStoredName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } }
 function storeName(n) { try { localStorage.setItem(NAME_KEY, n); } catch {} }
+function getClientId() {
+  try {
+    let id = localStorage.getItem(CLIENT_KEY);
+    if (!id) {
+      id = crypto?.randomUUID ? crypto.randomUUID() : `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem(CLIENT_KEY, id);
+    }
+    return id;
+  } catch {
+    return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
 
 const savedName = getStoredName();
 const nameOverlay = document.getElementById('nameOverlay');
@@ -102,7 +114,7 @@ async function initApp() {
     loadLocal();
     findTodayIndex();
 
-    // Start Gun sync
+    // Start shared PHP JSON sync
     syncMyState();
     listenPeers();
 
@@ -128,18 +140,79 @@ function flattenDays() {
 }
 
 function findTodayIndex() {
-  for (let i = 0; i < allDays.length; i++) {
-    if (!getDayState(i).settled) { currentDayIndex = i; return; }
+  currentDayIndex = getAvailableDayIndex();
+}
+
+function getDateKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getTodayWeekdayIndex(date = new Date()) {
+  return (date.getDay() + 6) % 7; // Monday = 0, Sunday = 6
+}
+
+function getWeekdayLabel(dayIndex = getTodayWeekdayIndex()) {
+  return ['周一','周二','周三','周四','周五','周六','周日'][dayIndex] || '今天';
+}
+
+function getWeekStartIndex(weekIndex) {
+  return plan.weeks.slice(0, weekIndex).reduce((sum, week) => sum + week.days.length, 0);
+}
+
+function isWeekComplete(weekIndex) {
+  const week = plan.weeks[weekIndex];
+  if (!week) return true;
+  const start = getWeekStartIndex(weekIndex);
+  return week.days.every((_, dayIndex) => getDayState(start + dayIndex).settled);
+}
+
+function getCurrentTrainingWeekIndex() {
+  for (let wi = 0; wi < plan.weeks.length; wi++) {
+    if (!isWeekComplete(wi)) return wi;
   }
-  currentDayIndex = 0;
+  return Math.max(0, plan.weeks.length - 1);
+}
+
+function findSettledDateIndex(dateKey = getDateKey()) {
+  for (let i = 0; i < allDays.length; i++) {
+    const state = getDayState(i);
+    if (state.settled && state.settledDate === dateKey) return i;
+  }
+  return -1;
+}
+
+function getFirstUnsettledIndex() {
+  return getWeekStartIndex(getCurrentTrainingWeekIndex()) + getTodayWeekdayIndex();
+}
+
+function getAvailableDayIndex() {
+  const todayDoneIndex = findSettledDateIndex();
+  return todayDoneIndex >= 0 ? todayDoneIndex : getFirstUnsettledIndex();
+}
+
+function hasSettledToday() {
+  return findSettledDateIndex() >= 0;
+}
+
+function canCheckInDay(index = currentDayIndex) {
+  if (hasSettledToday()) return false;
+  return index === getAvailableDayIndex() && !getDayState(index).settled;
+}
+
+function isLockedDay(index) {
+  return index > getAvailableDayIndex();
 }
 
 function getDayState(i) {
-  if (!dayStates[i]) dayStates[i] = { checked: new Set(), settled: false, difficulty: selectedDifficulty, score: 0, rewards: [], hiddenTasks: [], settledAt: null };
+  if (!dayStates[i]) dayStates[i] = { checked: new Set(), settled: false, difficulty: selectedDifficulty, score: 0, rewards: [], hiddenTasks: [], settledAt: null, settledDate: null };
   if (!dayStates[i].checked) dayStates[i].checked = new Set();
   if (!dayStates[i].difficulty) dayStates[i].difficulty = selectedDifficulty;
   if (!dayStates[i].rewards) dayStates[i].rewards = [];
   if (!dayStates[i].hiddenTasks) dayStates[i].hiddenTasks = [];
+  if (!('settledDate' in dayStates[i])) dayStates[i].settledDate = null;
   return dayStates[i];
 }
 
@@ -195,7 +268,7 @@ function saveLocal() {
 function createArchivePayload() {
   const out = {};
   for (const [k, v] of Object.entries(dayStates)) {
-    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null };
+    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null };
   }
   return {
     version: 3,
@@ -224,7 +297,8 @@ function applyArchivePayload(saved) {
       score: v.score || 0,
       rewards: v.rewards || [],
       hiddenTasks: v.hiddenTasks || [],
-      settledAt: v.settledAt || null
+      settledAt: v.settledAt || null,
+      settledDate: v.settledDate || null
     };
   }
   currentDayIndex = Number.isInteger(saved.currentDayIndex) ? Math.max(0, Math.min(saved.currentDayIndex, Math.max(0, allDays.length - 1))) : currentDayIndex;
@@ -235,48 +309,90 @@ function applyArchivePayload(saved) {
   activeView = saved.activeView || 'today';
 }
 
-// ── Gun sync ──
+// ── Shared PHP JSON sync ──
 function getSerializableStates() {
   const out = {};
   for (const [k, v] of Object.entries(dayStates)) {
-    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null };
+    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null };
   }
   return out;
 }
 
-function syncMyState() {
-  if (!username) return;
-  room.get('users').get(username).put({
-    dayStates: JSON.stringify(getSerializableStates()),
+function createSyncRecord() {
+  return {
+    clientId: clientId,
+    username: username,
+    displayName: username,
+    dayStates: getSerializableStates(),
     currentDayIndex: currentDayIndex,
-    inventory: JSON.stringify(inventory),
-    warehouseContribution: JSON.stringify(warehouseContribution),
-    collection: JSON.stringify(collection),
+    inventory: inventory,
+    warehouseContribution: warehouseContribution,
+    collection: collection,
     selectedDifficulty: selectedDifficulty,
     lastActive: Date.now(),
     updated: Date.now()
-  });
+  };
+}
+
+async function syncMyState() {
+  if (!username) return;
+  try {
+    const res = await fetch(SYNC_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({ room: ROOM_KEY, user: createSyncRecord() })
+    });
+    if (!res.ok) throw new Error(`sync ${res.status}`);
+    applySharedState(await res.json());
+  } catch (err) {
+    console.warn('Sync failed:', err);
+  }
 }
 
 function listenPeers() {
-  room.get('users').map().on(function(data, name) {
-    if (!data || !data.dayStates || name === username) return;
-    try {
-      const ds = JSON.parse(data.dayStates);
-      peers[name] = {
-        dayStates: ds,
-        currentDayIndex: data.currentDayIndex || 0,
-        inventory: data.inventory ? JSON.parse(data.inventory) : createInventory(),
-        warehouseContribution: data.warehouseContribution ? JSON.parse(data.warehouseContribution) : createWarehouse(),
-        collection: data.collection ? JSON.parse(data.collection) : { discovered: [], completed: [] },
-        selectedDifficulty: data.selectedDifficulty || 'standard',
-        lastActive: data.lastActive || 0
-      };
-    } catch {}
-    renderBuddies();
-    renderLeaderboard();
-    renderIsland();
+  fetchSharedState();
+  if (!syncTimer) syncTimer = setInterval(fetchSharedState, 8000);
+}
+
+async function fetchSharedState() {
+  try {
+    const res = await fetch(`${SYNC_API}?room=${encodeURIComponent(ROOM_KEY)}&t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`sync ${res.status}`);
+    applySharedState(await res.json());
+  } catch (err) {
+    console.warn('Fetch shared state failed:', err);
+  }
+}
+
+function normalizeRemoteObject(value, fallback) {
+  if (!value) return fallback;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch { return fallback; }
+  }
+  return value;
+}
+
+function applySharedState(payload) {
+  const users = payload?.users || {};
+  const nextPeers = {};
+  Object.entries(users).forEach(([id, data]) => {
+    if (!data || id === clientId || data.clientId === clientId) return;
+    nextPeers[id] = {
+      name: data.displayName || data.username || id,
+      dayStates: normalizeRemoteObject(data.dayStates, {}),
+      currentDayIndex: data.currentDayIndex || 0,
+      inventory: normalizeCounts(createInventory(), normalizeRemoteObject(data.inventory, {})),
+      warehouseContribution: normalizeCounts(createWarehouse(), normalizeRemoteObject(data.warehouseContribution, {})),
+      collection: normalizeRemoteObject(data.collection, { discovered: [], completed: [] }),
+      selectedDifficulty: data.selectedDifficulty || 'standard',
+      lastActive: data.lastActive || 0
+    };
   });
+  peers = nextPeers;
+  renderBuddies();
+  renderLeaderboard();
+  renderIsland();
 }
 
 // ── Render ──
@@ -284,7 +400,7 @@ function render() {
   const day = allDays[currentDayIndex];
   const state = getDayState(currentDayIndex);
 
-  document.getElementById('userAvatar').textContent = username.charAt(0).toUpperCase();
+  document.getElementById('userAvatar').textContent = '🏝';
   document.getElementById('userDisplayName').textContent = username;
   document.getElementById('heroDate').textContent = formatDate();
   document.getElementById('heroPrompt').textContent = day.summary || '';
@@ -336,16 +452,24 @@ function renderRoute(day) {
     const gi = getGlobalIndex(wi, di);
     const n = document.createElement('div');
     n.className = 'route-node';
-    n.dataset.day = String(di + 1);
+    n.dataset.day = ['一','二','三','四','五','六','日'][di] || String(di + 1);
+    n.dataset.weekday = getWeekdayLabel(di);
     const isCurrent = gi === currentDayIndex;
     const ds = getDayState(gi);
+    const locked = isLockedDay(gi);
     if (isCurrent) n.classList.add('selected','today');
+    if (locked) n.classList.add('locked');
     if (ds.settled && ds.checked.size === d.exercises.length) n.classList.add('done');
     else if (ds.settled) n.classList.add('appeared');
     else if (gi < currentDayIndex && !ds.settled) n.classList.add('late');
     n.textContent = di + 1;
-    n.setAttribute('aria-label', `${week.theme} 第${di+1}天 ${d.title}`);
-    n.addEventListener('click', () => { currentDayIndex = gi; render(); window.scrollTo({top:0,behavior:'smooth'}); });
+    n.setAttribute('aria-label', `${week.theme} ${getWeekdayLabel(di)} ${d.title}${locked ? '，未开放' : ''}`);
+    n.addEventListener('click', () => {
+      if (locked) { showToast(`今天只能打卡${getWeekdayLabel()}`); return; }
+      currentDayIndex = gi;
+      render();
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
     c.appendChild(n);
   });
 }
@@ -354,11 +478,13 @@ function renderTasks(day, state) {
   document.getElementById('taskTitle').textContent = day.title || '今日训练';
   const list = document.getElementById('taskList');
   list.innerHTML = '';
+  const editable = canCheckInDay(currentDayIndex);
   day.exercises.forEach((ex, i) => {
     const card = document.createElement('div');
-    card.className = 'task-card' + (state.checked.has(i) ? ' checked' : '');
+    card.className = 'task-card' + (state.checked.has(i) ? ' checked' : '') + (!editable && !state.settled ? ' locked' : '');
     const cb = document.createElement('div');
     cb.className = 'task-checkbox'; cb.textContent = '✓';
+    cb.setAttribute('aria-disabled', String(!editable || state.settled));
     cb.addEventListener('click', () => toggleTask(i));
     const info = document.createElement('div');
     info.className = 'task-info';
@@ -371,6 +497,10 @@ function renderTasks(day, state) {
 function toggleTask(i) {
   const state = getDayState(currentDayIndex);
   if (state.settled) return;
+  if (!canCheckInDay(currentDayIndex)) {
+    showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `今天只能打卡${getWeekdayLabel()}`);
+    return;
+  }
   if (state.checked.has(i)) state.checked.delete(i); else state.checked.add(i);
   saveLocal();
   syncMyState();
@@ -382,8 +512,11 @@ function renderCompleteStrip(day, state) {
   const btn = document.getElementById('completeBtn');
   const total = day.exercises.length;
   const done = state.checked.size;
-  strip.classList.remove('settled');
-  if (state.settled) { strip.classList.add('settled'); btn.textContent = '今天已完成'; }
+  const editable = canCheckInDay(currentDayIndex);
+  strip.classList.remove('settled', 'locked');
+  btn.disabled = !editable && !state.settled;
+  if (state.settled) { strip.classList.add('settled'); btn.textContent = state.settledDate === getDateKey() ? '今天已完成' : '已记录'; }
+  else if (!editable) { strip.classList.add('locked'); btn.textContent = hasSettledToday() ? '明天再继续' : `仅限${getWeekdayLabel()}`; }
   else if (done === 0) btn.textContent = '完成今天';
   else if (done >= total) btn.textContent = '完成今天';
   else btn.textContent = '今天到这';
@@ -394,7 +527,7 @@ function renderDifficulty(day, state) {
   document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => {
     const isActive = btn.dataset.difficulty === currentDifficulty;
     btn.classList.toggle('active', isActive);
-    btn.disabled = !!state.settled;
+    btn.disabled = !!state.settled || !canCheckInDay(currentDayIndex);
   });
   const diff = DIFFICULTIES[currentDifficulty] || DIFFICULTIES.standard;
   const fullScore = (day.exercises.length || 0) * diff.multiplier;
@@ -482,14 +615,14 @@ function getHiddenQuestHint(difficulty, day) {
 // ── Buddies ──
 function renderBuddies() {
   const list = document.getElementById('buddyList');
-  const names = Object.keys(peers);
-  if (names.length === 0) {
-    list.innerHTML = '<div class="buddy-empty">还没有训练伙伴加入，让对方也打开这个页面吧 🌟</div>';
+  const entries = Object.entries(peers);
+  if (entries.length === 0) {
+    list.innerHTML = `<div class="buddy-empty">还没有看到训练伙伴。确认两边打开同一个页面和网络可访问，房间：${ROOM_KEY}</div>`;
     return;
   }
   list.innerHTML = '';
-  names.forEach((name, idx) => {
-    const p = peers[name];
+  entries.forEach(([id, p], idx) => {
+    const name = p.name || id;
     const color = COLORS[(idx + 1) % COLORS.length];
     const isOnline = (Date.now() - (p.lastActive || 0)) < 120000; // 2 min
     const ds = p.dayStates || {};
@@ -524,7 +657,7 @@ function renderBuddies() {
 // ── Leaderboard ──
 function renderLeaderboard() {
   const body = document.getElementById('weeklyContributionBody') || document.getElementById('leaderboardBody');
-  const allUsers = {};
+  const rows = [];
 
   // Add me
   let mySettled = 0, myChecked = 0, myScore = 0;
@@ -534,10 +667,10 @@ function renderLeaderboard() {
     if (s.settled) mySettled++;
     myScore += s.score || 0;
   });
-  allUsers[username] = { settledDays: mySettled, totalChecked: myChecked, totalScore: myScore, currentDay: currentDayIndex, lastActive: Date.now(), warehouse: sumCounts(warehouseContribution), materials: warehouseContribution };
+  rows.push({ name: username, isMe: true, settledDays: mySettled, totalChecked: myChecked, totalScore: myScore, currentDay: currentDayIndex, lastActive: Date.now(), warehouse: sumCounts(warehouseContribution), materials: warehouseContribution });
 
   // Add peers
-  Object.entries(peers).forEach(([name, p]) => {
+  Object.entries(peers).forEach(([id, p]) => {
     const ds = p.dayStates || {};
     let settled = 0, checked = 0, score = 0;
     allDays.forEach((d, i) => {
@@ -547,18 +680,18 @@ function renderLeaderboard() {
         score += ds[i].score || 0;
       }
     });
-    allUsers[name] = { settledDays: settled, totalChecked: checked, totalScore: score, currentDay: p.currentDayIndex || 0, lastActive: p.lastActive || 0, warehouse: sumCounts(p.warehouseContribution || {}), materials: p.warehouseContribution || {} };
+    rows.push({ name: p.name || id, isMe: false, settledDays: settled, totalChecked: checked, totalScore: score, currentDay: p.currentDayIndex || 0, lastActive: p.lastActive || 0, warehouse: sumCounts(p.warehouseContribution || {}), materials: p.warehouseContribution || {} });
   });
 
-  const rankings = Object.entries(allUsers).map(([name, r]) => ({
-    name, ...r, score: r.totalScore || (r.settledDays * 10 + r.totalChecked)
+  const rankings = rows.map(r => ({
+    ...r, score: r.totalScore || (r.settledDays * 10 + r.totalChecked)
   })).sort((a, b) => b.score - a.score);
 
   const rankClasses = ['gold','silver','bronze'];
   body.innerHTML = '';
   rankings.forEach((r, i) => {
     const rc = i < 3 ? rankClasses[i] : 'normal';
-    const isMe = r.name === username;
+    const isMe = r.isMe;
     const isOnline = (Date.now() - r.lastActive) < 120000;
     const row = document.createElement('div');
     row.className = 'lb-row';
@@ -758,7 +891,7 @@ function showBuildUpdateModal(updates) {
 
 function renderMapResidents(map) {
   const residents = [{ name: username, x: 45, y: 58, color: COLORS[0] }];
-  Object.keys(peers).slice(0, 1).forEach((name, idx) => residents.push({ name, x: 55 + idx * 8, y: 58, color: COLORS[(idx + 1) % COLORS.length] }));
+  Object.values(peers).slice(0, 1).forEach((p, idx) => residents.push({ name: p.name || '伙伴', x: 55 + idx * 8, y: 58, color: COLORS[(idx + 1) % COLORS.length] }));
   residents.forEach(r => {
     if (!r.name) return;
     const node = document.createElement('div');
@@ -1011,7 +1144,9 @@ function countRecentDifficulty(difficulty) {
 }
 
 function hasPeerSettledToday() {
+  const today = getDateKey();
   return Object.values(peers).some(p => {
+    if (Object.values(p.dayStates || {}).some(s => s && s.settled && s.settledDate === today)) return true;
     const s = p.dayStates?.[currentDayIndex];
     return s && s.settled;
   });
@@ -1021,12 +1156,17 @@ function hasPeerSettledToday() {
 function handleSettle() {
   const state = getDayState(currentDayIndex);
   if (state.settled) return;
+  if (!canCheckInDay(currentDayIndex)) {
+    showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `今天只能打卡${getWeekdayLabel()}`);
+    return;
+  }
   const day = allDays[currentDayIndex];
   const total = day.exercises.length;
   const beforeStages = getBuildStageSnapshot();
   if (state.checked.size === 0) { for (let i = 0; i < total; i++) state.checked.add(i); }
   state.difficulty = state.difficulty || selectedDifficulty;
   state.settled = true;
+  state.settledDate = getDateKey();
   applySettlementRewards(state, day);
   const buildUpdates = diffBuildStages(beforeStages, getBuildStageSnapshot());
   queuedBuildUpdates = buildUpdates;
@@ -1037,9 +1177,7 @@ function handleSettle() {
     showToast('今天到这，已结算');
     setTimeout(() => showBuildUpdateModal(queuedBuildUpdates), 700);
   }
-  for (let i = currentDayIndex + 1; i < allDays.length; i++) {
-    if (!getDayState(i).settled) { currentDayIndex = i; break; }
-  }
+  currentDayIndex = getAvailableDayIndex();
   render();
 }
 
@@ -1067,6 +1205,10 @@ document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => 
   btn.addEventListener('click', () => {
     const state = getDayState(currentDayIndex);
     if (state.settled) return;
+    if (!canCheckInDay(currentDayIndex)) {
+      showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `只能选择${getWeekdayLabel()}路线的难度`);
+      return;
+    }
     selectedDifficulty = btn.dataset.difficulty || 'standard';
     state.difficulty = selectedDifficulty;
     saveLocal();
@@ -1171,6 +1313,7 @@ document.getElementById('archiveImportInput').addEventListener('change', e => {
     try {
       const payload = JSON.parse(String(reader.result || ''));
       applyArchivePayload(payload);
+      findTodayIndex();
       saveLocal();
       syncMyState();
       render();

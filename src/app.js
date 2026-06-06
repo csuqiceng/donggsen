@@ -2,10 +2,19 @@
 const STORAGE_KEY = 'fitness-island-state';
 const NAME_KEY = 'fitness-island-name';
 const CLIENT_KEY = 'fitness-island-client-id';
+const AVATAR_KEY = 'fitness-island-avatar';
+const MESSAGE_KEY = 'fitness-island-message';
 const ROOM_KEY = 'fitness-island-v1';
 const SYNC_API = './api/state.php';
 const ANIMALS = ['🐱','🐰','🐻','🦊','🐶','🐨','🐼','🐸','🐵','🐯','🦁','🐮'];
 const COLORS = ['#59c9a5','#ef8354','#ffd166','#6c5ce7','#00b894','#e17055','#0984e3','#fdcb6e'];
+const AVATARS = [
+  { id: 'alfonso', name: 'Alfonso', img: './assets/acnh-avatars/alfonso.png' },
+  { id: 'rosie', name: 'Rosie', img: './assets/acnh-avatars/rosie.png' },
+  { id: 'gulliver', name: 'Gulliver', img: './assets/acnh-avatars/gulliver.png' },
+  { id: 'tom-nook', name: 'Tom Nook', img: './assets/acnh-avatars/tom-nook.png' },
+  { id: 'timmy-tommy', name: 'Timmy and Tommy', img: './assets/acnh-avatars/timmy-tommy.png' }
+];
 const DIFFICULTIES = {
   easy: { label: '轻松', multiplier: 1, hint: '保连续，少一点也算上岛。' },
   standard: { label: '标准', multiplier: 2, hint: '按今天计划完成，奖励稳定。' },
@@ -41,6 +50,8 @@ let currentDayIndex = 0;
 let dayStates = {};
 let username = '';
 let clientId = getClientId();
+let userAvatar = getStoredAvatar();
+let userMessage = getStoredMessage();
 let peers = {}; // other users' data from shared PHP JSON storage
 let inventory = createInventory();
 let warehouseContribution = createWarehouse();
@@ -50,10 +61,34 @@ let selectedDifficulty = 'standard';
 let collectionFilter = 'all';
 let queuedBuildUpdates = [];
 let syncTimer = null;
+let syncState = { status: 'syncing', lastAt: null };
 
 // ── Username ──
 function getStoredName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } }
 function storeName(n) { try { localStorage.setItem(NAME_KEY, n); } catch {} }
+function getStoredMessage() { try { return localStorage.getItem(MESSAGE_KEY) || ''; } catch { return ''; } }
+function storeMessage(message) { try { localStorage.setItem(MESSAGE_KEY, message); } catch {} }
+function getStoredAvatar() {
+  try {
+    let avatar = localStorage.getItem(AVATAR_KEY);
+    if (!avatar || !getAvatarMeta(avatar)) {
+      avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)].id;
+      localStorage.setItem(AVATAR_KEY, avatar);
+    }
+    return avatar;
+  } catch {
+    return AVATARS[Math.floor(Math.random() * AVATARS.length)].id;
+  }
+}
+
+function getAvatarMeta(id) {
+  return AVATARS.find(a => a.id === id) || null;
+}
+
+function avatarMarkup(id, fallback = '👤') {
+  const meta = getAvatarMeta(id);
+  return meta ? `<img class="avatar-img" src="${meta.img}" alt="${meta.name}">` : fallback;
+}
 function getClientId() {
   try {
     let id = localStorage.getItem(CLIENT_KEY);
@@ -98,6 +133,11 @@ document.getElementById('changeName').addEventListener('click', () => {
   nameOverlay.classList.remove('hidden');
   setTimeout(() => nameInput.focus(), 100);
 });
+document.getElementById('avatarBtn')?.addEventListener('click', () => {
+  renderAvatarChoices();
+  document.getElementById('avatarModal').classList.add('show');
+});
+document.getElementById('loadingRetryBtn')?.addEventListener('click', () => location.reload());
 
 // ── Init ──
 async function initApp() {
@@ -126,8 +166,18 @@ async function initApp() {
     }, 400);
   } catch (e) {
     bar.style.width = '100%';
+    showLoadError(e);
     console.error('Load failed:', e);
   }
+}
+
+function showLoadError(error) {
+  const box = document.getElementById('loadingError');
+  const text = document.getElementById('loadingErrorText');
+  if (!box || !text) return;
+  const detail = error?.message ? ` (${error.message})` : '';
+  text.textContent = `训练计划加载失败${detail}`;
+  box.classList.remove('hidden');
 }
 
 function flattenDays() {
@@ -166,7 +216,10 @@ function isWeekComplete(weekIndex) {
   const week = plan.weeks[weekIndex];
   if (!week) return true;
   const start = getWeekStartIndex(weekIndex);
-  return week.days.every((_, dayIndex) => getDayState(start + dayIndex).settled);
+  return week.days.every((_, dayIndex) => {
+    const state = getDayState(start + dayIndex);
+    return state.settled || state.missed;
+  });
 }
 
 function getCurrentTrainingWeekIndex() {
@@ -179,7 +232,7 @@ function getCurrentTrainingWeekIndex() {
 function findSettledDateIndex(dateKey = getDateKey()) {
   for (let i = 0; i < allDays.length; i++) {
     const state = getDayState(i);
-    if (state.settled && state.settledDate === dateKey) return i;
+    if ((state.settled && state.settledDate === dateKey) || (state.missed && state.missedDate === dateKey)) return i;
   }
   return -1;
 }
@@ -199,7 +252,8 @@ function hasSettledToday() {
 
 function canCheckInDay(index = currentDayIndex) {
   if (hasSettledToday()) return false;
-  return index === getAvailableDayIndex() && !getDayState(index).settled;
+  const state = getDayState(index);
+  return index === getAvailableDayIndex() && !state.settled && !state.missed;
 }
 
 function isLockedDay(index) {
@@ -207,12 +261,15 @@ function isLockedDay(index) {
 }
 
 function getDayState(i) {
-  if (!dayStates[i]) dayStates[i] = { checked: new Set(), settled: false, difficulty: selectedDifficulty, score: 0, rewards: [], hiddenTasks: [], settledAt: null, settledDate: null };
+  if (!dayStates[i]) dayStates[i] = { checked: new Set(), settled: false, missed: false, difficulty: selectedDifficulty, score: 0, rewards: [], hiddenTasks: [], settledAt: null, settledDate: null, missedAt: null, missedDate: null };
   if (!dayStates[i].checked) dayStates[i].checked = new Set();
   if (!dayStates[i].difficulty) dayStates[i].difficulty = selectedDifficulty;
   if (!dayStates[i].rewards) dayStates[i].rewards = [];
   if (!dayStates[i].hiddenTasks) dayStates[i].hiddenTasks = [];
   if (!('settledDate' in dayStates[i])) dayStates[i].settledDate = null;
+  if (!('missed' in dayStates[i])) dayStates[i].missed = false;
+  if (!('missedAt' in dayStates[i])) dayStates[i].missedAt = null;
+  if (!('missedDate' in dayStates[i])) dayStates[i].missedDate = null;
   return dayStates[i];
 }
 
@@ -268,13 +325,15 @@ function saveLocal() {
 function createArchivePayload() {
   const out = {};
   for (const [k, v] of Object.entries(dayStates)) {
-    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null };
+    out[k] = { checked: [...v.checked], settled: v.settled, missed: !!v.missed, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null, missedAt: v.missedAt || null, missedDate: v.missedDate || null };
   }
   return {
     version: 3,
     app: 'fitness-island',
     exportedAt: new Date().toISOString(),
     username,
+    userAvatar,
+    userMessage,
     currentDayIndex,
     dayStates: out,
     inventory,
@@ -293,12 +352,15 @@ function applyArchivePayload(saved) {
     dayStates[k] = {
       checked: new Set(v.checked || []),
       settled: v.settled || false,
+      missed: v.missed || false,
       difficulty: v.difficulty || selectedDifficulty,
       score: v.score || 0,
       rewards: v.rewards || [],
       hiddenTasks: v.hiddenTasks || [],
       settledAt: v.settledAt || null,
-      settledDate: v.settledDate || null
+      settledDate: v.settledDate || null,
+      missedAt: v.missedAt || null,
+      missedDate: v.missedDate || null
     };
   }
   currentDayIndex = Number.isInteger(saved.currentDayIndex) ? Math.max(0, Math.min(saved.currentDayIndex, Math.max(0, allDays.length - 1))) : currentDayIndex;
@@ -306,6 +368,14 @@ function applyArchivePayload(saved) {
   warehouseContribution = normalizeCounts(createWarehouse(), saved.warehouseContribution);
   collection = { discovered: saved.collection?.discovered || ['resident_services_tent'], completed: saved.collection?.completed || [] };
   selectedDifficulty = saved.selectedDifficulty || 'standard';
+  if (saved.userAvatar && getAvatarMeta(saved.userAvatar)) {
+    userAvatar = saved.userAvatar;
+    try { localStorage.setItem(AVATAR_KEY, userAvatar); } catch {}
+  }
+  if (typeof saved.userMessage === 'string') {
+    userMessage = saved.userMessage.slice(0, 40);
+    storeMessage(userMessage);
+  }
   activeView = saved.activeView || 'today';
 }
 
@@ -313,7 +383,7 @@ function applyArchivePayload(saved) {
 function getSerializableStates() {
   const out = {};
   for (const [k, v] of Object.entries(dayStates)) {
-    out[k] = { checked: [...v.checked], settled: v.settled, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null };
+    out[k] = { checked: [...v.checked], settled: v.settled, missed: !!v.missed, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null, missedAt: v.missedAt || null, missedDate: v.missedDate || null };
   }
   return out;
 }
@@ -323,6 +393,8 @@ function createSyncRecord() {
     clientId: clientId,
     username: username,
     displayName: username,
+    avatar: userAvatar,
+    message: userMessage,
     dayStates: getSerializableStates(),
     currentDayIndex: currentDayIndex,
     inventory: inventory,
@@ -337,6 +409,7 @@ function createSyncRecord() {
 async function syncMyState() {
   if (!username) return;
   try {
+    setSyncStatus('syncing');
     const res = await fetch(SYNC_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -345,7 +418,9 @@ async function syncMyState() {
     });
     if (!res.ok) throw new Error(`sync ${res.status}`);
     applySharedState(await res.json());
+    setSyncStatus('ok');
   } catch (err) {
+    setSyncStatus('fail');
     console.warn('Sync failed:', err);
   }
 }
@@ -360,9 +435,16 @@ async function fetchSharedState() {
     const res = await fetch(`${SYNC_API}?room=${encodeURIComponent(ROOM_KEY)}&t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`sync ${res.status}`);
     applySharedState(await res.json());
+    setSyncStatus('ok');
   } catch (err) {
+    setSyncStatus('fail');
     console.warn('Fetch shared state failed:', err);
   }
+}
+
+function setSyncStatus(status) {
+  syncState = { status, lastAt: status === 'ok' ? Date.now() : syncState.lastAt };
+  renderSyncStatus();
 }
 
 function normalizeRemoteObject(value, fallback) {
@@ -380,6 +462,8 @@ function applySharedState(payload) {
     if (!data || id === clientId || data.clientId === clientId) return;
     nextPeers[id] = {
       name: data.displayName || data.username || id,
+      avatar: data.avatar || '',
+      message: typeof data.message === 'string' ? data.message.slice(0, 40) : '',
       dayStates: normalizeRemoteObject(data.dayStates, {}),
       currentDayIndex: data.currentDayIndex || 0,
       inventory: normalizeCounts(createInventory(), normalizeRemoteObject(data.inventory, {})),
@@ -400,7 +484,7 @@ function render() {
   const day = allDays[currentDayIndex];
   const state = getDayState(currentDayIndex);
 
-  document.getElementById('userAvatar').textContent = '🏝';
+  document.getElementById('userAvatar').innerHTML = avatarMarkup(userAvatar, '🏝');
   document.getElementById('userDisplayName').textContent = username;
   document.getElementById('heroDate').textContent = formatDate();
   document.getElementById('heroPrompt').textContent = day.summary || '';
@@ -419,10 +503,15 @@ function render() {
   renderCompleteStrip(day, state);
   renderDifficulty(day, state);
   renderBaseOverview(day, state);
+  renderSyncStatus();
+  renderMessageBoard();
+  renderAvatarChoices();
   renderReview(day);
   renderArchive();
   renderBuddies();
   renderLeaderboard();
+  renderCoopGoals();
+  renderActivityFeed();
   renderIsland();
   renderInventory();
   renderCollection();
@@ -433,6 +522,53 @@ function formatDate() {
   const d = new Date();
   const w = ['日','一','二','三','四','五','六'];
   return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日 周${w[d.getDay()]}`;
+}
+
+function renderSyncStatus() {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.classList.remove('ok', 'fail');
+  if (syncState.status === 'ok') {
+    el.classList.add('ok');
+    el.textContent = syncState.lastAt ? `已同步 ${formatShortTime(syncState.lastAt)}` : '已同步';
+  } else if (syncState.status === 'fail') {
+    el.classList.add('fail');
+    el.textContent = '同步失败';
+  } else {
+    el.textContent = '同步中';
+  }
+}
+
+function formatShortTime(ts) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function renderMessageBoard() {
+  const input = document.getElementById('messageInput');
+  const list = document.getElementById('messageList');
+  if (!input || !list) return;
+  if (document.activeElement !== input) input.value = userMessage;
+  const notes = [{ name: username, avatar: userAvatar, message: userMessage }].concat(
+    Object.values(peers).map(p => ({ name: p.name || '伙伴', avatar: p.avatar || '', message: p.message || '' }))
+  ).filter(note => note.message);
+  list.innerHTML = notes.length ? notes.map(note => `
+    <div class="message-note">${avatarMarkup(note.avatar, '🏝')}<strong>${note.name}</strong><span>${escapeHtml(note.message)}</span></div>
+  `).join('') : '<div class="message-note"><span>还没有留言</span></div>';
+}
+
+function renderAvatarChoices() {
+  const grid = document.getElementById('avatarChoices');
+  if (!grid) return;
+  grid.innerHTML = AVATARS.map(avatar => `
+    <button class="avatar-choice ${avatar.id === userAvatar ? 'active' : ''}" type="button" data-avatar="${avatar.id}" aria-label="${avatar.name}">
+      ${avatarMarkup(avatar.id)}
+    </button>
+  `).join('');
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
 function getGlobalIndex(wi, di) {
@@ -459,6 +595,7 @@ function renderRoute(day) {
     const locked = isLockedDay(gi);
     if (isCurrent) n.classList.add('selected','today');
     if (locked) n.classList.add('locked');
+    if (ds.missed) n.classList.add('rested');
     if (ds.settled && ds.checked.size === d.exercises.length) n.classList.add('done');
     else if (ds.settled) n.classList.add('appeared');
     else if (gi < currentDayIndex && !ds.settled) n.classList.add('late');
@@ -466,6 +603,7 @@ function renderRoute(day) {
     n.setAttribute('aria-label', `${week.theme} ${getWeekdayLabel(di)} ${d.title}${locked ? '，未开放' : ''}`);
     n.addEventListener('click', () => {
       if (locked) { showToast(`今天只能打卡${getWeekdayLabel()}`); return; }
+      if (gi !== getAvailableDayIndex()) { showDayDetail(gi); return; }
       currentDayIndex = gi;
       render();
       window.scrollTo({top:0,behavior:'smooth'});
@@ -496,7 +634,7 @@ function renderTasks(day, state) {
 
 function toggleTask(i) {
   const state = getDayState(currentDayIndex);
-  if (state.settled) return;
+  if (state.settled || state.missed) return;
   if (!canCheckInDay(currentDayIndex)) {
     showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `今天只能打卡${getWeekdayLabel()}`);
     return;
@@ -510,16 +648,19 @@ function toggleTask(i) {
 function renderCompleteStrip(day, state) {
   const strip = document.getElementById('completeStrip');
   const btn = document.getElementById('completeBtn');
+  const restBtn = document.getElementById('restDayBtn');
   const total = day.exercises.length;
   const done = state.checked.size;
   const editable = canCheckInDay(currentDayIndex);
   strip.classList.remove('settled', 'locked');
   btn.disabled = !editable && !state.settled;
   if (state.settled) { strip.classList.add('settled'); btn.textContent = state.settledDate === getDateKey() ? '今天已完成' : '已记录'; }
+  else if (state.missed) { strip.classList.add('locked'); btn.textContent = '今天休息中'; }
   else if (!editable) { strip.classList.add('locked'); btn.textContent = hasSettledToday() ? '明天再继续' : `仅限${getWeekdayLabel()}`; }
   else if (done === 0) btn.textContent = '完成今天';
   else if (done >= total) btn.textContent = '完成今天';
   else btn.textContent = '今天到这';
+  if (restBtn) restBtn.disabled = !editable || state.settled || state.missed;
 }
 
 function renderDifficulty(day, state) {
@@ -644,10 +785,11 @@ function renderBuddies() {
     const card = document.createElement('div');
     card.className = 'buddy-card';
     card.innerHTML = `
-      <div class="buddy-avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div>
+      <div class="buddy-avatar" style="background:${color}">${avatarMarkup(p.avatar, name.charAt(0).toUpperCase())}</div>
       <div class="buddy-info">
         <div class="buddy-name">${name} ${isOnline ? '<span class="online-dot"></span>' : '<span class="offline-dot"></span>'}</div>
         <div class="buddy-status">${statusText} · 累计 ${settledDays} 天</div>
+        ${p.message ? `<div class="buddy-message">${escapeHtml(p.message)}</div>` : ''}
         <div class="buddy-progress"><div class="buddy-progress-fill" style="width:${pct}%;background:${color}"></div></div>
       </div>`;
     list.appendChild(card);
@@ -721,6 +863,78 @@ function formatMaterialChips(materials) {
   const entries = Object.entries(materials || {}).filter(([, value]) => Number(value) > 0);
   if (!entries.length) return '<span class="contribution-chip">还没有入库材料</span>';
   return entries.map(([key, value]) => `<span class="contribution-chip">${ITEMS[key]?.[0] || key} ${value}</span>`).join('');
+}
+
+function getParticipants() {
+  return [
+    { name: username, avatar: userAvatar, dayStates, warehouseContribution, collection, isMe: true },
+    ...Object.values(peers).map(p => ({ name: p.name || '伙伴', avatar: p.avatar || '', dayStates: p.dayStates || {}, warehouseContribution: p.warehouseContribution || {}, collection: p.collection || {}, isMe: false }))
+  ];
+}
+
+function getCurrentWeekRange() {
+  const wi = allDays[currentDayIndex]?.weekIndex || 0;
+  const start = getWeekStartIndex(wi);
+  const count = plan.weeks[wi]?.days.length || 7;
+  return { wi, start, end: start + count - 1 };
+}
+
+function countWeekSettled(states, range = getCurrentWeekRange()) {
+  let count = 0;
+  for (let i = range.start; i <= range.end; i++) if (states?.[i]?.settled) count++;
+  return count;
+}
+
+function countSameDayCheckins(range = getCurrentWeekRange()) {
+  let count = 0;
+  for (let i = range.start; i <= range.end; i++) {
+    const mine = getDayState(i).settled;
+    const peer = Object.values(peers).some(p => p.dayStates?.[i]?.settled);
+    if (mine && peer) count++;
+  }
+  return count;
+}
+
+function renderCoopGoals() {
+  const lead = document.getElementById('coopGoal');
+  const list = document.getElementById('coopGoalList');
+  if (!lead || !list) return;
+  const range = getCurrentWeekRange();
+  const participants = getParticipants();
+  const weeklyCheckins = participants.reduce((sum, p) => sum + countWeekSettled(p.dayStates, range), 0);
+  const sameDay = countSameDayCheckins(range);
+  const warehouseTotal = sumCounts(getSharedWarehouse());
+  const goals = [
+    { label: '本周合计登岛', value: weeklyCheckins, target: 8, reward: '服务处贴纸' },
+    { label: '双人同日登岛', value: sameDay, target: 2, reward: '里数券气泡' },
+    { label: '共同仓库材料', value: warehouseTotal, target: 20, reward: '仓库装饰' }
+  ];
+  const done = goals.filter(g => g.value >= g.target).length;
+  lead.textContent = done ? `共同目标完成 ${done}/${goals.length}` : '本周一起给小岛供能';
+  list.innerHTML = goals.map(g => {
+    const pct = Math.min(100, Math.round(g.value / g.target * 100));
+    return `<div class="coop-goal-item">
+      <div class="coop-goal-line"><span>${g.label}</span><span>${g.value}/${g.target} · ${g.reward}</span></div>
+      <div class="coop-goal-bar"><div class="coop-goal-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderActivityFeed() {
+  const el = document.getElementById('activityFeed');
+  if (!el) return;
+  const items = [];
+  const today = getDateKey();
+  getParticipants().forEach(p => {
+    const todayState = Object.values(p.dayStates || {}).find(s => s && s.settled && s.settledDate === today);
+    if (todayState) items.push(`${p.name} 今天已登岛`);
+    const materialCount = sumCounts(p.warehouseContribution || {});
+    if (materialCount > 0) items.push(`${p.name} 已贡献 ${materialCount} 份仓库材料`);
+  });
+  if (hasPeerSettledToday() && getDayState(currentDayIndex).settled) items.unshift('双人同日登岛，码头送来里数券');
+  const next = getNextUnlockTarget();
+  if (next) items.push(`${next.name} 建设进度 ${next.value}/${next.need}`);
+  el.innerHTML = items.slice(0, 5).map(item => `<div class="activity-item">${item}</div>`).join('');
 }
 
 function iconMarkup(metaOrIcon, fallback = '') {
@@ -890,15 +1104,15 @@ function showBuildUpdateModal(updates) {
 }
 
 function renderMapResidents(map) {
-  const residents = [{ name: username, x: 45, y: 58, color: COLORS[0] }];
-  Object.values(peers).slice(0, 1).forEach((p, idx) => residents.push({ name: p.name || '伙伴', x: 55 + idx * 8, y: 58, color: COLORS[(idx + 1) % COLORS.length] }));
+  const residents = [{ name: username, avatar: userAvatar, x: 45, y: 58, color: COLORS[0] }];
+  Object.values(peers).slice(0, 1).forEach((p, idx) => residents.push({ name: p.name || '伙伴', avatar: p.avatar || '', x: 55 + idx * 8, y: 58, color: COLORS[(idx + 1) % COLORS.length] }));
   residents.forEach(r => {
     if (!r.name) return;
     const node = document.createElement('div');
     node.className = 'map-resident';
     node.style.setProperty('--x', `${r.x}%`);
     node.style.setProperty('--y', `${r.y}%`);
-    node.innerHTML = `<div class="resident-avatar" style="background:${r.color}">${r.name.charAt(0).toUpperCase()}</div><div class="resident-name">${r.name}</div>`;
+    node.innerHTML = `<div class="resident-avatar" style="background:${r.color}">${avatarMarkup(r.avatar, r.name.charAt(0).toUpperCase())}</div><div class="resident-name">${r.name}</div>`;
     map.appendChild(node);
   });
 }
@@ -1004,6 +1218,32 @@ function getItemUse(key) {
   return '用途：补齐图鉴，作为训练出现的纪念。';
 }
 
+function showDayDetail(index) {
+  const day = allDays[index];
+  if (!day) return;
+  const state = getDayState(index);
+  const total = day.exercises.length || 0;
+  const done = state.checked.size;
+  const diff = DIFFICULTIES[state.difficulty || selectedDifficulty] || DIFFICULTIES.standard;
+  let status = '未记录';
+  if (state.missed) status = '今天休息';
+  else if (state.settled && done >= total) status = '完整完成';
+  else if (state.settled) status = `今天到这 ${done}/${total}`;
+  const rewards = (state.rewards || []).map(key => ITEMS[key]?.[0] || key).join('、') || '无';
+  const hidden = (state.hiddenTasks || []).map(key => ITEMS[key]?.[0] || key).join('、') || '无';
+  const actions = day.exercises.map((ex, i) => `${state.checked.has(i) ? '✓' : '○'} ${ex[0]} · ${ex[1]}`).join('<br>');
+  document.getElementById('dayDetailTitle').textContent = `${getWeekdayLabel(day.dayInWeek)} · ${day.title}`;
+  document.getElementById('dayDetailMeta').innerHTML = `
+    状态：${status}<br>
+    难度：${diff.label}<br>
+    分数：${state.score || 0}<br>
+    奖励：${rewards}<br>
+    隐藏：${hidden}<br>
+    <br>${actions}
+  `;
+  document.getElementById('dayDetailModal').classList.add('show');
+}
+
 function renderView() {
   document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('active', v.id === `view${activeView.charAt(0).toUpperCase()}${activeView.slice(1)}`));
   document.querySelectorAll('.floating-nav .nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.view === activeView));
@@ -1027,6 +1267,7 @@ function renderReview(day) {
     const d = week.days[di];
     if (ds.settled && ds.checked.size === d.exercises.length) { fullDone++; appeared++; chips.push('<span class="review-chip done"></span>'); }
     else if (ds.settled) { appeared++; chips.push('<span class="review-chip appeared"></span>'); }
+    else if (ds.missed) { chips.push('<span class="review-chip rest"></span>'); }
     else { chips.push('<span class="review-chip missed"></span>'); }
   }
   const rows = [
@@ -1042,7 +1283,7 @@ function renderReview(day) {
 
 function calcStreak() {
   let s = 0;
-  for (let i = allDays.length - 1; i >= 0; i--) { if (getDayState(i).settled) s++; else break; }
+  for (let i = allDays.length - 1; i >= 0; i--) { if (getDayState(i).settled) s++; else if (!getDayState(i).missed) break; }
   return s;
 }
 
@@ -1060,10 +1301,12 @@ function renderArchive() {
       let cls = 'pending';
       if (ds.settled && ds.checked.size === d.exercises.length) cls = 'done';
       else if (ds.settled) cls = 'appeared';
+      else if (ds.missed) cls = 'rest';
       else if (gi < currentDayIndex) cls = 'missed';
       const row = document.createElement('div');
       row.className = 'archive-day-row';
       row.innerHTML = `<div class="archive-day-num ${cls}">${di+1}</div><span>${d.title}</span><span style="margin-left:auto;color:var(--animal-text-color-muted);font-size:12px">${d.minutes || 0}min</span>`;
+      row.addEventListener('click', () => showDayDetail(gi));
       wd.appendChild(row);
     });
     content.appendChild(wd);
@@ -1155,7 +1398,7 @@ function hasPeerSettledToday() {
 // ── Actions ──
 function handleSettle() {
   const state = getDayState(currentDayIndex);
-  if (state.settled) return;
+  if (state.settled || state.missed) return;
   if (!canCheckInDay(currentDayIndex)) {
     showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `今天只能打卡${getWeekdayLabel()}`);
     return;
@@ -1177,6 +1420,28 @@ function handleSettle() {
     showToast('今天到这，已结算');
     setTimeout(() => showBuildUpdateModal(queuedBuildUpdates), 700);
   }
+  currentDayIndex = getAvailableDayIndex();
+  render();
+}
+
+function handleRestDay() {
+  const state = getDayState(currentDayIndex);
+  if (state.settled || state.missed) return;
+  if (!canCheckInDay(currentDayIndex)) {
+    showToast(hasSettledToday() ? '今天已经记录，明天再继续' : `只能记录${getWeekdayLabel()}`);
+    return;
+  }
+  state.checked = new Set();
+  state.difficulty = state.difficulty || selectedDifficulty;
+  state.missed = true;
+  state.missedAt = Date.now();
+  state.missedDate = getDateKey();
+  state.score = 0;
+  state.rewards = [];
+  state.hiddenTasks = [];
+  saveLocal();
+  syncMyState();
+  showToast('今天休息已记录');
   currentDayIndex = getAvailableDayIndex();
   render();
 }
@@ -1219,6 +1484,7 @@ document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => 
 
 document.getElementById('completeBtn').addEventListener('click', handleSettle);
 document.getElementById('completeStrip').addEventListener('click', e => { if (e.target.id !== 'completeBtn') handleSettle(); });
+document.getElementById('restDayBtn').addEventListener('click', handleRestDay);
 document.getElementById('rewardBtn').addEventListener('click', () => {
   document.getElementById('rewardModal').classList.remove('show');
   setTimeout(() => showBuildUpdateModal(queuedBuildUpdates), 220);
@@ -1233,6 +1499,8 @@ document.getElementById('islandDetailBtn').addEventListener('click', () => docum
 document.getElementById('islandPointModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('islandPointModal').classList.remove('show'); });
 document.getElementById('itemDetailBtn').addEventListener('click', () => document.getElementById('itemDetailModal').classList.remove('show'));
 document.getElementById('itemDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('itemDetailModal').classList.remove('show'); });
+document.getElementById('dayDetailBtn').addEventListener('click', () => document.getElementById('dayDetailModal').classList.remove('show'));
+document.getElementById('dayDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('dayDetailModal').classList.remove('show'); });
 document.getElementById('bottleBtn').addEventListener('click', () => document.getElementById('bottleModal').classList.remove('show'));
 document.getElementById('bottleModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('bottleModal').classList.remove('show'); });
 document.getElementById('buildUpdateBtn').addEventListener('click', () => {
@@ -1243,6 +1511,33 @@ document.getElementById('buildUpdateBtn').addEventListener('click', () => {
   window.scrollTo({top: 0, behavior: 'smooth'});
 });
 document.getElementById('buildUpdateModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('buildUpdateModal').classList.remove('show'); });
+document.getElementById('avatarCloseBtn').addEventListener('click', () => document.getElementById('avatarModal').classList.remove('show'));
+document.getElementById('avatarModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) document.getElementById('avatarModal').classList.remove('show');
+});
+document.getElementById('avatarChoices').addEventListener('click', e => {
+  const btn = e.target.closest('.avatar-choice');
+  if (!btn) return;
+  const next = btn.dataset.avatar;
+  if (!getAvatarMeta(next)) return;
+  userAvatar = next;
+  try { localStorage.setItem(AVATAR_KEY, userAvatar); } catch {}
+  saveLocal();
+  syncMyState();
+  render();
+});
+document.getElementById('messageSaveBtn').addEventListener('click', () => {
+  const input = document.getElementById('messageInput');
+  userMessage = (input.value || '').trim().slice(0, 40);
+  storeMessage(userMessage);
+  saveLocal();
+  syncMyState();
+  renderMessageBoard();
+  showToast(userMessage ? '留言已贴上' : '留言已清空');
+});
+document.getElementById('messageInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('messageSaveBtn').click();
+});
 document.querySelectorAll('#collectionTabs .collection-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     collectionFilter = btn.dataset.filter || 'all';

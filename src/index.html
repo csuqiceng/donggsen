@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>动森训练岛</title>
 <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
-<link rel="stylesheet" href="./styles.css?v=20260606-sync3">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="./styles.css?v=20260606-sync8">
 </head>
 <body>
 
@@ -32,13 +33,17 @@
   <div class="loading-animal">🐱</div>
   <div class="loading-text">正在加载训练岛...</div>
   <div class="loading-bar"><div class="loading-bar-inner" id="loadingBar"></div></div>
+  <div class="loading-error hidden" id="loadingError">
+    <div id="loadingErrorText">加载失败</div>
+    <button class="loading-retry" id="loadingRetryBtn" type="button">重试</button>
+  </div>
 </div>
 
 <!-- App -->
 <div class="app-shell" id="app" style="display:none">
   <div class="user-bar">
-    <div class="user-name"><div class="avatar" id="userAvatar"></div><span id="userDisplayName"></span></div>
-    <div><span class="change-name" id="changeName">切换用户</span></div>
+    <div class="user-name"><button class="avatar-button" id="avatarBtn" type="button"><div class="avatar" id="userAvatar"></div></button><span id="userDisplayName"></span></div>
+    <div class="user-actions"><span class="sync-status" id="syncStatus">同步中</span><span class="change-name" id="changeName">切换用户</span></div>
   </div>
 
   <section class="app-view active" id="viewToday">
@@ -93,10 +98,25 @@
   <div class="complete-strip" id="completeStrip">
     <button class="complete-btn" id="completeBtn">完成今天</button>
   </div>
+  <button class="rest-day-btn" id="restDayBtn" type="button">今天休息</button>
 
   <div class="buddy-section">
     <div class="buddy-title">训练伙伴</div>
     <div class="buddy-list" id="buddyList"></div>
+  </div>
+
+  <div class="message-section">
+    <div class="section-head compact">
+      <div>
+        <div class="section-title">留言板</div>
+        <div class="section-sub">给对方留一句今天的状态</div>
+      </div>
+    </div>
+    <div class="message-row">
+      <input class="message-input" id="messageInput" maxlength="40" placeholder="今天想说的话">
+      <button class="message-btn" id="messageSaveBtn" type="button">贴上</button>
+    </div>
+    <div class="message-list" id="messageList"></div>
   </div>
 
   <div class="review-section" id="reviewSection" style="display:none">
@@ -170,6 +190,8 @@
         </div>
       </div>
       <div class="coop-goal" id="coopGoal">本周一起完成 8 次打卡，给服务处升级</div>
+      <div class="coop-goal-list" id="coopGoalList"></div>
+      <div class="activity-feed" id="activityFeed"></div>
       <div id="weeklyContributionBody"></div>
       <div id="leaderboardBody" style="display:none"></div>
     </div>
@@ -222,6 +244,15 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="dayDetailModal">
+  <div class="modal-card">
+    <div class="island-detail-icon" id="dayDetailIcon">📅</div>
+    <div class="reward-title" id="dayDetailTitle">当日记录</div>
+    <div class="item-detail-meta" id="dayDetailMeta"></div>
+    <button class="modal-btn" id="dayDetailBtn">知道了</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="bottleModal">
   <div class="modal-card">
     <div class="island-detail-icon">💌</div>
@@ -240,6 +271,14 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="avatarModal">
+  <div class="modal-card">
+    <div class="reward-title">选择头像</div>
+    <div class="avatar-choice-grid" id="avatarChoices"></div>
+    <button class="modal-btn" id="avatarCloseBtn">收好</button>
+  </div>
+</div>
+
 <div class="floating-nav" id="floatingNav" style="display:none">
   <button class="nav-btn active" data-view="today" id="navToday"><span class="nav-icon">✓</span><span>今日</span></button>
   <button class="nav-btn" data-view="island" id="navIsland"><span class="nav-icon">🏝</span><span>岛屿</span></button>
@@ -250,7 +289,12 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="./app.js?v=20260606-sync3"></script>
+<script src="./app.js?v=20260606-sync8"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+}
+</script>
 </body>
 </html>
 

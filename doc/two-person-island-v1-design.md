@@ -41,6 +41,7 @@ src/
 - 今日动作列表
 - 勾选动作
 - 结算当天
+- 今天休息
 - 伙伴状态
 
 新增：
@@ -157,6 +158,10 @@ warehouseContribution = 部分材料进入共享仓库
 
 如果选择“今天到这”，也算出现，但奖励少一些。目标是保留训练连续性，而不是惩罚没有做满的用户。
 
+如果选择“今天休息”，记录为 `missed`，不发奖励，不计入打卡数，但会让当天进入已处理状态，第二天继续按周几开放。这个路径用于真实无法训练的日子，避免用户为了推进进度而伪造打卡。
+
+历史日可以点击查看当日详情，包括状态、难度、完成动作、分数、奖励和隐藏任务。过去日期允许查看，不允许补打卡。
+
 ## 隐藏任务
 
 隐藏任务只奖励，不影响主线完成。
@@ -173,7 +178,7 @@ V1 先做五个：
 
 ## 数据结构
 
-运行时状态保存在 `localStorage`，并通过 Gun.js 同步给伙伴。
+运行时状态保存在 `localStorage`，并通过 InfinityFree 上的 PHP JSON 接口同步给伙伴。`localStorage` 作为离线缓存，服务器 JSON 作为两个人共享状态。
 
 建议结构：
 
@@ -181,7 +186,9 @@ V1 先做五个：
 {
   profile: {
     username,
-    difficulty
+    avatar,
+    difficulty,
+    message
   },
   dayStates: {
     [dayIndex]: {
@@ -191,7 +198,11 @@ V1 先做五个：
       score: 12,
       rewards: ["wood", "nook_miles_ticket"],
       hiddenTasks: ["same_day_checkin"],
-      settledAt: 1780000000000
+      settledAt: 1780000000000,
+      settledDate: "2026-06-06",
+      missed: false,
+      missedAt: null,
+      missedDate: null
     }
   },
   inventory: {
@@ -233,20 +244,109 @@ V1 先做五个：
 
 ## 同步设计
 
-当前项目已经使用 Gun.js。V1 继续沿用，但需要扩展同步字段：
+当前实现已经从 Gun.js 改为同站点 PHP JSON 同步，适配 InfinityFree 免费空间。页面仍然是静态前端，但增加一个 PHP 接口：
 
 ```text
+GET  api/state.php    读取共享房间数据
+POST api/state.php    写入当前用户数据
+```
+
+服务器保存文件：
+
+```text
+data/fitness-island-v1.json
+```
+
+接口用 `flock()` 做文件锁，避免两个人同时写入时破坏 JSON。
+
+同步字段：
+
+```text
+clientId
 username
+avatar
+message
 dayStates
 currentDayIndex
 inventory
 warehouseContribution
 collection
+selectedDifficulty
 lastActive
 updated
 ```
 
 共享仓库和岛屿进度可以从两个人同步状态计算出来，避免多人同时写同一份共享对象造成覆盖。
+
+前端同步节奏：
+
+```text
+页面打开：POST 当前用户状态，然后 GET 共享数据
+每 8 秒：GET 共享数据
+打卡/改难度/导入存档/改头像/留言：POST 当前用户状态
+```
+
+## 头像与留言
+
+头像来源优先使用 Nintendo 官方《Animal Crossing: New Horizons》网页可公开访问的角色图片，下载到本地后使用，避免线上热链失效。
+
+用户第一次进入时随机分配头像，也可以手动切换。头像和留言会同步到服务器，让两个人在伙伴卡、岛屿地图和贡献页看到对方状态。
+
+留言板只保存当前用户的一句短留言，不做聊天记录，避免数据结构复杂化。
+
+## 同步状态
+
+页面展示一个轻量同步状态：
+
+```text
+已同步 / 同步失败 / 正在同步
+上次同步时间
+服务器连接状态
+```
+
+失败时不阻塞本地使用，继续保留 localStorage。下一次成功同步时再更新伙伴数据。
+
+## 共同目标与动态
+
+共同目标以本周为单位计算，第一版不单独写服务器共享字段，而是从两个人的 `dayStates`、仓库和图鉴中推导：
+
+```text
+本周双人合计打卡 8 次
+本周双人同日登岛 2 次
+共同仓库收集 20 份材料
+```
+
+动态列表同样从状态推导，不保存历史流水：
+
+```text
+某人今天已登岛
+某人贡献了材料
+两人同日登岛
+建筑进入新阶段
+```
+
+## PWA
+
+增加基础 PWA：
+
+```text
+manifest.webmanifest
+service-worker.js
+```
+
+目标是允许手机“添加到主屏幕”，并缓存静态资源。服务器同步仍依赖网络；断网时本地记录继续可用。
+
+## 测试数据重置
+
+InfinityFree 上增加一个轻量重置接口：
+
+```text
+GET api/reset.php?token=reset-fitness-island
+```
+
+默认 token 只适合私人测试。正式使用时建议在 PHP 环境变量 `FITNESS_ISLAND_RESET_TOKEN` 中设置自己的 token，或者删除 `reset.php`。
+
+重置接口只删除服务器 JSON，不清理手机本地 `localStorage`。完整清理测试数据时需要同时清浏览器本地数据。
 
 ## 视觉方向
 

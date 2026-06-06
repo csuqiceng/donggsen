@@ -1,0 +1,17 @@
+{
+  "name": "动森训练岛",
+  "short_name": "训练岛",
+  "description": "两个人一起打卡建设的小基地",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#7dc395",
+  "theme_color": "#59c9a5",
+  "icons": [
+    {
+      "src": "./assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -4,11 +4,23 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$host = $_SERVER['HTTP_HOST'] ?? '';
+$allowedOrigin = getenv('FITNESS_ISLAND_ALLOWED_ORIGIN') ?: '';
+if ($origin && ($allowedOrigin === '*' || $origin === $allowedOrigin || parse_url($origin, PHP_URL_HOST) === $host)) {
+    header('Access-Control-Allow-Origin: ' . ($allowedOrigin === '*' ? '*' : $origin));
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
+$maxBodyBytes = 262144;
+$maxUsers = 8;
+$staleAfterMs = 14 * 24 * 60 * 60 * 1000;
 $room = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['room'] ?? 'fitness-island-v1');
 $dataDir = dirname(__DIR__) . '/data';
 $dataFile = $dataDir . '/' . $room . '.json';
@@ -52,7 +64,26 @@ function write_state($handle, array $state): void {
     fflush($handle);
 }
 
+function cleanup_users(array &$state, int $maxUsers, int $staleAfterMs): void {
+    if (!isset($state['users']) || !is_array($state['users'])) {
+        $state['users'] = [];
+        return;
+    }
+    $nowMs = time() * 1000;
+    foreach ($state['users'] as $id => $user) {
+        $lastActive = (int)($user['lastActive'] ?? $user['updated'] ?? 0);
+        if ($lastActive > 0 && ($nowMs - $lastActive) > $staleAfterMs) unset($state['users'][$id]);
+    }
+    if (count($state['users']) > $maxUsers) {
+        uasort($state['users'], function ($a, $b) {
+            return (int)($b['lastActive'] ?? $b['updated'] ?? 0) <=> (int)($a['lastActive'] ?? $a['updated'] ?? 0);
+        });
+        $state['users'] = array_slice($state['users'], 0, $maxUsers, true);
+    }
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
+if ($method !== 'GET' && $method !== 'POST') respond_error(405, 'Method not allowed');
 $handle = fopen($dataFile, 'c+');
 if (!$handle) respond_error(500, 'Cannot open data file');
 
@@ -62,9 +93,16 @@ if (!flock($handle, LOCK_EX)) {
 }
 
 $state = read_state($handle, $room);
+cleanup_users($state, $maxUsers, $staleAfterMs);
 
 if ($method === 'POST') {
-    $input = json_decode(file_get_contents('php://input') ?: '', true);
+    $rawInput = file_get_contents('php://input') ?: '';
+    if (strlen($rawInput) > $maxBodyBytes) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        respond_error(413, 'Payload too large');
+    }
+    $input = json_decode($rawInput, true);
     if (!is_array($input) || !isset($input['user']) || !is_array($input['user'])) {
         flock($handle, LOCK_UN);
         fclose($handle);
@@ -80,7 +118,7 @@ if ($method === 'POST') {
     }
 
     $allowed = [
-        'clientId', 'username', 'displayName', 'dayStates', 'currentDayIndex',
+        'clientId', 'username', 'displayName', 'avatar', 'message', 'dayStates', 'currentDayIndex',
         'inventory', 'warehouseContribution', 'collection', 'selectedDifficulty',
         'lastActive', 'updated'
     ];

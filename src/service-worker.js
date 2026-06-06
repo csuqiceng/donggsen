@@ -1,7 +1,7 @@
-const CACHE_NAME = 'fitness-island-static-v9';
+const CACHE_NAME = 'fitness-island-static-v10';
 const STATIC_ASSETS = [
-  './styles.css?v=20260606-sync23',
-  './app.js?v=20260606-sync23',
+  './styles.css',
+  './app.js',
   './plan.json',
   './manifest.webmanifest',
   './assets/favicon.svg',
@@ -11,8 +11,15 @@ const STATIC_ASSETS = [
   './assets/acnh-avatars/alfonso.png',
   './assets/acnh-avatars/rosie.png',
   './assets/acnh-avatars/gulliver.png',
+  './assets/acnh-avatars/isabelle.png',
   './assets/acnh-avatars/tom-nook.png',
-  './assets/acnh-avatars/timmy-tommy.png'
+  './assets/acnh-avatars/timmy-tommy.png',
+  './assets/nav-icons/today.svg',
+  './assets/nav-icons/island.svg',
+  './assets/nav-icons/bag.svg',
+  './assets/nav-icons/collection.svg',
+  './assets/nav-icons/gift.svg',
+  './assets/nav-icons/contribution.svg'
 ];
 
 self.addEventListener('install', event => {
@@ -32,6 +39,16 @@ self.addEventListener('fetch', event => {
   if (url.pathname.includes('/api/')) return;
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request));
+    return;
+  }
+  if (url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css')) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
     return;
   }
   event.respondWith(

@@ -7,18 +7,52 @@ const AVATARS = [
   { id: 'alfonso', name: 'Alfonso', img: './assets/acnh-avatars/alfonso.png' },
   { id: 'rosie', name: 'Rosie', img: './assets/acnh-avatars/rosie.png' },
   { id: 'gulliver', name: 'Gulliver', img: './assets/acnh-avatars/gulliver.png' },
+  { id: 'isabelle', name: 'Isabelle', img: './assets/acnh-avatars/isabelle.png' },
   { id: 'tom-nook', name: 'Tom Nook', img: './assets/acnh-avatars/tom-nook.png' },
   { id: 'timmy-tommy', name: 'Timmy and Tommy', img: './assets/acnh-avatars/timmy-tommy.png' }
 ];
 const DIFFICULTIES = {
-  easy: { label: '轻松', multiplier: 1, hint: '保连续，少一点也算上岛。' },
-  standard: { label: '标准', multiplier: 2, hint: '按今天计划完成，奖励稳定。' },
-  challenge: { label: '挑战', multiplier: 3, hint: '状态好再选，可能触发稀有彩蛋。' }
+  easy: {
+    label: '轻松',
+    multiplier: 1,
+    variantLabel: '轻量版',
+    hint: '保连续，少一点也算上岛。',
+    rewardPool: ['branch', 'weed', 'shell', 'wood'],
+    baseRewards: 1,
+    fullBonus: 0
+  },
+  standard: {
+    label: '标准',
+    multiplier: 2,
+    variantLabel: '建设版',
+    hint: '按今天计划完成，奖励稳定。',
+    rewardPool: ['wood', 'softwood', 'hardwood', 'stone', 'shell', 'clay'],
+    baseRewards: 2,
+    fullBonus: 1
+  },
+  challenge: {
+    label: '挑战',
+    multiplier: 3,
+    variantLabel: '挑战版',
+    hint: '状态好再选，今天会更累，奖励也更好。',
+    rewardPool: ['wood', 'hardwood', 'stone', 'ironNugget', 'clay', 'bells', 'nookMilesTicket'],
+    baseRewards: 3,
+    fullBonus: 1
+  }
+};
+const TRAINING_REWARD_POOLS = {
+  '热身入口': ['branch', 'weed', 'shell'],
+  '收尾放松': ['weed', 'shell', 'branch'],
+  '腿部': ['wood', 'stone', 'hardwood'],
+  '上身': ['softwood', 'hardwood', 'wood'],
+  '核心': ['stone', 'clay', 'wood'],
+  '后侧': ['wood', 'softwood', 'stone'],
+  '全身': ['wood', 'stone', 'clay']
 };
 const PLAN_MODES = {
   recovery: { label: '恢复路线', hint: '只守住出现，适合状态一般的日子。', bonus: 0 },
-  standard: { label: '标准路线', hint: '按原计划推进小基地建设。', bonus: 1 },
-  power: { label: '强化路线', hint: '完成后更容易拿到建设材料。', bonus: 2 }
+  standard: { label: '建设路线', hint: '奖励偏向材料，推进小基地建设。', bonus: 1 },
+  power: { label: '探险路线', hint: '奖励更多，也更适合寻找隐藏线索。', bonus: 2 }
 };
 const ITEMS = {
   branch: ['树枝', '🌿', './assets/acnh-icons/branch.png'],
@@ -55,6 +89,29 @@ const DECOR_ITEMS = [
   { id: 'shell_lamp', name: '贝壳灯', icon: '🐚', cost: { shell: 2, stone: 1 }, x: 80, y: 62, desc: '晚上在海边亮起来。' },
   { id: 'camp_chair', name: '露营椅', icon: '🪑', cost: { wood: 2, softwood: 1 }, x: 43, y: 70, desc: '两个人的小基地休息点。' },
   { id: 'star_tile', name: '星星地砖', icon: '⭐', cost: { starFragment: 1, stone: 1 }, x: 57, y: 37, desc: '夜间彩蛋留下的闪光。' }
+];
+const TROPHIES = [
+  { id: 'first_checkin', name: '初次登岛', icon: '🏝', target: 1, desc: '完成 1 次打卡。' },
+  { id: 'steady_three', name: '连续居民', icon: '🌱', target: 3, desc: '累计完成 3 次打卡。' },
+  { id: 'resident_seven', name: '常驻岛民', icon: '🏡', target: 7, desc: '累计完成 7 次打卡。' },
+  { id: 'same_day', name: '同日登岛', icon: '🎫', target: 1, desc: '触发双人同日登岛。' },
+  { id: 'builder', name: '建设代表', icon: '🔨', target: 20, desc: '仓库贡献 20 份材料。' },
+  { id: 'challenge_three', name: '挑战岛民', icon: '💪', target: 3, desc: '挑战难度完整完成 3 次。' },
+  { id: 'gift_postman', name: '礼物邮差', icon: '🎁', target: 1, desc: '兑现 1 次真实礼物。' },
+  { id: 'star_collector', name: '星夜收藏家', icon: '⭐', target: 1, desc: '获得星星碎片。' }
+];
+const HIDDEN_QUESTS = [
+  { id: 'night_star', name: '夜海星光', icon: '⭐', tier: '普通', source: '20:00 后或 05:00 前完成训练。', use: '奖励星星碎片，可点亮星星地砖。', clue: '夜色落下后，海边有时会闪一下。' },
+  { id: 'same_day_checkin', name: '同日登岛', icon: '🎫', tier: '普通', source: '两个人同一天都完成打卡。', use: '奖励里数券，用于瓶中信额外线索。', clue: '两位岛民同一天盖章，码头会送来船票。' },
+  { id: 'goldenLeaf', name: '金色树叶', icon: '🍂', tier: '普通', source: '轻松难度完整完成累计 3 次。', use: '登记金叶奖杯，也代表低压力连续出现。', clue: '轻轻地连续出现几天，树叶可能变成金色。' },
+  { id: 'museum_entry', name: '博物馆图鉴条目', icon: '🏛', tier: '普通', source: '周复盘日完整完成。', use: '补齐博物馆展柜。', clue: '复盘日完整盖章，博物馆会添一条记录。' },
+  { id: 'steady_builder', name: '稳定建设', icon: '🔨', tier: '稀有', source: '标准难度完整完成累计 5 次。', use: '给共同仓库补 3 份木材，推进小基地建设。', clue: '正常建设坚持几天，仓库会自己变整齐。' },
+  { id: 'challenge_islander', name: '挑战岛民', icon: '💪', tier: '稀有', source: '挑战难度完整完成累计 3 次。', use: '解锁真实礼物“任选心愿一次”的资格。', clue: '状态好的日子走完整条挑战路线，码头会记住。' },
+  { id: 'coop_wood_sign', name: '双人建设日', icon: '🪧', tier: '稀有', source: '两个人同一天都选择标准并完整完成。', use: '解锁合作木牌装饰图鉴。', clue: '两位岛民同一天稳定建设，木牌会立起来。' },
+  { id: 'observatory_permit', name: '观星台许可', icon: '🌌', tier: '传说', source: '夜间挑战完整完成累计 2 次。', use: '点亮观星台线索和星星地砖装饰。', clue: '夜里走得更远，星星会记住你。' },
+  { id: 'secret_pier_parcel', name: '秘密码头包裹', icon: '📦', tier: '传说', source: '两个人同日挑战完整完成。', use: '解锁礼物码头高级包裹记录。', clue: '两位岛民同一天走得更远，码头会靠岸。' },
+  { id: 'golden_resident_card', name: '金色岛民证', icon: '🪪', tier: '传说', source: '轻松难度完整完成累计 7 次。', use: '登记金色岛民证奖杯和头像框线索。', clue: '轻轻地来，也一直来。' },
+  { id: 'bottle_extra_clue', name: '瓶中信加急线索', icon: '💌', tier: '普通', source: '使用 1 张里数券查看额外线索。', use: '让里数券成为探索隐藏任务的入口。', clue: '船票可以换来更多漂流瓶线索。' }
 ];
 
 // ── State ──
@@ -211,6 +268,155 @@ function flattenDays() {
   });
 }
 
+function getDifficultyDay(day, difficulty = selectedDifficulty) {
+  if (!day) return day;
+  const key = DIFFICULTIES[difficulty] ? difficulty : 'standard';
+  const diff = DIFFICULTIES[key];
+  const exercises = getDifficultyExercises(day.exercises || [], key);
+  const baseMinutes = day.minutes || exercises.length * 3;
+  const minutes = key === 'easy'
+    ? Math.max(3, Math.round(baseMinutes * 0.55))
+    : key === 'challenge'
+      ? baseMinutes + 6
+      : baseMinutes;
+  return {
+    ...day,
+    baseDay: day,
+    difficulty: key,
+    difficultyLabel: diff.label,
+    variantLabel: diff.variantLabel,
+    minutes,
+    summary: key === 'standard' ? day.summary : `${diff.variantLabel} · ${diff.hint}`,
+    rewardProfile: getRewardProfile(key),
+    exercises
+  };
+}
+
+function getDifficultyExercises(exercises, difficulty) {
+  const normalized = (exercises || []).map(ex => [...ex]);
+  if (difficulty === 'standard') return normalized;
+  if (difficulty === 'easy') return buildEasyExercises(normalized);
+  if (difficulty === 'challenge') return normalized.map(ex => tuneExercise(ex, 'challenge'));
+  return normalized;
+}
+
+function buildEasyExercises(exercises) {
+  if (!exercises.length) return [];
+  if (exercises.length <= 2) return exercises.map(ex => tuneExercise(ex, 'easy'));
+  const lowPressure = exercises.filter(isLowPressureExercise);
+  const warmup = exercises.find(isWarmupExercise);
+  const cooldown = exercises.find(isCooldownExercise);
+  const picked = [];
+  const add = ex => { if (ex && !picked.includes(ex)) picked.push(ex); };
+  add(warmup);
+  add(cooldown);
+  if (lowPressure.length) {
+    lowPressure.slice(0, 2).forEach(add);
+  }
+  while (picked.length < 2 && picked.length < exercises.length) {
+    add(exercises.find(ex => !picked.includes(ex)));
+  }
+  const trimmed = picked.slice(0, Math.min(3, exercises.length));
+  return trimmed.sort((a, b) => exercises.indexOf(a) - exercises.indexOf(b)).map(ex => tuneExercise(ex, 'easy'));
+}
+
+function isWarmupExercise(exercise) {
+  const text = `${exercise?.[0] || ''} ${exercise?.[2] || ''}`;
+  return /热身|激活|踏步|慢走|散步|快走|启动|开合跳|高抬腿|扩胸|肩部环绕|手臂画圈/.test(text);
+}
+
+function isCooldownExercise(exercise) {
+  const text = `${exercise?.[0] || ''} ${exercise?.[2] || ''}`;
+  return /收尾|拉伸|放松|呼吸|舒展|猫牛|坐姿前屈|鸽子|髋部|小腿|肩颈/.test(text);
+}
+
+function isLowPressureExercise(exercise) {
+  const text = `${exercise?.[0] || ''} ${exercise?.[1] || ''} ${exercise?.[2] || ''}`;
+  return /拉伸|放松|激活|靠墙|猫牛|呼吸|踏步|慢走|散步|桥|鸟狗|死虫|臀桥|轻|平板|慢|舒展|热身|肩颈|髋部|小腿/.test(text);
+}
+
+function tuneExercise(exercise, difficulty) {
+  const next = [...exercise];
+  next[1] = difficulty === 'easy' ? easeExerciseDetail(next[1]) : challengeExerciseDetail(next[1], exercise);
+  next[2] = difficulty === 'easy' ? `轻松 · ${next[2] || '保连续'}` : `挑战 · ${next[2] || '小幅加量'}`;
+  return next;
+}
+
+function easeExerciseDetail(detail) {
+  let text = String(detail || '');
+  text = text
+    .replace(/3\s*分钟/g, '60 秒')
+    .replace(/2\s*分钟/g, '45 秒')
+    .replace(/90\s*秒/g, '30 秒')
+    .replace(/60\s*秒/g, '30 秒')
+    .replace(/(\d+)\s*秒\s*[x×]\s*(\d+)/g, (_, s, sets) => `${Math.max(8, Math.round(Number(s) * 0.6))} 秒`)
+    .replace(/30\s*秒/g, '15 秒')
+    .replace(/25\s*秒/g, '12 秒')
+    .replace(/20\s*秒/g, '10 秒')
+    .replace(/15\s*秒/g, '8 秒')
+    .replace(/每侧\s*(\d+)\s*(个|次)/g, (_, n, unit) => `每侧 ${Math.max(4, Math.round(Number(n) * 0.55))} ${unit}`)
+    .replace(/(\d+)\s*(个|次)\s*[x×]\s*\d+/g, (_, n, unit) => `${Math.max(4, Math.round(Number(n) * 0.55))} ${unit}`)
+    .replace(/15\s*个/g, '8 个')
+    .replace(/12\s*个/g, '6 个')
+    .replace(/10\s*个/g, '6 个')
+    .replace(/8\s*个/g, '5 个')
+    .replace(/12\s*次/g, '6 次')
+    .replace(/10\s*次/g, '6 次')
+    .replace(/8\s*次/g, '5 次');
+  return text || '轻量完成';
+}
+
+function challengeExerciseDetail(detail, exercise) {
+  if (isCooldownExercise(exercise)) return String(detail || '');
+  let text = String(detail || '');
+  const before = text;
+  let matchedCompound = false;
+  text = text.replace(/(\d+)\s*秒\s*[x×]\s*(\d+)/g, (m, s, sets) => {
+    matchedCompound = true;
+    const ns = Math.min(60, Number(s) + 10);
+    const nset = Math.min(4, Number(sets) + 1);
+    return `${ns} 秒 x ${nset}`;
+  });
+  if (matchedCompound) return text || '挑战多 1 组';
+  text = text.replace(/(\d+)\s*(个|次)\s*[x×]\s*(\d+)/g, (m, n, unit, sets) => {
+    matchedCompound = true;
+    const nn = Math.min(40, Number(n) + 4);
+    const nset = Math.min(4, Number(sets) + 1);
+    return `${nn} ${unit} x ${nset}`;
+  });
+  if (matchedCompound) return text || '挑战多 1 组';
+  text = text.replace(/每侧\s*(\d+)\s*(个|次)/g, (m, n, unit) => `每侧 ${Math.min(30, Number(n) + 3)} ${unit}`);
+  [
+    [/30\s*秒/g, '40 秒'],
+    [/25\s*秒/g, '35 秒'],
+    [/20\s*秒/g, '30 秒'],
+    [/15\s*秒/g, '25 秒'],
+    [/15\s*个/g, '18 个'],
+    [/12\s*个/g, '16 个'],
+    [/10\s*个/g, '14 个'],
+    [/8\s*个/g, '12 个'],
+    [/12\s*次/g, '16 次'],
+    [/10\s*次/g, '14 次'],
+    [/8\s*次/g, '12 次']
+  ].forEach(([pattern, replacement]) => { text = text.replace(pattern, replacement); });
+  if (before === text && !isWarmupExercise(exercise)) text = `${text} · 多 1 组`;
+  return text || '挑战多 1 组';
+}
+
+function getRewardProfile(difficulty = selectedDifficulty, fullDone = true) {
+  const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.standard;
+  return {
+    pool: diff.rewardPool,
+    count: diff.baseRewards + (fullDone ? diff.fullBonus : 0),
+    label: `${diff.baseRewards}${fullDone ? `+${diff.fullBonus}` : ''} 份材料`
+  };
+}
+
+function trimCheckedToExerciseCount(state, total) {
+  if (!state?.checked) return;
+  state.checked = new Set([...state.checked].filter(index => Number(index) < total));
+}
+
 function findTodayIndex() {
   currentDayIndex = getAvailableDayIndex();
 }
@@ -232,6 +438,17 @@ function getWeekdayLabel(dayIndex = getTodayWeekdayIndex()) {
 
 function getWeekStartIndex(weekIndex) {
   return plan.weeks.slice(0, weekIndex).reduce((sum, week) => sum + week.days.length, 0);
+}
+
+function getWeekEndIndex(weekIndex) {
+  const week = plan.weeks[weekIndex];
+  if (!week) return Math.max(0, allDays.length - 1);
+  return Math.min(getWeekStartIndex(weekIndex) + week.days.length - 1, Math.max(0, allDays.length - 1));
+}
+
+function getClampedDayIndex(index) {
+  const max = Math.max(0, allDays.length - 1);
+  return Math.max(0, Math.min(Number.isInteger(index) ? index : 0, max));
 }
 
 function isWeekComplete(weekIndex) {
@@ -260,12 +477,13 @@ function findSettledDateIndex(dateKey = getDateKey()) {
 }
 
 function getFirstUnsettledIndex() {
-  return getWeekStartIndex(getCurrentTrainingWeekIndex()) + getTodayWeekdayIndex();
+  const weekIndex = getCurrentTrainingWeekIndex();
+  return getClampedDayIndex(Math.min(getWeekStartIndex(weekIndex) + getTodayWeekdayIndex(), getWeekEndIndex(weekIndex)));
 }
 
 function getAvailableDayIndex() {
   const todayDoneIndex = findSettledDateIndex();
-  return todayDoneIndex >= 0 ? todayDoneIndex : getFirstUnsettledIndex();
+  return getClampedDayIndex(todayDoneIndex >= 0 ? todayDoneIndex : getFirstUnsettledIndex());
 }
 
 function hasSettledToday() {
@@ -379,7 +597,7 @@ function normalizeSharedEvents(saved) {
       id: String(event.id || id),
       type: String(event.type || 'weekly'),
       title: String(event.title || '周结算'),
-      summary: String(event.summary || '').slice(0, 120),
+      summary: String(event.summary || '').slice(0, 180),
       createdBy: String(event.createdBy || ''),
       createdAt: Number(event.createdAt || 0)
     };
@@ -402,7 +620,10 @@ function countSettledStates(states) {
 function countMinutes(states) {
   let minutes = 0;
   Object.entries(states || {}).forEach(([idx, s]) => {
-    if (s && s.settled && allDays[idx]) minutes += allDays[idx].minutes || 0;
+    if (s && s.settled && allDays[idx]) {
+      const day = getDifficultyDay(allDays[idx], s.difficulty || selectedDifficulty);
+      minutes += day?.minutes || 0;
+    }
   });
   return minutes;
 }
@@ -513,7 +734,7 @@ function createSyncRecord() {
 }
 
 async function syncMyState(sharedPatch = null) {
-  if (!username) return;
+  if (!username) return false;
   try {
     setSyncStatus('syncing');
     const payload = { room: ROOM_KEY, user: createSyncRecord() };
@@ -529,12 +750,11 @@ async function syncMyState(sharedPatch = null) {
       let body;
       try { body = await res.json(); } catch (jsonErr) {
         console.warn('409 response JSON parse failed:', jsonErr);
-        await recoverConflictFromServer();
-        return;
+        return await recoverConflictFromServer(sharedPatch);
       }
       const recovered = recoverConflictPayload(body);
-      if (recovered && sharedPatch) await retrySharedPatchAfterConflict(sharedPatch);
-      return;
+      if (recovered && sharedPatch) return await retrySharedPatchAfterConflict(sharedPatch);
+      return recovered;
     }
     if (!res.ok) throw new Error(`sync ${res.status}`);
     const body = await res.json();
@@ -544,16 +764,17 @@ async function syncMyState(sharedPatch = null) {
     if (myData?.userKey) selfUserKey = myData.userKey;
     applySharedState(body);
     setSyncStatus('ok');
+    return true;
   } catch (err) {
     setSyncStatus('fail');
     console.warn('Sync failed:', err);
+    return false;
   }
 }
 
 async function syncSharedPatch(patch) {
   if (!(await ensureStableUserKey())) return false;
-  await syncMyState(patch);
-  return true;
+  return await syncMyState(patch);
 }
 
 async function pullSelfFromServer() {
@@ -637,7 +858,7 @@ function getConflictVersion(payload, serverSelf) {
   );
 }
 
-async function recoverConflictFromServer() {
+async function recoverConflictFromServer(sharedPatch = null) {
   try {
     const res = await fetch(`${SYNC_API}?room=${encodeURIComponent(ROOM_KEY)}&t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`sync ${res.status}`);
@@ -645,12 +866,15 @@ async function recoverConflictFromServer() {
     try { body = await res.json(); } catch (jsonErr) {
       console.warn('Conflict recovery JSON parse failed:', jsonErr);
       setSyncStatus('fail');
-      return;
+      return false;
     }
-    recoverConflictPayload(body);
+    const recovered = recoverConflictPayload(body);
+    if (recovered && sharedPatch) return await retrySharedPatchAfterConflict(sharedPatch);
+    return recovered;
   } catch (err) {
     setSyncStatus('fail');
     console.warn('Conflict recovery fetch failed:', err);
+    return false;
   }
 }
 
@@ -799,7 +1023,7 @@ function restoreSelfFromServer(serverSelf) {
 }
 
 // ── 回溯检查：结算时对方数据还未到达，补发隐藏任务奖励 ──
-function retroactiveHiddenCheck() {
+async function retroactiveHiddenCheck() {
   const todayKey = getDateKey();
   // 找到今天已结算的 dayState
   let todayIndex = -1, todayState = null;
@@ -810,23 +1034,46 @@ function retroactiveHiddenCheck() {
     }
   }
   if (!todayState || !todayState.settled) return; // 今天没结算，不需要回溯
-  if (todayState.hiddenTasks.includes('same_day_checkin')) return; // 已经拿到了
 
-  // 检查现在是否满足同日登岛条件
-  if (!hasPeerSettledToday()) return;
+  const fullDone = isStateFullDone(todayState, todayIndex);
+  const candidates = [];
+  if (hasPeerSettledToday()) candidates.push('same_day_checkin');
+  if (todayState.difficulty === 'standard' && fullDone && hasPeerSettledTodayWithDifficulty('standard', true)) candidates.push('coop_wood_sign');
+  if (todayState.difficulty === 'challenge' && fullDone && hasPeerSettledTodayWithDifficulty('challenge', true)) candidates.push('secret_pier_parcel');
+  const newTasks = [...new Set(candidates)].filter(id => !todayState.hiddenTasks.includes(id) && !collection.discovered.includes(id));
+  if (!newTasks.length) return;
 
-  // 补发奖励
-  todayState.hiddenTasks.push('same_day_checkin');
-  inventory.nookMilesTicket = (inventory.nookMilesTicket || 0) + 1;
-  if (!collection.discovered.includes('same_day_checkin')) collection.discovered.push('same_day_checkin');
+  const rollback = createArchivePayload();
+  newTasks.forEach(id => {
+    todayState.hiddenTasks.push(id);
+    applyHiddenTaskEffect(id);
+    discover(id);
+  });
   saveLocal();
-  showToast('双人同日登岛！补发里数券 x1');
+  const synced = await syncMyState();
+  if (!synced) {
+    applyArchivePayload(rollback);
+    render();
+    return;
+  }
+  const names = newTasks.map(id => getDiscoveryMeta(id).name).join('、');
+  showToast(`补发隐藏：${names}`);
 }
 
 // ── Render ──
 function render() {
-  const day = allDays[currentDayIndex];
-  const state = getDayState(currentDayIndex);
+  currentDayIndex = getClampedDayIndex(currentDayIndex);
+  let baseDay = allDays[currentDayIndex];
+  let state = getDayState(currentDayIndex);
+  let day = getDifficultyDay(baseDay, state.difficulty || selectedDifficulty);
+  if (!day) {
+    currentDayIndex = getClampedDayIndex(currentDayIndex);
+    baseDay = allDays[currentDayIndex];
+    state = getDayState(currentDayIndex);
+    day = getDifficultyDay(baseDay, state.difficulty || selectedDifficulty);
+  }
+  if (!day) return;
+  trimCheckedToExerciseCount(state, day.exercises.length);
 
   document.getElementById('userAvatar').innerHTML = avatarMarkup(userAvatar, '🏝');
   document.getElementById('userDisplayName').textContent = `${username} · ${getUserTitle({ dayStates, warehouseContribution, collection, isMe: true })}`;
@@ -842,16 +1089,15 @@ function render() {
   document.getElementById('progressFill').style.width = (total > 0 ? done / total * 100 : 0) + '%';
   document.getElementById('progressCount').textContent = `${done}/${total}`;
 
-  renderRoute(day);
+  renderRoute(baseDay);
   renderTasks(day, state);
   renderCompleteStrip(day, state);
   renderDifficulty(day, state);
   renderBaseOverview(day, state);
   renderSyncStatus();
-  applyFestivalBonus();
   renderMessageBoard();
   renderAvatarChoices();
-  renderReview(day);
+  renderReview(baseDay);
   renderArchive();
   renderBuddies();
   renderLeaderboard();
@@ -921,6 +1167,7 @@ function renderAvatarChoices() {
   grid.innerHTML = AVATARS.map(avatar => `
     <button class="avatar-choice ${avatar.id === userAvatar ? 'active' : ''}" type="button" data-avatar="${avatar.id}" aria-label="${avatar.name}">
       ${avatarMarkup(avatar.id)}
+      <span class="avatar-choice-check" aria-hidden="true">✓</span>
     </button>
   `).join('');
 }
@@ -954,7 +1201,8 @@ function renderRoute(day) {
     if (isCurrent) n.classList.add('selected','today');
     if (locked) n.classList.add('locked');
     if (ds.missed) n.classList.add('rested');
-    if (ds.settled && ds.checked.size === d.exercises.length) n.classList.add('done');
+    const routeDay = getDifficultyDay(d, ds.difficulty || selectedDifficulty);
+    if (ds.settled && ds.checked.size >= routeDay.exercises.length) n.classList.add('done');
     else if (ds.settled) n.classList.add('appeared');
     else if (gi < currentDayIndex && !ds.settled) n.classList.add('late');
     n.textContent = di + 1;
@@ -1029,17 +1277,17 @@ function renderDifficulty(day, state) {
     btn.disabled = !!state.settled || !canCheckInDay(currentDayIndex);
   });
   const diff = DIFFICULTIES[currentDifficulty] || DIFFICULTIES.standard;
-  const mode = PLAN_MODES[selectedPlanMode] || PLAN_MODES.standard;
-  const fullScore = (day.exercises.length || 0) * diff.multiplier + mode.bonus;
+  const profile = getRewardProfile(currentDifficulty, true);
+  const fullScore = (day.exercises.length || 0) * diff.multiplier;
+  const previewRewards = chooseRewards(currentDifficulty, profile.count, currentDayIndex, day)
+    .map(key => ITEMS[key]?.[0] || key)
+    .join(' · ');
   const preview = document.getElementById('rewardPreview');
-  preview.innerHTML = `<div class="reward-line"><span>${diff.label}奖励 · ${mode.label}</span><span>${fullScore} 积分 · ${diff.multiplier + mode.bonus} 份材料</span></div>`;
+  preview.innerHTML = `
+    <div class="reward-line"><span>今日内容</span><span>${day.exercises.length} 个动作 · ${diff.variantLabel}</span></div>
+    <div class="reward-line"><span>${diff.label}奖励</span><span>${fullScore} 积分 · ${profile.count} 份材料</span></div>
+    <div class="reward-line"><span>奖励预览</span><span>${previewRewards}</span></div>`;
   document.getElementById('hiddenQuestHint').textContent = getHiddenQuestHint(currentDifficulty, day);
-  document.querySelectorAll('#planModeSelector .plan-mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.planMode === selectedPlanMode);
-    btn.disabled = !!state.settled || !canCheckInDay(currentDayIndex);
-  });
-  const hint = document.getElementById('planModeHint');
-  if (hint) hint.textContent = mode.hint;
 }
 
 function renderBaseOverview(day, state) {
@@ -1097,28 +1345,42 @@ function getHiddenQuestStatuses(day, state) {
   const difficulty = state.difficulty || selectedDifficulty;
   const fullDone = state.checked.size >= (day.exercises.length || 0);
   const festival = getFestivalToday();
-  const statuses = [
-    { id: 'starFragment', name: '夜海星光', found: collection.discovered.includes('starFragment'), ready: hour >= 20 || hour < 5, clue: '夜色落下后，海边有时会闪一下。' },
-    { id: 'same_day_checkin', name: '同日登岛', found: collection.discovered.includes('same_day_checkin'), ready: hasPeerSettledToday(), clue: '两位岛民同一天盖章，码头会送来船票。' },
-    { id: 'bells_bag', name: '铃钱袋', found: collection.discovered.includes('bells_bag'), ready: difficulty === 'challenge' && fullDone, clue: '状态很好时走完整条挑战路线，铃声会更响。' },
-    { id: 'goldenLeaf', name: '金色树叶', found: collection.discovered.includes('goldenLeaf'), ready: difficulty === 'easy' && countRecentDifficulty('easy') >= 2, clue: '轻轻地连续出现几天，树叶可能变成金色。' },
-    { id: 'museum_entry', name: '博物馆条目', found: collection.discovered.includes('museum_entry'), ready: !!day.review && fullDone, clue: '复盘日完整盖章，博物馆会添一条记录。' }
-  ];
-  if (festival) statuses.push({ id: festival.id, name: festival.name, found: collection.discovered.includes(festival.id), ready: state.settled, clue: `今天岛上有${festival.name}的传闻。` });
+  const statuses = HIDDEN_QUESTS.map(quest => ({
+    ...quest,
+    found: collection.discovered.includes(quest.id),
+    ready: isHiddenQuestReady(quest.id, { day, state, difficulty, fullDone, hour })
+  }));
+  if (festival) statuses.push({ id: festival.id, name: festival.name, tier: '普通', found: collection.discovered.includes(festival.id), ready: state.settled, clue: `今天岛上有${festival.name}的传闻。` });
   return statuses;
+}
+
+function isHiddenQuestReady(id, context) {
+  const { day, state, difficulty, fullDone, hour } = context;
+  if (id === 'night_star') return hour >= 20 || hour < 5;
+  if (id === 'same_day_checkin') return hasPeerSettledToday();
+  if (id === 'goldenLeaf') return difficulty === 'easy' && fullDone && countFullDifficulty('easy') >= 3;
+  if (id === 'museum_entry') return !!day.review && fullDone;
+  if (id === 'steady_builder') return difficulty === 'standard' && fullDone && countFullDifficulty('standard') >= 5;
+  if (id === 'challenge_islander') return difficulty === 'challenge' && fullDone && countFullDifficulty('challenge') >= 3;
+  if (id === 'coop_wood_sign') return difficulty === 'standard' && fullDone && hasPeerSettledTodayWithDifficulty('standard', true);
+  if (id === 'observatory_permit') return difficulty === 'challenge' && fullDone && (hour >= 20 || hour < 5) && countFullDifficulty('challenge') >= 2;
+  if (id === 'secret_pier_parcel') return difficulty === 'challenge' && fullDone && hasPeerSettledTodayWithDifficulty('challenge', true);
+  if (id === 'golden_resident_card') return difficulty === 'easy' && fullDone && countFullDifficulty('easy') >= 7;
+  if (id === 'bottle_extra_clue') return (inventory.nookMilesTicket || 0) > 0;
+  return false;
 }
 
 function renderHiddenStatus(item) {
   const cls = item.found ? 'found' : item.ready ? 'ready' : '';
-  const label = item.found ? '已触发' : item.ready ? '今日可试' : '线索';
-  return `<div class="hidden-status ${cls}"><span>${item.name}</span><small>${label}</small></div>`;
+  const label = item.found ? `已触发 · ${item.tier || '隐藏'}` : item.ready ? `今日可试 · ${item.tier || '隐藏'}` : `${item.tier || '隐藏'}线索`;
+  return `<div class="hidden-status ${cls}"><span>${item.found ? item.name : item.tier === '传说' ? '???' : item.name}</span><small>${label}</small></div>`;
 }
 
 function getHiddenQuestHint(difficulty, day) {
   if (day.review) return '周复盘日完成后，博物馆会新增一条图鉴记录。';
-  if (difficulty === 'challenge') return '挑战完整完成时，可能获得铃钱袋。';
-  if (difficulty === 'easy') return '轻松难度连续 3 天，会发现一片金色树叶。';
-  return '如果两个人今天都登岛，服务处会送出里数券。';
+  if (difficulty === 'challenge') return '挑战完整完成会提高稀有隐藏和真实礼物资格。';
+  if (difficulty === 'easy') return '轻松完整累计出现，会触发金色树叶和金色岛民证。';
+  return '标准完整完成最稳定，双人同日标准会解锁合作木牌。';
 }
 
 // ── Buddies ──
@@ -1138,9 +1400,9 @@ function renderBuddies() {
     const ci = p.currentDayIndex || 0;
     let settledDays = 0;
     allDays.forEach((d, i) => { if (ds[i] && ds[i].settled) settledDays++; });
-    const currentDay = allDays[ci] || allDays[0];
     const currentDs = ds[ci] || { checked: [], settled: false };
-    const checkedCount = (currentDs.checked || []).length;
+    const currentDay = getDifficultyDay(allDays[ci] || allDays[0], currentDs.difficulty || p.selectedDifficulty || 'standard');
+    const checkedCount = getCheckedCount(currentDs);
     const exTotal = currentDay.exercises.length;
     const pct = exTotal > 0 ? Math.round(checkedCount / exTotal * 100) : 0;
 
@@ -1283,7 +1545,7 @@ function getGiftProgress(rule, participant = getParticipants()[0]) {
   if (rule.id === 'wish_pick') {
     const value = Object.values(states || {}).filter((s, index) => {
       const day = allDays[index];
-      const total = day?.exercises?.length || 0;
+      const total = getDifficultyDay(day, s?.difficulty || 'challenge')?.exercises?.length || 0;
       const checked = Array.isArray(s?.checked) ? s.checked.length : s?.checked?.size || 0;
       return s?.settled && s.difficulty === 'challenge' && checked >= total;
     }).length;
@@ -1338,14 +1600,24 @@ function renderGiftDock() {
   const me = getParticipants()[0];
   dock.innerHTML = GIFT_RULES.map(rule => renderGiftCard(rule, me, true)).join('');
   renderWishPanel();
-  const peerCards = [];
-  Object.values(peers).forEach(peer => {
-    const participant = { userKey: peer.userKey || '', name: peer.name || '伙伴', dayStates: peer.dayStates || {}, warehouseContribution: peer.warehouseContribution || {}, collection: peer.collection || {}, giftClaims: peer.giftClaims || {}, isMe: false };
-    GIFT_RULES.forEach(rule => {
-      const claim = sharedGiftClaims[getGiftClaimId(rule.id, participant)] || participant.giftClaims?.[rule.id];
-      if (claim?.status === 'requested') peerCards.push(renderGiftCard(rule, participant, false));
-    });
-  });
+  const selfKey = getSelfUserKey();
+  const peerCards = Object.entries(sharedGiftClaims).filter(([, claim]) => {
+    return claim?.status === 'requested' && claim.ownerKey !== selfKey;
+  }).map(([, claim]) => {
+    const rule = GIFT_RULES.find(r => r.id === claim.ruleId);
+    if (!rule) return '';
+    const peer = Object.values(peers).find(p => p.userKey === claim.ownerKey || normalizeName(p.name) === normalizeName(claim.ownerName));
+    const participant = {
+      userKey: claim.ownerKey,
+      name: claim.ownerName || peer?.name || '伙伴',
+      dayStates: peer?.dayStates || {},
+      warehouseContribution: peer?.warehouseContribution || {},
+      collection: peer?.collection || {},
+      giftClaims: peer?.giftClaims || {},
+      isMe: false
+    };
+    return renderGiftCard(rule, participant, false);
+  }).filter(Boolean);
   peerDock.innerHTML = peerCards.length ? peerCards.join('') : '<div class="gift-empty">暂时没有待兑现包裹</div>';
   const redeemed = [];
   getParticipants().forEach(p => {
@@ -1374,10 +1646,24 @@ function renderWishPanel() {
     ? wishList.map((item, index) => `<button class="wish-chip" type="button" data-wish-remove="${index}">${escapeHtml(item)}<span>×</span></button>`).join('')
     : '<div class="gift-empty">还没有写心愿</div>';
   const selfKey = getSelfUserKey();
+  const blocks = [];
+  if (wishList.length) {
+    blocks.push(`<div class="wish-peer self"><strong>我的心愿</strong><span>${wishList.map(escapeHtml).join('、')}</span></div>`);
+  }
   const peerEntries = Object.entries(wishLists).filter(([key]) => key !== selfKey);
-  peerList.innerHTML = peerEntries.length
-    ? peerEntries.map(([, entry]) => `<div class="wish-peer"><strong>${escapeHtml(entry.ownerName || '伙伴')}</strong><span>${entry.items.map(escapeHtml).join('、') || '还没写心愿'}</span></div>`).join('')
-    : '<div class="gift-empty">对方心愿会显示在这里</div>';
+  blocks.push(...peerEntries.map(([, entry]) => `<div class="wish-peer"><strong>${escapeHtml(entry.ownerName || '伙伴')}</strong><span>${entry.items.map(escapeHtml).join('、') || '还没写心愿'}</span></div>`));
+  if (!peerEntries.length) blocks.push('<div class="gift-empty">对方心愿会显示在这里</div>');
+  peerList.innerHTML = blocks.join('');
+}
+
+function mirrorOwnWishList() {
+  const selfKey = getSelfUserKey();
+  wishLists[selfKey] = {
+    ownerKey: selfKey,
+    ownerName: username,
+    items: [...wishList],
+    updatedAt: Date.now()
+  };
 }
 
 function formatShortDate(ts) {
@@ -1423,17 +1709,21 @@ async function handleWishAdd() {
   const input = document.getElementById('wishInput');
   const value = (input?.value || '').trim().slice(0, 40);
   if (!value) return;
+  if (!(await ensureStableUserKey())) { showToast('同步身份中，请稍后再试'); return; }
   wishList = [...new Set([...wishList, value])].slice(0, 5);
+  mirrorOwnWishList();
   if (input) input.value = '';
-  await syncSharedPatch({ wishList });
   renderGiftDock();
+  await syncSharedPatch({ wishList });
   showToast('心愿已放进码头');
 }
 
 async function handleWishRemove(index) {
+  if (!(await ensureStableUserKey())) { showToast('同步身份中，请稍后再试'); return; }
   wishList = wishList.filter((_, i) => i !== index);
-  await syncSharedPatch({ wishList });
+  mirrorOwnWishList();
   renderGiftDock();
+  await syncSharedPatch({ wishList });
 }
 
 function renderCoopGoals() {
@@ -1467,8 +1757,10 @@ function renderWeeklyEvents(weeklyCheckins = 0, sameDay = 0, warehouseTotal = 0)
   const btn = document.getElementById('weeklySettleBtn');
   if (!list || !btn) return;
   const currentId = getWeeklyEventId();
-  btn.disabled = !!sharedEvents[currentId];
-  btn.textContent = sharedEvents[currentId] ? '本周已结算' : '生成本周结算';
+  const status = getWeeklySettlementStatus();
+  btn.disabled = !status.allowed;
+  btn.textContent = status.label;
+  btn.title = status.reason;
   btn.dataset.weeklyCheckins = String(weeklyCheckins);
   btn.dataset.sameDay = String(sameDay);
   btn.dataset.warehouseTotal = String(warehouseTotal);
@@ -1483,22 +1775,45 @@ function getWeeklyEventId() {
   return `weekly_${range.wi}_${getDateKey().slice(0, 7)}`;
 }
 
+function getWeeklySettlementStatus() {
+  const range = getCurrentWeekRange();
+  const currentId = getWeeklyEventId();
+  if (sharedEvents[currentId]) return { allowed: false, label: '本周已结算', reason: '这一周已经生成过结算公告。' };
+  if (getTodayWeekdayIndex() !== 6) return { allowed: false, label: '周日完成后结算', reason: '周一到周六不能提前生成周结算。' };
+  const sundayIndex = Math.min(range.end, range.start + 6);
+  const sundayState = getDayState(sundayIndex);
+  if (!sundayState.settled && !sundayState.missed) return { allowed: false, label: '先完成今天', reason: '周日需要先打卡或记录休息。' };
+  return { allowed: true, label: '生成本周结算', reason: '周日已处理，可以生成完整周结算。' };
+}
+
 async function handleWeeklySettlement() {
   if (!(await ensureStableUserKey())) { showToast('同步身份中，请稍后再试'); return; }
+  const status = getWeeklySettlementStatus();
+  if (!status.allowed) {
+    showToast(status.reason);
+    renderCoopGoals();
+    return;
+  }
   const range = getCurrentWeekRange();
   const participants = getParticipants();
   const weeklyCheckins = participants.reduce((sum, p) => sum + countWeekSettled(p.dayStates, range), 0);
   const sameDay = countSameDayCheckins(range);
   const warehouseTotal = sumCounts(getSharedWarehouse());
+  const insights = getWeeklyReviewInsights(range.wi);
   const event = {
     id: getWeeklyEventId(),
     type: 'weekly',
     title: `第 ${range.wi + 1} 周结算`,
-    summary: `本周合计登岛 ${weeklyCheckins} 次，同日登岛 ${sameDay} 次，仓库材料 ${warehouseTotal} 份。`,
+    summary: `本周合计登岛 ${weeklyCheckins} 次，同日 ${sameDay} 次，仓库 ${warehouseTotal} 份。最稳：${insights.bestDay.label}；最弱：${insights.weakest.label}；建议：${insights.nextAdvice.label}`,
     createdAt: Date.now()
   };
+  const ok = await syncSharedPatch({ weeklyEvent: event });
+  if (!ok) {
+    showToast('周结算同步失败，请稍后再试');
+    renderCoopGoals();
+    return;
+  }
   sharedEvents[event.id] = { ...event, createdBy: username };
-  await syncSharedPatch({ weeklyEvent: event });
   renderCoopGoals();
   showToast('周结算公告已贴到贡献页');
 }
@@ -1529,6 +1844,16 @@ function iconMarkup(metaOrIcon, fallback = '') {
   }
   if (metaOrIcon && metaOrIcon.img) return `<img class="acnh-icon" src="${metaOrIcon.img}" alt="${metaOrIcon.name}">`;
   return metaOrIcon?.icon || fallback;
+}
+
+function getDiscoveryMeta(id) {
+  const hidden = HIDDEN_QUESTS.find(q => q.id === id);
+  if (hidden) return hidden;
+  const collectionEntry = getCollectionEntries().find(entry => entry.id === id);
+  if (collectionEntry) return collectionEntry;
+  const item = ITEMS[id];
+  if (item) return { id, name: item[0], icon: item[1], img: item[2] };
+  return { id, name: id, icon: '？' };
 }
 
 function renderIsland() {
@@ -1713,6 +2038,10 @@ function metricLabel(metric) {
 }
 
 function showIslandPoint(building, status) {
+  if (building.id === 'museum') {
+    showMuseumTrophies(building, status);
+    return;
+  }
   const modal = document.getElementById('islandPointModal');
   document.getElementById('islandDetailIcon').innerHTML = iconMarkup(building);
   document.getElementById('islandDetailTitle').textContent = building.name;
@@ -1721,6 +2050,47 @@ function showIslandPoint(building, status) {
   document.getElementById('islandDetailFill').style.width = `${status.pct}%`;
   document.getElementById('islandDetailCount').textContent = building.need ? `进度 ${status.value}/${building.need}` : '进度 100%';
   modal.classList.add('show');
+}
+
+function showMuseumTrophies(building, status) {
+  const modal = document.getElementById('islandPointModal');
+  document.getElementById('islandDetailIcon').innerHTML = iconMarkup(building);
+  document.getElementById('islandDetailTitle').textContent = '博物馆展柜';
+  const trophyCards = TROPHIES.map(trophy => {
+    const progress = getTrophyProgress(trophy.id);
+    const done = progress.value >= trophy.target;
+    const pct = Math.min(100, Math.round((progress.value / trophy.target) * 100));
+    const iconHtml = done ? trophy.icon : '<span class="museum-case-mystery">?</span>';
+    const progressTag = done ? '<span class="done-tag">已展出</span>' : `<span>${progress.value}/${trophy.target}</span>`;
+    return `<div class="museum-case ${done ? 'done' : ''}">
+      <div class="museum-case-icon">${iconHtml}</div>
+      <div class="museum-case-body">
+        <div class="museum-case-name">${escapeHtml(done ? trophy.name : '???')}</div>
+        <div class="museum-case-bar"><div class="museum-case-bar-fill" style="width:${pct}%"></div></div>
+        <div class="museum-case-progress">${progressTag}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const doneCount = TROPHIES.filter(t => getTrophyProgress(t.id).value >= t.target).length;
+  document.getElementById('islandDetailMeta').innerHTML = `
+    <p class="museum-sub">两位岛民共同展出的收藏</p>
+    <div class="museum-cabinet">${trophyCards}</div>
+    <div class="museum-footnote">已展出 <strong>${doneCount}</strong> / ${TROPHIES.length} 件展品</div>`;
+  document.getElementById('islandDetailFill').style.width = `${status.pct}%`;
+  document.getElementById('islandDetailCount').textContent = `博物馆建设 ${status.value}/${status.need}`;
+  modal.classList.add('show');
+}
+
+function getTrophyProgress(id) {
+  if (id === 'first_checkin') return { value: Math.min(1, countSettledStates(dayStates)), target: 1 };
+  if (id === 'steady_three') return { value: Math.min(3, countSettledStates(dayStates)), target: 3 };
+  if (id === 'resident_seven') return { value: Math.min(7, countSettledStates(dayStates)), target: 7 };
+  if (id === 'same_day') return { value: collection.discovered.includes('same_day_checkin') ? 1 : 0, target: 1 };
+  if (id === 'builder') return { value: Math.min(20, sumCounts(warehouseContribution)), target: 20 };
+  if (id === 'challenge_three') return { value: Math.min(3, getGiftProgress(GIFT_RULES.find(rule => rule.id === 'wish_pick')).value), target: 3 };
+  if (id === 'gift_postman') return { value: Object.values(sharedGiftClaims).some(claim => claim.status === 'redeemed') ? 1 : 0, target: 1 };
+  if (id === 'star_collector') return { value: (inventory.starFragment || 0) > 0 || collection.discovered.includes('night_star') ? 1 : 0, target: 1 };
+  return { value: 0, target: 1 };
 }
 
 function getBuildStageSnapshot() {
@@ -1762,15 +2132,56 @@ function renderMapResidents(map) {
 }
 
 function showBottleHints() {
-  const day = allDays[currentDayIndex] || allDays[0];
+  const baseDay = allDays[currentDayIndex] || allDays[0];
   const state = getDayState(currentDayIndex);
+  const day = getDifficultyDay(baseDay, state.difficulty || selectedDifficulty);
   const clues = getHiddenQuestStatuses(day, state);
+  const discoveredHidden = HIDDEN_QUESTS.filter(q => collection.discovered.includes(q.id)).length;
   document.getElementById('bottleHintBody').innerHTML = `<div class="bottle-clues">${clues.map(c => {
     const cls = c.found ? 'found' : c.ready ? 'ready' : '';
-    const label = c.found ? '已触发' : c.ready ? '今日可尝试' : '线索';
-    return `<div class="bottle-clue ${cls}">${label} · ${c.clue}</div>`;
+    let clue = c.clue;
+    if (c.tier === '传说' && !c.found && discoveredHidden < 3) clue = '???';
+    const label = c.found ? `已触发` : c.ready ? `今日可试` : `未触发`;
+    const tier = c.tier || '隐藏';
+    const name = c.found ? c.name : c.tier === '传说' ? '???' : c.name;
+    return `<div class="bottle-clue ${cls}"><span class="bottle-clue-tier">${escapeHtml(tier)}</span><span class="bottle-clue-name">${escapeHtml(name)}</span><div class="bottle-clue-body">${escapeHtml(label)} · ${escapeHtml(clue)}</div></div>`;
   }).join('')}</div>`;
+  const btn = document.getElementById('bottleUseTicketBtn');
+  if (btn) {
+    btn.disabled = (inventory.nookMilesTicket || 0) <= 0;
+    btn.textContent = (inventory.nookMilesTicket || 0) > 0 ? '使用里数券再看一条' : '没有里数券';
+  }
   document.getElementById('bottleModal').classList.add('show');
+}
+
+async function revealExtraBottleClue() {
+  if ((inventory.nookMilesTicket || 0) <= 0) {
+    showToast('里数券不足');
+    return;
+  }
+  const rollback = createArchivePayload();
+  inventory.nookMilesTicket -= 1;
+  discover('bottle_extra_clue');
+  saveLocal();
+  const synced = await syncMyState();
+  if (!synced) {
+    applyArchivePayload(rollback);
+    showToast('同步失败，里数券还没有使用');
+    renderInventory();
+    renderCollection();
+    return;
+  }
+  const extra = [
+    '稀有线索：标准完整完成几次后，仓库会补木材。',
+    '稀有线索：挑战完整累计几次后，心愿会被码头记录。',
+    '传说线索：夜里挑战完整完成，星星会记住你。',
+    '传说线索：两个人同日挑战完整完成，码头会靠岸。'
+  ][(currentDayIndex + (inventory.nookMilesTicket || 0)) % 4];
+  const body = document.getElementById('bottleHintBody');
+  if (body) body.innerHTML += `<div class="bottle-clue ready">里数券线索 · ${escapeHtml(extra)}</div>`;
+  showToast('里数券已使用');
+  renderInventory();
+  renderCollection();
 }
 
 function getCoopMetrics() {
@@ -1812,28 +2223,54 @@ function renderInventory() {
 function renderCollection() {
   const grid = document.getElementById('collectionGrid');
   if (!grid) return;
-  const entries = [
-    ...Object.entries(ITEMS).map(([id, meta]) => ({ id, name: meta[0], icon: meta[1], img: meta[2], type: '材料' })),
-    ...BUILDINGS.map(b => ({ id: b.id, name: b.name, icon: b.icon, img: b.img, type: '建筑' })),
-    ...DECOR_ITEMS.map(d => ({ id: `decor_${d.id}`, name: d.name, icon: d.icon, type: '建筑' })),
-    ...GIFT_RULES.map(g => ({ id: `gift_${g.id}`, name: g.title, icon: g.icon, type: '真实礼物' })),
-    { id: 'same_day_checkin', name: '双人同日登岛', icon: '🎫', type: '隐藏任务' },
-    { id: 'museum_entry', name: '博物馆图鉴条目', icon: '🏛', type: '隐藏任务' },
-    { id: 'bells_bag', name: '铃钱袋', icon: '🔔', type: '隐藏任务' },
-    { id: 'festival_new_year', name: '新年烟花', icon: '🎆', type: '隐藏任务' },
-    { id: 'festival_valentine', name: '心意巧克力', icon: '💝', type: '隐藏任务' },
-    { id: 'festival_halloween', name: '南瓜灯', icon: '🎃', type: '隐藏任务' },
-    { id: 'festival_toy_day', name: '玩具日包裹', icon: '🎁', type: '隐藏任务' }
-  ];
+  const entries = getCollectionEntries();
   grid.innerHTML = '';
   entries.filter(entry => collectionFilter === 'all' || entry.type === collectionFilter).forEach(entry => {
     const found = collection.discovered.includes(entry.id);
     const card = document.createElement('div');
-    card.className = 'collection-card' + (found ? ' discovered' : '');
-    card.innerHTML = `<div class="collection-top"><div><div class="collection-name">${found ? entry.name : '???'}</div><div class="collection-meta">${entry.type}</div></div><div class="collection-icon">${found ? iconMarkup(entry, entry.icon) : '？'}</div></div><span class="collection-status">${found ? '已发现' : '未发现'}</span>`;
+    const lockedHidden = !found && entry.type === '隐藏任务';
+    card.className = 'collection-card' + (found ? ' discovered' : '') + (lockedHidden ? ' locked' : '');
+    card.setAttribute('data-collection-id', entry.id);
+    const metaText = entry.type === '隐藏任务' && entry.tier ? `${entry.type} · ${entry.tier}` : entry.type;
+    card.innerHTML = `<div class="collection-top"><div><div class="collection-name">${found ? entry.name : '???'}</div><div class="collection-meta">${metaText}</div></div><div class="collection-icon">${found ? iconMarkup(entry, entry.icon) : '？'}</div></div><span class="collection-status">${found ? '已发现' : '未发现'}</span>`;
+    if (!lockedHidden) card.addEventListener('click', () => showCollectionDetail(entry.id));
     grid.appendChild(card);
   });
   document.querySelectorAll('#collectionTabs .collection-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.filter === collectionFilter));
+}
+
+function getCollectionEntries() {
+  return [
+    ...Object.entries(ITEMS).map(([id, meta]) => ({ id, name: meta[0], icon: meta[1], img: meta[2], type: '材料', source: getItemSource(id), use: getItemUse(id) })),
+    ...BUILDINGS.map(b => ({ id: b.id, name: b.name, icon: b.icon, img: b.img, type: '建筑', source: b.desc, use: b.reward })),
+    ...DECOR_ITEMS.map(d => ({ id: `decor_${d.id}`, name: d.name, icon: d.icon, type: '建筑', source: d.desc, use: `放置成本：${Object.entries(d.cost).map(([key, value]) => `${ITEMS[key]?.[0] || key} ${value}`).join(' · ')}` })),
+    ...GIFT_RULES.map(g => ({ id: `gift_${g.id}`, name: g.title, icon: g.icon, type: '真实礼物', source: g.target, use: g.desc })),
+    ...HIDDEN_QUESTS.map(q => ({ ...q, type: '隐藏任务' })),
+    { id: 'bells_bag', name: '铃钱袋', icon: '🔔', tier: '普通', type: '隐藏任务', source: '挑战难度完整完成。', use: '获得额外铃钱。' },
+    { id: 'trophy_golden_leaf', name: '金叶奖杯登记', icon: '🍂', tier: '普通', type: '隐藏任务', source: '在背包中使用金色树叶。', use: '登记到博物馆奖杯记录。' },
+    { id: 'festival_new_year', name: '新年烟花', icon: '🎆', type: '隐藏任务', source: '新年当天打卡。', use: '节日限定记录。' },
+    { id: 'festival_valentine', name: '心意巧克力', icon: '💝', type: '隐藏任务', source: '情人节当天打卡。', use: '节日限定记录。' },
+    { id: 'festival_halloween', name: '南瓜灯', icon: '🎃', type: '隐藏任务', source: '万圣夜当天打卡。', use: '节日限定记录。' },
+    { id: 'festival_toy_day', name: '玩具日包裹', icon: '🎁', type: '隐藏任务', source: '玩具日当天打卡。', use: '节日限定记录。' }
+  ];
+}
+
+function showCollectionDetail(id) {
+  const entry = getCollectionEntries().find(item => item.id === id);
+  if (!entry) return;
+  const found = collection.discovered.includes(entry.id);
+  if (!found && entry.type === '隐藏任务') return;
+  document.getElementById('itemDetailIcon').innerHTML = found ? iconMarkup(entry, entry.icon) : '？';
+  document.getElementById('itemDetailTitle').textContent = found ? entry.name : '未发现项目';
+  document.getElementById('itemDetailMeta').innerHTML = `
+    类型：${entry.type}<br>
+    ${entry.tier ? `层级：${entry.tier}<br>` : ''}
+    状态：${found ? '已发现' : '未发现'}<br>
+    来源：${escapeHtml(entry.source || '继续训练和探索岛屿。')}<br>
+    用途：${escapeHtml(entry.use || '补齐图鉴记录。')}
+  `;
+  configureItemUseButton(null);
+  document.getElementById('itemDetailModal').classList.add('show');
 }
 
 function getItemSource(key) {
@@ -1861,21 +2298,92 @@ function showItemDetail(key) {
   document.getElementById('itemDetailIcon').innerHTML = iconMarkup(meta);
   document.getElementById('itemDetailTitle').textContent = meta[0];
   document.getElementById('itemDetailMeta').innerHTML = `当前数量：${inventory[key] || 0}<br>${getItemSource(key)}<br>${getItemUse(key)}`;
+  configureItemUseButton(key);
   document.getElementById('itemDetailModal').classList.add('show');
+}
+
+function configureItemUseButton(key) {
+  const btn = document.getElementById('itemUseBtn');
+  if (!btn) return;
+  btn.dataset.item = key || '';
+  const action = key ? useItemAction(key) : null;
+  if (!action) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = '';
+  btn.textContent = action.label;
+  btn.disabled = !action.enabled;
+}
+
+function useItemAction(key) {
+  const count = inventory[key] || 0;
+  if (key === 'nookMilesTicket') return { label: '使用 1 张查看线索', enabled: count > 0 };
+  if (key === 'bells') return { label: '去岛屿装饰工坊', enabled: true };
+  if (['wood','stone','shell','ironNugget','softwood','hardwood','weed'].includes(key)) return { label: '去岛屿建设', enabled: true };
+  if (key === 'starFragment') return { label: '点亮星星地砖', enabled: count > 0 };
+  if (key === 'goldenLeaf') return { label: '登记金叶奖杯', enabled: count > 0 };
+  return null;
+}
+
+async function handleUseItem(key) {
+  if (!key) return;
+  if (key === 'nookMilesTicket') {
+    await revealExtraBottleClue();
+    return;
+  }
+  if (key === 'starFragment') {
+    if ((inventory.starFragment || 0) <= 0) return;
+    const rollback = createArchivePayload();
+    discover('decor_star_tile');
+    saveLocal();
+    const synced = await syncMyState();
+    if (!synced) {
+      applyArchivePayload(rollback);
+      showToast('同步失败，星星碎片还没有使用');
+      renderCollection();
+      return;
+    }
+    showToast('星星地砖图鉴已点亮');
+    renderCollection();
+    return;
+  }
+  if (key === 'goldenLeaf') {
+    if ((inventory.goldenLeaf || 0) <= 0) return;
+    const rollback = createArchivePayload();
+    discover('trophy_golden_leaf');
+    saveLocal();
+    const synced = await syncMyState();
+    if (!synced) {
+      applyArchivePayload(rollback);
+      showToast('同步失败，金色树叶还没有登记');
+      renderCollection();
+      return;
+    }
+    showToast('金色树叶已登记到博物馆');
+    renderCollection();
+    return;
+  }
+  activeView = 'island';
+  document.getElementById('itemDetailModal').classList.remove('show');
+  renderView();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function getItemUse(key) {
   if (['wood','stone','shell','ironNugget'].includes(key)) return '用途：可进入共同仓库，推进小基地建设。';
-  if (key === 'bells') return '用途：作为每次训练结算的积分化奖励。';
-  if (key === 'nookMilesTicket') return '用途：标记双人合作或挑战完成。';
-  if (key === 'starFragment') return '用途：记录夜间隐藏任务。';
+  if (key === 'bells') return '用途：作为每次训练结算的积分化奖励，也可前往岛屿装饰工坊。';
+  if (key === 'nookMilesTicket') return '用途：查看瓶中信额外线索，探索隐藏任务。';
+  if (key === 'starFragment') return '用途：记录夜间隐藏任务，可点亮星星地砖。';
+  if (key === 'goldenLeaf') return '用途：登记金叶奖杯，推进博物馆收藏。';
   return '用途：补齐图鉴，作为训练出现的纪念。';
 }
 
 function showDayDetail(index) {
-  const day = allDays[index];
-  if (!day) return;
+  const baseDay = allDays[index];
+  if (!baseDay) return;
   const state = getDayState(index);
+  const day = getDifficultyDay(baseDay, state.difficulty || selectedDifficulty);
   const total = day.exercises.length || 0;
   const done = state.checked.size;
   const diff = DIFFICULTIES[state.difficulty || selectedDifficulty] || DIFFICULTIES.standard;
@@ -1884,14 +2392,15 @@ function showDayDetail(index) {
   else if (state.settled && done >= total) status = '完整完成';
   else if (state.settled) status = `今天到这 ${done}/${total}`;
   const rewards = (state.rewards || []).map(key => ITEMS[key]?.[0] || key).join('、') || '无';
-  const hidden = (state.hiddenTasks || []).map(key => ITEMS[key]?.[0] || key).join('、') || '无';
-  const mode = PLAN_MODES[state.planMode || selectedPlanMode] || PLAN_MODES.standard;
+  const hidden = (state.hiddenTasks || []).map(key => getDiscoveryMeta(key).name || key).join('、') || '无';
+  const legacyMode = state.planMode && state.planMode !== 'standard' ? (PLAN_MODES[state.planMode]?.label || state.planMode) : '';
   const actions = day.exercises.map((ex, i) => `${state.checked.has(i) ? '✓' : '○'} ${ex[0]} · ${ex[1]}`).join('<br>');
   document.getElementById('dayDetailTitle').textContent = `${getWeekdayLabel(day.dayInWeek)} · ${day.title}`;
   document.getElementById('dayDetailMeta').innerHTML = `
     状态：${status}<br>
     难度：${diff.label}<br>
-    路线：${mode.label}<br>
+    今日内容：${day.variantLabel}<br>
+    ${legacyMode ? `旧路线：${legacyMode}<br>` : ''}
     分数：${state.score || 0}<br>
     奖励：${rewards}<br>
     隐藏：${hidden}<br>
@@ -1920,21 +2429,93 @@ function renderReview(day) {
   for (let di = 0; di < dayCount; di++) {
     const gi = getGlobalIndex(wi, di);
     const ds = getDayState(gi);
-    const d = week.days[di];
-    if (ds.settled && ds.checked.size === d.exercises.length) { fullDone++; appeared++; chips.push('<span class="review-chip done"></span>'); }
+    const d = getDifficultyDay(week.days[di], ds.difficulty || selectedDifficulty);
+    if (ds.settled && ds.checked.size >= d.exercises.length) { fullDone++; appeared++; chips.push('<span class="review-chip done"></span>'); }
     else if (ds.settled) { appeared++; chips.push('<span class="review-chip appeared"></span>'); }
     else if (ds.missed) { chips.push('<span class="review-chip rest"></span>'); }
     else { chips.push('<span class="review-chip missed"></span>'); }
   }
+  const insights = getWeeklyReviewInsights(wi);
   const rows = [
     ['周期', `第 ${wi+1} 周 · ${week.theme}`, dayCount + ' 天'],
     ['出现', `${appeared}/${dayCount} 天`, appeared >= dayCount ? '✓' : '继续'],
     ['完成', `${fullDone}/${dayCount} 天`, chips.join('')],
-    ['最稳', '—', '记录后填写'],
-    ['最弱', '—', '记录后填写'],
+    ['最稳', insights.bestDay.label, insights.bestDay.detail],
+    ['最弱', insights.weakest.label, insights.weakest.detail],
+    ['下周建议', insights.nextAdvice.label, insights.nextAdvice.detail],
     ['连续', `${calcStreak()} 天`, ''],
   ];
   rows.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>`; body.appendChild(tr); });
+}
+
+function getWeeklyReviewInsights(weekIndex) {
+  const week = plan.weeks[weekIndex];
+  const dayStats = [];
+  const categoryStats = {};
+  let handledDays = 0;
+  let totalChecked = 0;
+  let totalExercises = 0;
+  week.days.forEach((day, dayInWeek) => {
+    const gi = getGlobalIndex(weekIndex, dayInWeek);
+    const state = getDayState(gi);
+    if (!state.settled && !state.missed) return;
+    handledDays++;
+    const variantDay = getDifficultyDay(day, state.difficulty || selectedDifficulty);
+    const exercises = variantDay.exercises || [];
+    const checkedCount = state.settled ? state.checked.size : 0;
+    totalChecked += checkedCount;
+    totalExercises += exercises.length;
+    dayStats.push({
+      label: `${getWeekdayLabel(dayInWeek)} · ${day.title}`,
+      checked: checkedCount,
+      total: exercises.length,
+      settled: !!state.settled,
+      missed: !!state.missed,
+      pct: exercises.length ? checkedCount / exercises.length : 0
+    });
+    exercises.forEach((exercise, index) => {
+      const category = normalizeExerciseCategory(exercise);
+      if (!categoryStats[category]) categoryStats[category] = { checked: 0, total: 0 };
+      categoryStats[category].total += 1;
+      if (state.settled && state.checked.has(index)) categoryStats[category].checked += 1;
+    });
+  });
+  const best = dayStats
+    .filter(item => item.settled)
+    .sort((a, b) => b.pct - a.pct || b.checked - a.checked)[0];
+  const weakestEntry = Object.entries(categoryStats)
+    .filter(([, stat]) => stat.total > 0)
+    .map(([name, stat]) => ({ name, ...stat, pct: stat.checked / stat.total }))
+    .sort((a, b) => a.pct - b.pct || b.total - a.total)[0];
+  const completionRate = totalExercises ? totalChecked / totalExercises : 0;
+  const bestDay = best
+    ? { label: best.label, detail: `${best.checked}/${best.total} 个动作` }
+    : { label: '还没有记录', detail: '完成一次后会自动分析' };
+  const weakest = weakestEntry
+    ? { label: weakestEntry.name, detail: `${weakestEntry.checked}/${weakestEntry.total} 次完成` }
+    : { label: '暂无', detail: '记录更多动作后会出现趋势' };
+  let advice = '下周先守住出现，不急着加量';
+  if (handledDays >= week.days.length && completionRate >= 0.85) advice = '下周可以尝试多一次挑战难度';
+  else if (weakestEntry && weakestEntry.pct < 0.5) advice = `下周把“${weakestEntry.name}”降一点量，先做完`;
+  else if (completionRate >= 0.65) advice = '下周保持标准难度，优先稳定完成';
+  return {
+    bestDay,
+    weakest,
+    nextAdvice: { label: advice, detail: `${Math.round(completionRate * 100)}% 完成率` }
+  };
+}
+
+function normalizeExerciseCategory(exercise) {
+  const tag = String(exercise?.[2] || '').trim();
+  const name = String(exercise?.[0] || '').trim();
+  const text = `${name} ${tag}`;
+  if (/热身|踏步|慢走|散步|开合跳|高抬腿|扩胸|肩部环绕|手臂画圈/.test(text)) return '热身入口';
+  if (/收尾|放松|拉伸|猫牛|坐姿前屈|鸽子|髋部|小腿|肩颈/.test(text)) return '收尾放松';
+  if (/腿|下肢|单腿|深蹲|弓步|静蹲/.test(text)) return '腿部';
+  if (/上身|俯卧撑|推/.test(text)) return '上身';
+  if (/核心|腹|平板|侧桥|死虫|鸟狗|俄罗斯|自行车|登山者|抬腿/.test(text)) return '核心';
+  if (/后侧|臀|超人/.test(text)) return '后侧';
+  return tag || String(exercise?.[0] || '其他');
 }
 
 function calcStreak() {
@@ -1947,7 +2528,7 @@ function getUserTitle(participant) {
   const states = participant.dayStates || {};
   const settled = countSettledStates(states);
   const challengeFull = Object.values(states).filter((s, index) => {
-    const total = allDays[index]?.exercises?.length || 0;
+    const total = getDifficultyDay(allDays[index], s?.difficulty || 'challenge')?.exercises?.length || 0;
     const checked = Array.isArray(s?.checked) ? s.checked.length : s?.checked?.size || 0;
     return s?.settled && s.difficulty === 'challenge' && checked >= total;
   }).length;
@@ -1970,15 +2551,15 @@ function getFestivalToday() {
   return table[md] || null;
 }
 
-function applyFestivalBonus() {
+function applyFestivalBonus(options = {}) {
+  const { notify = true } = options;
   const festival = getFestivalToday();
   const state = getDayState(currentDayIndex);
-  if (!festival || !state.settled || collection.discovered.includes(festival.id)) return;
+  if (!festival || !state.settled || collection.discovered.includes(festival.id)) return null;
   collection.discovered.push(festival.id);
   inventory[festival.reward] = (inventory[festival.reward] || 0) + 1;
-  saveLocal();
-  syncMyState();
-  showToast(`${festival.name}：${festival.text}`);
+  if (notify) showToast(`${festival.name}：${festival.text}`);
+  return festival;
 }
 
 // ── Archive ──
@@ -1993,13 +2574,14 @@ function renderArchive() {
       const gi = getGlobalIndex(wi, di);
       const ds = getDayState(gi);
       let cls = 'pending';
-      if (ds.settled && ds.checked.size === d.exercises.length) cls = 'done';
+      const archiveDay = getDifficultyDay(d, ds.difficulty || selectedDifficulty);
+      if (ds.settled && ds.checked.size >= archiveDay.exercises.length) cls = 'done';
       else if (ds.settled) cls = 'appeared';
       else if (ds.missed) cls = 'rest';
       else if (gi < currentDayIndex) cls = 'missed';
       const row = document.createElement('div');
       row.className = 'archive-day-row';
-      row.innerHTML = `<div class="archive-day-num ${cls}">${di+1}</div><span>${d.title}</span><span style="margin-left:auto;color:var(--animal-text-color-muted);font-size:12px">${d.minutes || 0}min</span>`;
+      row.innerHTML = `<div class="archive-day-num ${cls}">${di+1}</div><span>${d.title}</span><span style="margin-left:auto;color:var(--animal-text-color-muted);font-size:12px">${archiveDay.minutes || 0}min</span>`;
       row.addEventListener('click', () => showDayDetail(gi));
       wd.appendChild(row);
     });
@@ -2010,17 +2592,15 @@ function renderArchive() {
 function applySettlementRewards(state, day) {
   const difficulty = state.difficulty || selectedDifficulty;
   const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.standard;
-  const mode = PLAN_MODES[state.planMode || selectedPlanMode] || PLAN_MODES.standard;
   const total = day.exercises.length;
   const fullDone = state.checked.size >= total;
   const base = Math.max(1, state.checked.size);
-  const score = base * diff.multiplier + (fullDone ? mode.bonus : 0);
-  const materialCount = fullDone ? diff.multiplier + mode.bonus : 1;
-  const rewards = chooseRewards(difficulty, materialCount);
+  const score = base * diff.multiplier;
+  const materialCount = diff.baseRewards + (fullDone ? diff.fullBonus : 0);
+  const rewards = chooseRewards(difficulty, materialCount, currentDayIndex, day);
   const hiddenTasks = detectHiddenTasks(difficulty, day, fullDone);
 
   state.difficulty = difficulty;
-  state.planMode = state.planMode || selectedPlanMode;
   state.score = score;
   state.rewards = rewards;
   state.hiddenTasks = hiddenTasks;
@@ -2030,24 +2610,65 @@ function applySettlementRewards(state, day) {
   addCounts(warehouseContribution, warehouseCounts(rewards));
   rewards.concat(hiddenTasks).forEach(discover);
   discover(difficulty);
+  applyFestivalBonus({ notify: false });
 }
 
-function chooseRewards(difficulty, count) {
-  const pools = {
-    easy: ['branch', 'wood', 'weed'],
-    standard: ['wood', 'softwood', 'hardwood', 'shell', 'stone'],
-    challenge: ['ironNugget', 'clay', 'starFragment', 'nookMilesTicket']
-  };
-  const pool = pools[difficulty] || pools.standard;
+function chooseRewards(difficulty, count, seed = currentDayIndex, day = null) {
+  const pool = buildRewardPoolForDay(difficulty, day);
   const rewards = [];
-  for (let i = 0; i < count; i++) rewards.push(pool[(currentDayIndex + i) % pool.length]);
+  for (let i = 0; i < count; i++) rewards.push(pool[(seed + i) % pool.length]);
   return rewards;
+}
+
+function buildRewardPoolForDay(difficulty, day = null) {
+  const diffPool = (DIFFICULTIES[difficulty] || DIFFICULTIES.standard).rewardPool || DIFFICULTIES.standard.rewardPool;
+  const themePool = getTrainingRewardPool(day);
+  const merged = [...themePool, ...diffPool];
+  const allowed = getAllowedRewardsForDifficulty(difficulty);
+  const filtered = merged.filter(item => allowed.includes(item));
+  return [...new Set(filtered.length ? filtered : diffPool)];
+}
+
+function getTrainingRewardPool(day = null) {
+  if (!day?.exercises?.length) return TRAINING_REWARD_POOLS['全身'];
+  const counts = {};
+  day.exercises.forEach(exercise => {
+    const category = normalizeExerciseCategory(exercise);
+    counts[category] = (counts[category] || 0) + 1;
+  });
+  const ranked = Object.entries(counts)
+    .filter(([category]) => category !== '热身入口' && category !== '收尾放松')
+    .sort((a, b) => b[1] - a[1]);
+  const primary = ranked[0]?.[0] || (counts['收尾放松'] ? '收尾放松' : '热身入口');
+  const secondary = ranked[1]?.[0];
+  return [
+    ...(TRAINING_REWARD_POOLS[primary] || TRAINING_REWARD_POOLS['全身']),
+    ...(secondary ? TRAINING_REWARD_POOLS[secondary] || [] : [])
+  ];
+}
+
+function getAllowedRewardsForDifficulty(difficulty) {
+  if (difficulty === 'easy') return ['branch', 'weed', 'shell', 'wood', 'softwood', 'stone'];
+  if (difficulty === 'challenge') return ['wood', 'softwood', 'hardwood', 'stone', 'ironNugget', 'clay', 'bells', 'nookMilesTicket'];
+  return ['wood', 'softwood', 'hardwood', 'stone', 'shell', 'clay'];
 }
 
 function rewardCounts(rewards, score) {
   const out = { bells: score * 100 };
-  rewards.forEach(r => { out[r] = (out[r] || 0) + 1; });
+  rewards.forEach(r => {
+    switch (r) {
+      case 'bells':
+        out.bells += getBellsRewardValue(score);
+        break;
+      default:
+        out[r] = (out[r] || 0) + 1;
+    }
+  });
   return out;
+}
+
+function getBellsRewardValue(score) {
+  return Math.max(500, score * 100);
 }
 
 function warehouseCounts(rewards) {
@@ -2059,18 +2680,33 @@ function warehouseCounts(rewards) {
 function detectHiddenTasks(difficulty, day, fullDone) {
   const tasks = [];
   const hour = new Date().getHours();
-  if (hour >= 20 || hour < 5) tasks.push('starFragment');
+  if (hour >= 20 || hour < 5) tasks.push('night_star');
   if (difficulty === 'challenge' && fullDone) tasks.push('bells_bag');
   if (day.review && fullDone) tasks.push('museum_entry');
-  if (difficulty === 'easy' && countRecentDifficulty('easy') >= 2) tasks.push('goldenLeaf');
+  if (difficulty === 'easy' && fullDone && countFullDifficulty('easy') >= 3) tasks.push('goldenLeaf');
+  if (difficulty === 'easy' && fullDone && countFullDifficulty('easy') >= 7) tasks.push('golden_resident_card');
+  if (difficulty === 'standard' && fullDone && countFullDifficulty('standard') >= 5) tasks.push('steady_builder');
+  if (difficulty === 'challenge' && fullDone && countFullDifficulty('challenge') >= 3) tasks.push('challenge_islander');
+  if (difficulty === 'standard' && fullDone && hasPeerSettledTodayWithDifficulty('standard', true)) tasks.push('coop_wood_sign');
+  if (difficulty === 'challenge' && fullDone && (hour >= 20 || hour < 5) && countFullDifficulty('challenge') >= 2) tasks.push('observatory_permit');
+  if (difficulty === 'challenge' && fullDone && hasPeerSettledTodayWithDifficulty('challenge', true)) tasks.push('secret_pier_parcel');
   if (hasPeerSettledToday()) tasks.push('same_day_checkin');
-  tasks.forEach(t => {
-    if (t === 'goldenLeaf') inventory.goldenLeaf = (inventory.goldenLeaf || 0) + 1;
-    if (t === 'same_day_checkin') inventory.nookMilesTicket = (inventory.nookMilesTicket || 0) + 1;
-    if (t === 'starFragment') inventory.starFragment = (inventory.starFragment || 0) + 1;
-    if (t === 'bells_bag') inventory.bells = (inventory.bells || 0) + 1000;
-  });
-  return tasks;
+  const uniqueTasks = [...new Set(tasks)].filter(id => !collection.discovered.includes(id));
+  uniqueTasks.forEach(applyHiddenTaskEffect);
+  return uniqueTasks;
+}
+
+function applyHiddenTaskEffect(id) {
+  if (id === 'goldenLeaf') inventory.goldenLeaf = (inventory.goldenLeaf || 0) + 1;
+  if (id === 'golden_resident_card') inventory.goldenLeaf = (inventory.goldenLeaf || 0) + 1;
+  if (id === 'same_day_checkin') inventory.nookMilesTicket = (inventory.nookMilesTicket || 0) + 1;
+  if (id === 'night_star') inventory.starFragment = (inventory.starFragment || 0) + 1;
+  if (id === 'bells_bag') inventory.bells = (inventory.bells || 0) + 1000;
+  if (id === 'steady_builder') addCounts(warehouseContribution, { wood: 3 });
+  if (id === 'challenge_islander') discover('gift_wish_pick');
+  if (id === 'coop_wood_sign') discover('decor_flower_sign');
+  if (id === 'observatory_permit') discover('decor_star_tile');
+  if (id === 'secret_pier_parcel') discover('gift_weekend_gift');
 }
 
 function countRecentDifficulty(difficulty) {
@@ -2091,26 +2727,63 @@ function hasPeerSettledToday() {
   });
 }
 
+function getCheckedCount(state) {
+  return Array.isArray(state?.checked) ? state.checked.length : state?.checked?.size || 0;
+}
+
+function isStateFullDone(state, index) {
+  const day = getDifficultyDay(allDays[index], state?.difficulty || selectedDifficulty);
+  const total = day?.exercises?.length || 0;
+  return !!state?.settled && total > 0 && getCheckedCount(state) >= total;
+}
+
+function countFullDifficulty(difficulty, states = dayStates) {
+  return Object.entries(states || {}).filter(([index, state]) => state?.difficulty === difficulty && isStateFullDone(state, Number(index))).length;
+}
+
+function hasPeerSettledTodayWithDifficulty(difficulty, requireFull = false) {
+  const today = getDateKey();
+  return Object.values(peers).some(peer => Object.entries(peer.dayStates || {}).some(([index, state]) => {
+    if (!state?.settled || state.difficulty !== difficulty) return false;
+    const sameDate = state.settledDate ? state.settledDate === today : Number(index) === currentDayIndex;
+    if (!sameDate) return false;
+    return !requireFull || isStateFullDone(state, Number(index));
+  }));
+}
+
 // ── Actions ──
-function handleSettle() {
+async function handleSettle() {
+  const rollback = createArchivePayload();
   const state = getDayState(currentDayIndex);
   if (state.settled || state.missed) return;
   if (!canCheckInDay(currentDayIndex)) {
     showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `今天只能打卡${getWeekdayLabel()}`);
     return;
   }
-  const day = allDays[currentDayIndex];
+  state.difficulty = state.difficulty || selectedDifficulty;
+  const day = getDifficultyDay(allDays[currentDayIndex], state.difficulty);
+  if (!day) {
+    showToast('今天的训练计划不存在，请刷新后重试');
+    return;
+  }
   const total = day.exercises.length;
   const beforeStages = getBuildStageSnapshot();
   if (state.checked.size === 0) { for (let i = 0; i < total; i++) state.checked.add(i); }
-  state.difficulty = state.difficulty || selectedDifficulty;
+  trimCheckedToExerciseCount(state, total);
   state.settled = true;
   state.settledDate = getDateKey();
   applySettlementRewards(state, day);
   const buildUpdates = diffBuildStages(beforeStages, getBuildStageSnapshot());
   queuedBuildUpdates = buildUpdates;
   saveLocal();
-  syncMyState();
+  const synced = await syncMyState();
+  if (!synced) {
+    applyArchivePayload(rollback);
+    queuedBuildUpdates = [];
+    showToast('同步失败，今天还没有保存，请稍后重试');
+    render();
+    return;
+  }
   if (state.checked.size === total) showRewardModal(state);
   else {
     showToast('今天到这，已结算');
@@ -2120,7 +2793,8 @@ function handleSettle() {
   render();
 }
 
-function handleRestDay() {
+async function handleRestDay() {
+  const rollback = createArchivePayload();
   const state = getDayState(currentDayIndex);
   if (state.settled || state.missed) return;
   if (!canCheckInDay(currentDayIndex)) {
@@ -2136,7 +2810,13 @@ function handleRestDay() {
   state.rewards = [];
   state.hiddenTasks = [];
   saveLocal();
-  syncMyState();
+  const synced = await syncMyState();
+  if (!synced) {
+    applyArchivePayload(rollback);
+    showToast('同步失败，休息记录还没有保存');
+    render();
+    return;
+  }
   showToast('今天休息已记录');
   currentDayIndex = getAvailableDayIndex();
   render();
@@ -2153,7 +2833,7 @@ function showRewardModal(state) {
     (state?.hiddenTasks || []).forEach(id => { hiddenItems[id] = (hiddenItems[id] || 0) + 1; });
     const entries = Object.entries({...rewardItems, ...hiddenItems}).filter(([, count]) => count > 0);
     list.innerHTML = entries.length ? entries.map(([key, count]) => {
-      const meta = ITEMS[key] || { name: key, icon: '？' };
+      const meta = ITEMS[key] || getDiscoveryMeta(key);
       const name = Array.isArray(meta) ? meta[0] : meta.name;
       return `<span class="reward-chip">${iconMarkup(meta)}<span>${name} x${count}</span></span>`;
     }).join('') : '<span class="reward-chip">今天已记录</span>';
@@ -2172,22 +2852,7 @@ document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => 
     }
     selectedDifficulty = btn.dataset.difficulty || 'standard';
     state.difficulty = selectedDifficulty;
-    saveLocal();
-    syncMyState();
-    render();
-  });
-});
-
-document.querySelectorAll('#planModeSelector .plan-mode-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const state = getDayState(currentDayIndex);
-    if (state.settled) return;
-    if (!canCheckInDay(currentDayIndex)) {
-      showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `只能选择${getWeekdayLabel()}路线`);
-      return;
-    }
-    selectedPlanMode = btn.dataset.planMode || 'standard';
-    state.planMode = selectedPlanMode;
+    trimCheckedToExerciseCount(state, getDifficultyDay(allDays[currentDayIndex], selectedDifficulty).exercises.length);
     saveLocal();
     syncMyState();
     render();
@@ -2211,9 +2876,11 @@ document.getElementById('islandDetailBtn').addEventListener('click', () => docum
 document.getElementById('islandPointModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('islandPointModal').classList.remove('show'); });
 document.getElementById('itemDetailBtn').addEventListener('click', () => document.getElementById('itemDetailModal').classList.remove('show'));
 document.getElementById('itemDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('itemDetailModal').classList.remove('show'); });
+document.getElementById('itemUseBtn')?.addEventListener('click', e => handleUseItem(e.currentTarget.dataset.item));
 document.getElementById('dayDetailBtn').addEventListener('click', () => document.getElementById('dayDetailModal').classList.remove('show'));
 document.getElementById('dayDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('dayDetailModal').classList.remove('show'); });
 document.getElementById('bottleBtn').addEventListener('click', () => document.getElementById('bottleModal').classList.remove('show'));
+document.getElementById('bottleUseTicketBtn')?.addEventListener('click', revealExtraBottleClue);
 document.getElementById('bottleModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('bottleModal').classList.remove('show'); });
 document.getElementById('buildUpdateBtn').addEventListener('click', () => {
   document.getElementById('buildUpdateModal').classList.remove('show');
@@ -2237,12 +2904,22 @@ document.getElementById('avatarChoices').addEventListener('click', e => {
   syncMyState();
   render();
 });
-document.getElementById('messageSaveBtn').addEventListener('click', () => {
+document.getElementById('messageSaveBtn').addEventListener('click', async () => {
+  const rollback = createArchivePayload();
+  const previousMessage = userMessage;
   const input = document.getElementById('messageInput');
   userMessage = (input.value || '').trim().slice(0, 40);
   saveLocal();
   const patch = userMessage ? { mailboxEntry: { id: `mail_${Date.now()}_${clientId.slice(0, 6)}`, text: userMessage, createdAt: Date.now() } } : null;
-  syncMyState(patch);
+  const ok = await syncMyState(patch);
+  if (!ok) {
+    applyArchivePayload(rollback);
+    userMessage = previousMessage;
+    if (input) input.value = previousMessage;
+    renderMessageBoard();
+    showToast('留言同步失败，请稍后再试');
+    return;
+  }
   renderMessageBoard();
   showToast(userMessage ? '留言已贴上' : '留言已清空');
 });
@@ -2342,13 +3019,20 @@ document.getElementById('archiveImportInput').addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
+    const rollback = createArchivePayload();
     try {
       const payload = JSON.parse(String(reader.result || ''));
       applyArchivePayload(payload);
       findTodayIndex();
       saveLocal();
-      syncMyState();
+      const synced = await syncMyState();
+      if (!synced) {
+        applyArchivePayload(rollback);
+        render();
+        showToast('存档同步失败，已恢复原状态');
+        return;
+      }
       render();
       document.getElementById('exportModal').classList.remove('show');
       showToast('存档已导入');

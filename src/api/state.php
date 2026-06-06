@@ -221,7 +221,7 @@ function merge_shared_state(array &$state, array $sharedPatch, string $userKey, 
                 'id' => $id,
                 'type' => clean_id((string)($event['type'] ?? 'weekly')),
                 'title' => clean_text((string)($event['title'] ?? '周结算'), 40),
-                'summary' => clean_text((string)($event['summary'] ?? ''), 120),
+                'summary' => clean_text((string)($event['summary'] ?? ''), 220),
                 'createdBy' => $displayName,
                 'createdAt' => (int)($event['createdAt'] ?? $now)
             ];

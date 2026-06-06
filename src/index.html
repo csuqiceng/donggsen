@@ -76,12 +76,6 @@
       <button class="difficulty-btn active" data-difficulty="standard">标准</button>
       <button class="difficulty-btn" data-difficulty="challenge">挑战</button>
     </div>
-    <div class="plan-mode-row" id="planModeSelector">
-      <button class="plan-mode-btn" data-plan-mode="recovery" type="button">恢复路线</button>
-      <button class="plan-mode-btn active" data-plan-mode="standard" type="button">标准路线</button>
-      <button class="plan-mode-btn" data-plan-mode="power" type="button">强化路线</button>
-    </div>
-    <div class="plan-mode-hint" id="planModeHint"></div>
     <div class="reward-preview" id="rewardPreview"></div>
     <div class="hidden-quest" id="hiddenQuestHint"></div>
   </div>
@@ -282,6 +276,7 @@
     <div class="island-detail-icon" id="itemDetailIcon"></div>
     <div class="reward-title" id="itemDetailTitle">物品</div>
     <div class="item-detail-meta" id="itemDetailMeta"></div>
+    <button class="modal-btn secondary" id="itemUseBtn" type="button" style="display:none">使用</button>
     <button class="modal-btn" id="itemDetailBtn">知道了</button>
   </div>
 </div>
@@ -300,6 +295,7 @@
     <div class="island-detail-icon">💌</div>
     <div class="reward-title">瓶中信</div>
     <div class="item-detail-meta" id="bottleHintBody"></div>
+    <button class="modal-btn secondary" id="bottleUseTicketBtn" type="button">使用里数券看线索</button>
     <button class="modal-btn" id="bottleBtn">收好</button>
   </div>
 </div>
@@ -322,12 +318,12 @@
 </div>
 
 <div class="floating-nav" id="floatingNav" style="display:none">
-  <button class="nav-btn active" data-view="today" id="navToday"><span class="nav-icon">✓</span><span>今日</span></button>
-  <button class="nav-btn" data-view="island" id="navIsland"><span class="nav-icon">🏝</span><span>岛屿</span></button>
-  <button class="nav-btn" data-view="bag" id="navBag"><span class="nav-icon">🎒</span><span>背包</span></button>
-  <button class="nav-btn" data-view="collection" id="navCollection"><span class="nav-icon">📖</span><span>图鉴</span></button>
-  <button class="nav-btn" data-view="gift" id="navGift"><span class="nav-icon">🎁</span><span>礼物</span></button>
-  <button class="nav-btn" data-view="ranking" id="navRanking"><span class="nav-icon">🏆</span><span>贡献</span></button>
+  <button class="nav-btn active" data-view="today" id="navToday"><span class="nav-icon"><img class="nav-icon-img" src="./assets/nav-icons/today.svg" alt=""></span><span>今日</span></button>
+  <button class="nav-btn" data-view="island" id="navIsland"><span class="nav-icon"><img class="nav-icon-img" src="./assets/nav-icons/island.svg" alt=""></span><span>岛屿</span></button>
+  <button class="nav-btn" data-view="bag" id="navBag"><span class="nav-icon"><img class="nav-icon-img" src="./assets/nav-icons/bag.svg" alt=""></span><span>背包</span></button>
+  <button class="nav-btn" data-view="collection" id="navCollection"><span class="nav-icon"><img class="nav-icon-img" src="./assets/nav-icons/collection.svg" alt=""></span><span>图鉴</span></button>
+  <button class="nav-btn" data-view="gift" id="navGift"><span class="nav-icon"><img class="nav-icon-img" src="./assets/nav-icons/gift.svg" alt=""></span><span>礼物</span></button>
+  <button class="nav-btn" data-view="ranking" id="navRanking"><span class="nav-icon"><img class="nav-icon-img" src="./assets/nav-icons/contribution.svg" alt=""></span><span>贡献</span></button>
 </div>
 
 <div class="toast" id="toast"></div>

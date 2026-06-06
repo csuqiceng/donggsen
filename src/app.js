@@ -1,9 +1,4 @@
 // ── Constants ──
-const STORAGE_KEY = 'fitness-island-state';
-const NAME_KEY = 'fitness-island-name';
-const CLIENT_KEY = 'fitness-island-client-id';
-const AVATAR_KEY = 'fitness-island-avatar';
-const MESSAGE_KEY = 'fitness-island-message';
 const ROOM_KEY = 'fitness-island-v1';
 const SYNC_API = './api/state.php';
 const ANIMALS = ['🐱','🐰','🐻','🦊','🐶','🐨','🐼','🐸','🐵','🐯','🦁','🐮'];
@@ -50,8 +45,8 @@ let currentDayIndex = 0;
 let dayStates = {};
 let username = '';
 let clientId = getClientId();
-let userAvatar = getStoredAvatar();
-let userMessage = getStoredMessage();
+let userAvatar = getRandomAvatar();
+let userMessage = '';
 let peers = {}; // other users' data from shared PHP JSON storage
 let syncVersion = 0; // 服务端版本号，用于乐观并发控制
 let inventory = createInventory();
@@ -65,21 +60,8 @@ let syncTimer = null;
 let syncState = { status: 'syncing', lastAt: null };
 
 // ── Username ──
-function getStoredName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } }
-function storeName(n) { try { localStorage.setItem(NAME_KEY, n); } catch {} }
-function getStoredMessage() { try { return localStorage.getItem(MESSAGE_KEY) || ''; } catch { return ''; } }
-function storeMessage(message) { try { localStorage.setItem(MESSAGE_KEY, message); } catch {} }
-function getStoredAvatar() {
-  try {
-    let avatar = localStorage.getItem(AVATAR_KEY);
-    if (!avatar || !getAvatarMeta(avatar)) {
-      avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)].id;
-      localStorage.setItem(AVATAR_KEY, avatar);
-    }
-    return avatar;
-  } catch {
-    return AVATARS[Math.floor(Math.random() * AVATARS.length)].id;
-  }
+function getRandomAvatar() {
+  return AVATARS[Math.floor(Math.random() * AVATARS.length)].id;
 }
 
 function getAvatarMeta(id) {
@@ -91,42 +73,25 @@ function avatarMarkup(id, fallback = '👤') {
   return meta ? `<img class="avatar-img" src="${meta.img}" alt="${escapeHtml(meta.name)}">` : escapeHtml(fallback);
 }
 function getClientId() {
-  try {
-    let id = localStorage.getItem(CLIENT_KEY);
-    if (!id) {
-      id = crypto?.randomUUID ? crypto.randomUUID() : `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      localStorage.setItem(CLIENT_KEY, id);
-    }
-    return id;
-  } catch {
-    return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
+  return crypto?.randomUUID ? crypto.randomUUID() : `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const savedName = getStoredName();
 const nameOverlay = document.getElementById('nameOverlay');
 const nameInput = document.getElementById('nameInput');
 const nameBtn = document.getElementById('nameBtn');
 
-if (savedName) {
-  username = savedName;
-  nameOverlay.classList.add('hidden');
-  document.getElementById('loading').classList.remove('hidden');
-  initApp();
-} else {
-  nameInput.focus();
-}
+nameInput.focus();
 nameBtn.addEventListener('click', submitName);
 nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
 
-function submitName() {
+async function submitName() {
   const n = nameInput.value.trim();
   if (!n) { nameInput.style.borderColor = 'var(--animal-error-color)'; return; }
+  resetUserSessionState();
   username = n;
-  storeName(n);
   nameOverlay.classList.add('hidden');
   document.getElementById('loading').classList.remove('hidden');
-  initApp();
+  await initApp();
 }
 
 document.getElementById('changeName').addEventListener('click', () => {
@@ -156,6 +121,7 @@ async function initApp() {
     findTodayIndex();
 
     // Start shared PHP JSON sync
+    await pullSelfFromServer();
     syncMyState();
     listenPeers();
 
@@ -170,6 +136,24 @@ async function initApp() {
     showLoadError(e);
     console.error('Load failed:', e);
   }
+}
+
+function resetUserSessionState() {
+  clientId = getClientId();
+  userAvatar = getRandomAvatar();
+  userMessage = '';
+  peers = {};
+  syncVersion = 0;
+  inventory = createInventory();
+  warehouseContribution = createWarehouse();
+  collection = { discovered: ['resident_services_tent'], completed: [] };
+  dayStates = {};
+  currentDayIndex = 0;
+  activeView = 'today';
+  selectedDifficulty = 'standard';
+  collectionFilter = 'all';
+  queuedBuildUpdates = [];
+  syncState = { status: 'syncing', lastAt: null };
 }
 
 function showLoadError(error) {
@@ -308,19 +292,11 @@ function countMinutes(states) {
 
 // ── Local storage ──
 function loadLocal() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const saved = JSON.parse(raw);
-      applyArchivePayload(saved.dayStates && !saved.version ? { dayStates: saved } : saved);
-    }
-  } catch {}
+  // Browser persistence is intentionally not used. Server state is the source of truth.
 }
 
 function saveLocal() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(createArchivePayload()));
-  } catch {}
+  // No-op: avoid uploading stale local browser data after refresh.
 }
 
 function createArchivePayload() {
@@ -371,11 +347,9 @@ function applyArchivePayload(saved) {
   selectedDifficulty = saved.selectedDifficulty || 'standard';
   if (saved.userAvatar && getAvatarMeta(saved.userAvatar)) {
     userAvatar = saved.userAvatar;
-    try { localStorage.setItem(AVATAR_KEY, userAvatar); } catch {}
   }
   if (typeof saved.userMessage === 'string') {
     userMessage = saved.userMessage.slice(0, 40);
-    storeMessage(userMessage);
   }
   activeView = saved.activeView || 'today';
 }
@@ -439,6 +413,29 @@ async function syncMyState() {
   } catch (err) {
     setSyncStatus('fail');
     console.warn('Sync failed:', err);
+  }
+}
+
+async function pullSelfFromServer() {
+  if (!username) return;
+  try {
+    const res = await fetch(`${SYNC_API}?room=${encodeURIComponent(ROOM_KEY)}&t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`sync ${res.status}`);
+    const body = await res.json();
+    const serverSelf = findSelfRecord(body.users || {});
+    if (serverSelf) {
+      syncVersion = getConflictVersion(body, serverSelf);
+      restoreSelfFromServer(serverSelf);
+      if (serverSelf.avatar && getAvatarMeta(serverSelf.avatar)) userAvatar = serverSelf.avatar;
+      if (typeof serverSelf.message === 'string') userMessage = serverSelf.message.slice(0, 40);
+      selectedDifficulty = serverSelf.selectedDifficulty || selectedDifficulty;
+      currentDayIndex = Number.isInteger(serverSelf.currentDayIndex) ? serverSelf.currentDayIndex : currentDayIndex;
+    }
+    applySharedState(body);
+    findTodayIndex();
+  } catch (err) {
+    setSyncStatus('fail');
+    console.warn('Initial self fetch failed:', err);
   }
 }
 
@@ -1665,7 +1662,6 @@ document.getElementById('avatarChoices').addEventListener('click', e => {
   const next = btn.dataset.avatar;
   if (!getAvatarMeta(next)) return;
   userAvatar = next;
-  try { localStorage.setItem(AVATAR_KEY, userAvatar); } catch {}
   saveLocal();
   syncMyState();
   render();
@@ -1673,7 +1669,6 @@ document.getElementById('avatarChoices').addEventListener('click', e => {
 document.getElementById('messageSaveBtn').addEventListener('click', () => {
   const input = document.getElementById('messageInput');
   userMessage = (input.value || '').trim().slice(0, 40);
-  storeMessage(userMessage);
   saveLocal();
   syncMyState();
   renderMessageBoard();

@@ -37,6 +37,10 @@ assert(!sw.includes("'./index.html'") && !sw.includes('"./index.html"'), 'Servic
 assert(/request\.mode\s*===\s*'navigate'/.test(sw), 'Service Worker 应对导航请求使用网络优先');
 
 assert(!reset.includes("?: 'reset-fitness-island'"), 'reset.php 不应保留公开默认 token');
+assert(!/\blocalStorage\b/.test(app), 'app.js 不应再读取或写入 localStorage');
+assert(/resetUserSessionState/.test(app), '切换账号时应重置当前内存用户状态');
+assert(/pullSelfFromServer/.test(app), '登录/切换账号时应先按名字拉取服务端自己的数据');
+assert(/await\s+pullSelfFromServer\(\)/.test(app), '首次 POST 前应先完成服务端自有数据恢复');
 
 assert(/recoverConflictFromServer/.test(app), '409 JSON 解析失败时应回退拉取服务端最新状态');
 assert(!/409 response JSON parse failed:[\s\S]{0,180}syncVersion\s*=\s*syncVersion\s*\+\s*1/.test(app), '409 JSON 解析失败不应靠本地版本号自增绕过冲突');

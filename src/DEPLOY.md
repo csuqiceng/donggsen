@@ -20,8 +20,8 @@ Smoke tests after upload:
 
 ```text
 https://your-domain/api/state.php
-https://your-domain/app.js?v=20260606-sync18
-https://your-domain/styles.css?v=20260606-sync18
+https://your-domain/app.js?v=20260606-sync20
+https://your-domain/styles.css?v=20260606-sync20
 https://your-domain/manifest.webmanifest
 ```
 
@@ -82,7 +82,7 @@ If the static page and PHP API are deployed to different domains, set `FITNESS_I
 If a phone still shows old UI, open:
 
 ```text
-https://your-domain/?v=sync18
+https://your-domain/?v=sync20
 ```
 
 Then refresh once. The app also registers a service worker, so browser site data may need to be cleared after large updates.

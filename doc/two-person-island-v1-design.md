@@ -178,7 +178,7 @@ V1 先做五个：
 
 ## 数据结构
 
-运行时状态保存在 `localStorage`，并通过 InfinityFree 上的 PHP JSON 接口同步给伙伴。`localStorage` 作为离线缓存，服务器 JSON 作为两个人共享状态。
+运行时状态以 InfinityFree 上的 PHP JSON 接口为准。浏览器不再读取或写入 localStorage，避免旧页面刷新后把旧本地数据重新上传。
 
 建议结构：
 
@@ -304,7 +304,7 @@ updated
 服务器连接状态
 ```
 
-失败时不阻塞本地使用，继续保留 localStorage。下一次成功同步时再更新伙伴数据。
+失败时显示同步失败，不把浏览器本地旧数据当成权威来源。下一次成功同步时再更新伙伴数据。
 
 ## 共同目标与动态
 
@@ -346,7 +346,7 @@ GET api/reset.php?token=your-long-random-token
 
 默认 token 只适合私人测试。正式使用时建议在 PHP 环境变量 `FITNESS_ISLAND_RESET_TOKEN` 中设置自己的 token，或者删除 `reset.php`。
 
-重置接口只删除服务器 JSON，不清理手机本地 `localStorage`。完整清理测试数据时需要同时清浏览器本地数据。
+重置接口只删除服务器 JSON。新版页面不再读取浏览器 localStorage，完整清理测试数据主要以服务器 JSON 为准；清浏览器站点数据只用于移除旧 Service Worker/旧缓存。
 
 ## 视觉方向
 

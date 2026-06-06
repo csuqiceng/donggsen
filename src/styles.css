@@ -172,6 +172,21 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 .reward-preview{margin-top:10px;border-radius:var(--animal-radius-card);background:rgba(255,209,102,.18);box-shadow:none}
 .reward-line{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:700}
 .hidden-quest{margin-top:8px;color:var(--animal-text-color-muted);font-size:12px;line-height:1.5}
+.base-overview{margin:var(--animal-stack-gap) var(--animal-surface-pad-x) 0;background:linear-gradient(180deg,#fffdf5 0%,var(--animal-bg-content) 100%);border:3px solid #d8d0c3;border-radius:var(--animal-radius-surface);padding:16px 18px;box-shadow:0 6px 0 0 var(--animal-shadow-3d),0 14px 22px rgba(61,52,40,.12)}
+.base-overview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.base-overview-title{font-size:17px;font-weight:900;color:#603d26}
+.base-overview-sub{font-size:12px;font-weight:800;color:#6f665e}
+.base-overview-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.base-tile{border:3px solid #ebe4d4;border-radius:20px;background:#fffdf5;padding:10px 11px;box-shadow:0 3px 0 0 rgba(196,184,168,.75)}
+.base-tile strong{display:block;font-size:15px;color:#4a3729;line-height:1.25}
+.base-tile span{display:block;margin-top:4px;font-size:12px;color:#6f665e;font-weight:800;line-height:1.35}
+.base-tile.good{border-color:rgba(89,201,165,.72);background:#ecfbf7}
+.base-tile.warn{border-color:var(--animal-focus-yellow);background:#fff8d8}
+.hidden-status-list{display:grid;gap:7px;margin-top:12px}
+.hidden-status{display:flex;align-items:center;justify-content:space-between;gap:8px;border:2px solid #e4dac8;border-radius:999px;background:#fffdf5;padding:6px 10px;font-size:12px;font-weight:900;color:#6f665e}
+.hidden-status.found{border-color:var(--animal-primary-color);color:var(--animal-primary-dark);background:#ecfbf7}
+.hidden-status.ready{border-color:var(--animal-focus-yellow);color:#9d7620;background:#fff8d8}
+.hidden-status small{font-size:11px;font-weight:900}
 .map-grid,.item-grid,.collection-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .island-map{position:relative;height:440px;border:4px solid #d8d0c3;border-radius:34px;overflow:hidden;background:linear-gradient(180deg,#78d6e5 0%,#5bc4d5 68%,#43adbf 100%);box-shadow:inset 0 -8px 0 rgba(34,95,104,.18),0 8px 0 0 var(--animal-shadow-3d),0 18px 26px rgba(61,52,40,.14)}
 .island-map::before{content:'';position:absolute;left:7%;top:8%;width:86%;height:77%;border-radius:48% 52% 45% 55% / 39% 44% 56% 61%;background:radial-gradient(circle at 22% 20%,rgba(255,255,255,.18),transparent 18%),radial-gradient(circle at 75% 28%,#89d982 0 12%,transparent 13%),radial-gradient(circle at 35% 70%,#75c96f 0 15%,transparent 16%),linear-gradient(135deg,#91d978,#63be70);box-shadow:0 0 0 18px #f7df91,0 0 0 25px rgba(255,253,245,.45),0 16px 22px rgba(43,105,73,.2)}

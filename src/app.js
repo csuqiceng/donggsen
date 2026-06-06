@@ -49,6 +49,7 @@ let collection = { discovered: ['resident_services_tent'], completed: [] };
 let activeView = 'today';
 let selectedDifficulty = 'standard';
 let collectionFilter = 'all';
+let queuedBuildUpdates = [];
 
 // ── Username ──
 function getStoredName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } }
@@ -301,6 +302,7 @@ function render() {
   renderTasks(day, state);
   renderCompleteStrip(day, state);
   renderDifficulty(day, state);
+  renderBaseOverview(day, state);
   renderReview(day);
   renderArchive();
   renderBuddies();
@@ -399,6 +401,75 @@ function renderDifficulty(day, state) {
   const preview = document.getElementById('rewardPreview');
   preview.innerHTML = `<div class="reward-line"><span>${diff.label}奖励</span><span>${fullScore} 积分 · ${diff.multiplier} 份材料</span></div>`;
   document.getElementById('hiddenQuestHint').textContent = getHiddenQuestHint(currentDifficulty, day);
+}
+
+function renderBaseOverview(day, state) {
+  const el = document.getElementById('baseOverview');
+  if (!el || !allDays.length) return;
+  const total = day.exercises.length || 0;
+  const done = state.checked.size;
+  const todayDone = state.settled;
+  const peerDone = hasPeerSettledToday();
+  const warehouse = getSharedWarehouse();
+  const next = getNextUnlockTarget();
+  const hidden = getHiddenQuestStatuses(day, state).slice(0, 4);
+  el.innerHTML = `
+    <div class="base-overview-head">
+      <div>
+        <div class="base-overview-title">基地总览</div>
+        <div class="base-overview-sub">${next ? `下个目标：${next.name} ${next.value}/${next.need}` : '小基地核心设施已开放'}</div>
+      </div>
+      <button class="collection-tab" type="button" id="overviewIslandBtn">看岛</button>
+    </div>
+    <div class="base-overview-grid">
+      <div class="base-tile ${todayDone ? 'good' : ''}"><strong>${todayDone ? '今日已盖章' : `今日 ${done}/${total}`}</strong><span>${todayDone ? '训练记录已进入小基地' : '完成后会结算材料和铃钱'}</span></div>
+      <div class="base-tile ${peerDone && todayDone ? 'good' : peerDone ? 'warn' : ''}"><strong>${peerDone && todayDone ? '双人同日' : peerDone ? '伙伴已登岛' : '等待伙伴'}</strong><span>${peerDone && todayDone ? '里数券气泡会出现在岛上' : '两人同日可触发合作奖励'}</span></div>
+      <div class="base-tile"><strong>${sumCounts(warehouse)} 份材料</strong><span>${formatMaterialSummary(warehouse)}</span></div>
+      <div class="base-tile ${next && next.pct >= 80 ? 'warn' : ''}"><strong>${next ? `${next.pct}%` : '100%'}</strong><span>${next ? `${next.name} 建设进度` : '当前目标已完成'}</span></div>
+    </div>
+    <div class="hidden-status-list">${hidden.map(renderHiddenStatus).join('')}</div>`;
+  document.getElementById('overviewIslandBtn')?.addEventListener('click', () => {
+    activeView = 'island';
+    saveLocal();
+    renderView();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  });
+}
+
+function getNextUnlockTarget() {
+  const metrics = getCoopMetrics();
+  const warehouse = getSharedWarehouse();
+  const targets = BUILDINGS.map(building => ({ building, status: getBuildingStatus(building, metrics, warehouse) }))
+    .filter(({ building, status }) => building.need > 0 && !status.unlocked)
+    .sort((a, b) => b.status.pct - a.status.pct);
+  if (!targets.length) return null;
+  const { building, status } = targets[0];
+  return { name: building.name, value: status.value, need: building.need, pct: status.pct };
+}
+
+function formatMaterialSummary(warehouse) {
+  const entries = Object.entries(warehouse || {}).filter(([, value]) => Number(value) > 0).slice(0, 3);
+  if (!entries.length) return '仓库还在等第一份材料';
+  return entries.map(([key, value]) => `${ITEMS[key]?.[0] || key} ${value}`).join(' · ');
+}
+
+function getHiddenQuestStatuses(day, state) {
+  const hour = new Date().getHours();
+  const difficulty = state.difficulty || selectedDifficulty;
+  const fullDone = state.checked.size >= (day.exercises.length || 0);
+  return [
+    { id: 'starFragment', name: '夜海星光', found: collection.discovered.includes('starFragment'), ready: hour >= 20 || hour < 5, clue: '夜色落下后，海边有时会闪一下。' },
+    { id: 'same_day_checkin', name: '同日登岛', found: collection.discovered.includes('same_day_checkin'), ready: hasPeerSettledToday(), clue: '两位岛民同一天盖章，码头会送来船票。' },
+    { id: 'bells_bag', name: '铃钱袋', found: collection.discovered.includes('bells_bag'), ready: difficulty === 'challenge' && fullDone, clue: '状态很好时走完整条挑战路线，铃声会更响。' },
+    { id: 'goldenLeaf', name: '金色树叶', found: collection.discovered.includes('goldenLeaf'), ready: difficulty === 'easy' && countRecentDifficulty('easy') >= 2, clue: '轻轻地连续出现几天，树叶可能变成金色。' },
+    { id: 'museum_entry', name: '博物馆条目', found: collection.discovered.includes('museum_entry'), ready: !!day.review && fullDone, clue: '复盘日完整盖章，博物馆会添一条记录。' }
+  ];
+}
+
+function renderHiddenStatus(item) {
+  const cls = item.found ? 'found' : item.ready ? 'ready' : '';
+  const label = item.found ? '已触发' : item.ready ? '今日可试' : '线索';
+  return `<div class="hidden-status ${cls}"><span>${item.name}</span><small>${label}</small></div>`;
 }
 
 function getHiddenQuestHint(difficulty, day) {
@@ -661,6 +732,30 @@ function showIslandPoint(building, status) {
   modal.classList.add('show');
 }
 
+function getBuildStageSnapshot() {
+  const metrics = getCoopMetrics();
+  const warehouse = getSharedWarehouse();
+  const out = {};
+  BUILDINGS.forEach(building => {
+    const status = getBuildingStatus(building, metrics, warehouse);
+    out[building.id] = { name: building.name, stage: getBuildingStage(status).label, pct: status.pct };
+  });
+  return out;
+}
+
+function diffBuildStages(before, after) {
+  return Object.entries(after).filter(([id, next]) => {
+    const prev = before[id];
+    return prev && (prev.stage !== next.stage || (!prev.pct || 0) < 100 && next.pct === 100);
+  }).map(([id, next]) => ({ id, from: before[id].stage, to: next.stage, name: next.name }));
+}
+
+function showBuildUpdateModal(updates) {
+  if (!updates || !updates.length) return;
+  document.getElementById('buildUpdateBody').innerHTML = updates.map(u => `${u.name}：${u.from} → ${u.to}`).join('<br>');
+  document.getElementById('buildUpdateModal').classList.add('show');
+}
+
 function renderMapResidents(map) {
   const residents = [{ name: username, x: 45, y: 58, color: COLORS[0] }];
   Object.keys(peers).slice(0, 1).forEach((name, idx) => residents.push({ name, x: 55 + idx * 8, y: 58, color: COLORS[(idx + 1) % COLORS.length] }));
@@ -676,13 +771,14 @@ function renderMapResidents(map) {
 }
 
 function showBottleHints() {
-  const clues = [
-    { id: 'starFragment', found: collection.discovered.includes('starFragment'), text: '夜色落下后，海边有时会闪一下。' },
-    { id: 'same_day_checkin', found: collection.discovered.includes('same_day_checkin'), text: '如果两位岛民同一天盖章，码头会送来船票。' },
-    { id: 'bells_bag', found: collection.discovered.includes('bells_bag'), text: '状态很好时走完整条挑战路线，铃声会更响。' },
-    { id: 'goldenLeaf', found: collection.discovered.includes('goldenLeaf'), text: '轻轻地连续出现几天，树叶可能变成金色。' }
-  ];
-  document.getElementById('bottleHintBody').innerHTML = `<div class="bottle-clues">${clues.map(c => `<div class="bottle-clue ${c.found ? 'found' : ''}">${c.found ? '已记录 · ' : '线索 · '}${c.text}</div>`).join('')}</div>`;
+  const day = allDays[currentDayIndex] || allDays[0];
+  const state = getDayState(currentDayIndex);
+  const clues = getHiddenQuestStatuses(day, state);
+  document.getElementById('bottleHintBody').innerHTML = `<div class="bottle-clues">${clues.map(c => {
+    const cls = c.found ? 'found' : c.ready ? 'ready' : '';
+    const label = c.found ? '已触发' : c.ready ? '今日可尝试' : '线索';
+    return `<div class="bottle-clue ${cls}">${label} · ${c.clue}</div>`;
+  }).join('')}</div>`;
   document.getElementById('bottleModal').classList.add('show');
 }
 
@@ -927,14 +1023,20 @@ function handleSettle() {
   if (state.settled) return;
   const day = allDays[currentDayIndex];
   const total = day.exercises.length;
+  const beforeStages = getBuildStageSnapshot();
   if (state.checked.size === 0) { for (let i = 0; i < total; i++) state.checked.add(i); }
   state.difficulty = state.difficulty || selectedDifficulty;
   state.settled = true;
   applySettlementRewards(state, day);
+  const buildUpdates = diffBuildStages(beforeStages, getBuildStageSnapshot());
+  queuedBuildUpdates = buildUpdates;
   saveLocal();
   syncMyState();
   if (state.checked.size === total) showRewardModal(state);
-  else showToast('今天到这，已结算');
+  else {
+    showToast('今天到这，已结算');
+    setTimeout(() => showBuildUpdateModal(queuedBuildUpdates), 700);
+  }
   for (let i = currentDayIndex + 1; i < allDays.length; i++) {
     if (!getDayState(i).settled) { currentDayIndex = i; break; }
   }
@@ -975,14 +1077,30 @@ document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => 
 
 document.getElementById('completeBtn').addEventListener('click', handleSettle);
 document.getElementById('completeStrip').addEventListener('click', e => { if (e.target.id !== 'completeBtn') handleSettle(); });
-document.getElementById('rewardBtn').addEventListener('click', () => document.getElementById('rewardModal').classList.remove('show'));
-document.getElementById('rewardModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('rewardModal').classList.remove('show'); });
+document.getElementById('rewardBtn').addEventListener('click', () => {
+  document.getElementById('rewardModal').classList.remove('show');
+  setTimeout(() => showBuildUpdateModal(queuedBuildUpdates), 220);
+});
+document.getElementById('rewardModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('rewardModal').classList.remove('show');
+    setTimeout(() => showBuildUpdateModal(queuedBuildUpdates), 220);
+  }
+});
 document.getElementById('islandDetailBtn').addEventListener('click', () => document.getElementById('islandPointModal').classList.remove('show'));
 document.getElementById('islandPointModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('islandPointModal').classList.remove('show'); });
 document.getElementById('itemDetailBtn').addEventListener('click', () => document.getElementById('itemDetailModal').classList.remove('show'));
 document.getElementById('itemDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('itemDetailModal').classList.remove('show'); });
 document.getElementById('bottleBtn').addEventListener('click', () => document.getElementById('bottleModal').classList.remove('show'));
 document.getElementById('bottleModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('bottleModal').classList.remove('show'); });
+document.getElementById('buildUpdateBtn').addEventListener('click', () => {
+  document.getElementById('buildUpdateModal').classList.remove('show');
+  activeView = 'island';
+  saveLocal();
+  renderView();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+document.getElementById('buildUpdateModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('buildUpdateModal').classList.remove('show'); });
 document.querySelectorAll('#collectionTabs .collection-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     collectionFilter = btn.dataset.filter || 'all';

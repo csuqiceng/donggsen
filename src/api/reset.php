@@ -4,8 +4,16 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
+const FITNESS_ISLAND_RESET_TOKEN = '';
+
 $token = $_GET['token'] ?? '';
-$expected = getenv('FITNESS_ISLAND_RESET_TOKEN') ?: 'reset-fitness-island';
+$expected = getenv('FITNESS_ISLAND_RESET_TOKEN') ?: FITNESS_ISLAND_RESET_TOKEN;
+
+if ($expected === '') {
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'Reset token is not configured'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 if (!hash_equals($expected, $token)) {
     http_response_code(403);

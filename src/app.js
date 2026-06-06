@@ -53,6 +53,7 @@ let clientId = getClientId();
 let userAvatar = getStoredAvatar();
 let userMessage = getStoredMessage();
 let peers = {}; // other users' data from shared PHP JSON storage
+let syncVersion = 0; // 服务端版本号，用于乐观并发控制
 let inventory = createInventory();
 let warehouseContribution = createWarehouse();
 let collection = { discovered: ['resident_services_tent'], completed: [] };
@@ -87,7 +88,7 @@ function getAvatarMeta(id) {
 
 function avatarMarkup(id, fallback = '👤') {
   const meta = getAvatarMeta(id);
-  return meta ? `<img class="avatar-img" src="${meta.img}" alt="${meta.name}">` : fallback;
+  return meta ? `<img class="avatar-img" src="${meta.img}" alt="${escapeHtml(meta.name)}">` : escapeHtml(fallback);
 }
 function getClientId() {
   try {
@@ -402,7 +403,8 @@ function createSyncRecord() {
     collection: collection,
     selectedDifficulty: selectedDifficulty,
     lastActive: Date.now(),
-    updated: Date.now()
+    updated: Date.now(),
+    syncVersion: syncVersion
   };
 }
 
@@ -416,12 +418,66 @@ async function syncMyState() {
       cache: 'no-store',
       body: JSON.stringify({ room: ROOM_KEY, user: createSyncRecord() })
     });
+    if (res.status === 409) {
+      // 服务端拒绝：数据过旧，读取最新版本并恢复自己的数据
+      let body;
+      try { body = await res.json(); } catch (jsonErr) {
+        console.warn('409 response JSON parse failed:', jsonErr);
+        await recoverConflictFromServer();
+        return;
+      }
+      recoverConflictPayload(body);
+      return;
+    }
     if (!res.ok) throw new Error(`sync ${res.status}`);
-    applySharedState(await res.json());
+    const body = await res.json();
+    // 更新自己的版本号（服务端会 +1 后返回）
+    const myData = findSelfRecord(body.users || {});
+    if (myData?.syncVersion) syncVersion = myData.syncVersion;
+    applySharedState(body);
     setSyncStatus('ok');
   } catch (err) {
     setSyncStatus('fail');
     console.warn('Sync failed:', err);
+  }
+}
+
+function recoverConflictPayload(payload) {
+  const serverSelf = findSelfRecord(payload?.users || {});
+  if (serverSelf) {
+    syncVersion = getConflictVersion(payload, serverSelf);
+    restoreSelfFromServer(serverSelf);
+  }
+  applySharedState(payload);
+  findTodayIndex();
+  render();
+  setSyncStatus(serverSelf ? 'ok' : 'fail');
+}
+
+function getConflictVersion(payload, serverSelf) {
+  const payloadVersion = Number(payload?.version || 0);
+  const selfVersion = Number(serverSelf?.syncVersion || 0);
+  return Math.max(
+    syncVersion,
+    Number.isFinite(payloadVersion) ? payloadVersion : 0,
+    Number.isFinite(selfVersion) ? selfVersion : 0
+  );
+}
+
+async function recoverConflictFromServer() {
+  try {
+    const res = await fetch(`${SYNC_API}?room=${encodeURIComponent(ROOM_KEY)}&t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`sync ${res.status}`);
+    let body;
+    try { body = await res.json(); } catch (jsonErr) {
+      console.warn('Conflict recovery JSON parse failed:', jsonErr);
+      setSyncStatus('fail');
+      return;
+    }
+    recoverConflictPayload(body);
+  } catch (err) {
+    setSyncStatus('fail');
+    console.warn('Conflict recovery fetch failed:', err);
   }
 }
 
@@ -455,20 +511,25 @@ function normalizeRemoteObject(value, fallback) {
   return value;
 }
 
+function normalizeName(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function isSelfRecord(id, data) {
+  if (!data) return false;
+  if (id === clientId || data.clientId === clientId) return true;
+  return normalizeName(data.displayName || data.username) === normalizeName(username);
+}
+
+function findSelfRecord(users) {
+  return Object.entries(users || {}).find(([id, data]) => isSelfRecord(id, data))?.[1] || null;
+}
+
 function applySharedState(payload) {
   const users = payload?.users || {};
   const nextPeers = {};
-  // 用名字去重：同名 = 同一个人，保留 lastActive 最新的那条
-  const nameMap = {}; // name → { id, data }
   Object.entries(users).forEach(([id, data]) => {
-    if (!data || id === clientId || data.clientId === clientId) return;
-    const name = data.displayName || data.username || id;
-    const lastActive = data.lastActive || 0;
-    if (!nameMap[name] || lastActive > (nameMap[name].data?.lastActive || 0)) {
-      nameMap[name] = { id, data };
-    }
-  });
-  Object.values(nameMap).forEach(({ id, data }) => {
+    if (!data || isSelfRecord(id, data)) return;
     nextPeers[id] = {
       name: data.displayName || data.username || id,
       avatar: data.avatar || '',
@@ -483,10 +544,54 @@ function applySharedState(payload) {
     };
   });
   peers = nextPeers;
+  // 跟踪自己的版本号
+  const myServerData = findSelfRecord(payload?.users || {});
+  if (myServerData?.syncVersion) syncVersion = myServerData.syncVersion;
   renderBuddies();
   renderLeaderboard();
   renderIsland();
   retroactiveHiddenCheck();
+}
+
+// ── 从服务端恢复自己的数据（409 冲突时调用）──
+function restoreSelfFromServer(serverSelf) {
+  // 只恢复关键字段，保留本地 UI 状态（名字、头像、难度选择等）
+  if (serverSelf.dayStates) {
+    Object.entries(serverSelf.dayStates).forEach(([idx, s]) => {
+      const i = Number(idx);
+      // 确保目标 dayState 存在（旧页面可能 dayStates 为空）
+      if (!dayStates[i]) {
+        dayStates[i] = {
+          checked: new Set(), settled: false, missed: false,
+          difficulty: selectedDifficulty, score: 0, rewards: [], hiddenTasks: [],
+          settledAt: null, settledDate: null, missedAt: null, missedDate: null
+        };
+      }
+      dayStates[i].settled = !!s.settled;
+      dayStates[i].missed = !!s.missed;
+      dayStates[i].checked = new Set(Array.isArray(s.checked) ? s.checked : []);
+      dayStates[i].hiddenTasks = Array.isArray(s.hiddenTasks) ? [...s.hiddenTasks] : (dayStates[i].hiddenTasks || []);
+      if (s.settledDate) dayStates[i].settledDate = s.settledDate;
+      if (s.missedAt) dayStates[i].missedAt = s.missedAt;
+      if (s.missedDate) dayStates[i].missedDate = s.missedDate;
+      if (s.settledAt) dayStates[i].settledAt = s.settledAt;
+      if (Number.isFinite(Number(s.score))) dayStates[i].score = Number(s.score) || 0;
+      if (Array.isArray(s.rewards)) dayStates[i].rewards = [...s.rewards];
+      if (s.difficulty) dayStates[i].difficulty = s.difficulty;
+    });
+  }
+  if (serverSelf.inventory) {
+    inventory = normalizeCounts(createInventory(), normalizeRemoteObject(serverSelf.inventory, {}));
+  }
+  if (serverSelf.warehouseContribution) {
+    warehouseContribution = normalizeCounts(createWarehouse(), normalizeRemoteObject(serverSelf.warehouseContribution, {}));
+  }
+  if (serverSelf.collection) {
+    collection.discovered = Array.isArray(serverSelf.collection?.discovered)
+      ? [...new Set([...(collection.discovered || []), ...serverSelf.collection.discovered])]
+      : (collection.discovered || []);
+  }
+  saveLocal();
 }
 
 // ── 回溯检查：结算时对方数据还未到达，补发隐藏任务奖励 ──
@@ -588,7 +693,7 @@ function renderMessageBoard() {
     Object.values(peers).map(p => ({ name: p.name || '伙伴', avatar: p.avatar || '', message: p.message || '' }))
   ).filter(note => note.message);
   list.innerHTML = notes.length ? notes.map(note => `
-    <div class="message-note">${avatarMarkup(note.avatar, '🏝')}<strong>${note.name}</strong><span>${escapeHtml(note.message)}</span></div>
+    <div class="message-note">${avatarMarkup(note.avatar, '🏝')}<strong>${escapeHtml(note.name)}</strong><span>${escapeHtml(note.message)}</span></div>
   `).join('') : '<div class="message-note"><span>还没有留言</span></div>';
 }
 
@@ -822,7 +927,7 @@ function renderBuddies() {
     card.innerHTML = `
       <div class="buddy-avatar" style="background:${color}">${avatarMarkup(p.avatar, name.charAt(0).toUpperCase())}</div>
       <div class="buddy-info">
-        <div class="buddy-name">${name} ${isOnline ? '<span class="online-dot"></span>' : '<span class="offline-dot"></span>'}</div>
+        <div class="buddy-name">${escapeHtml(name)} ${isOnline ? '<span class="online-dot"></span>' : '<span class="offline-dot"></span>'}</div>
         <div class="buddy-status">${statusText} · 累计 ${settledDays} 天</div>
         ${p.message ? `<div class="buddy-message">${escapeHtml(p.message)}</div>` : ''}
         <div class="buddy-progress"><div class="buddy-progress-fill" style="width:${pct}%;background:${color}"></div></div>
@@ -877,12 +982,12 @@ function renderLeaderboard() {
     row.style.padding = '10px 8px';
     const avatarMeta = getAvatarMeta(r.avatar);
     const rankEl = (i < 3 && avatarMeta)
-      ? `<img class="lb-avatar" src="${avatarMeta.img}" alt="${r.name}" />`
+      ? `<img class="lb-avatar" src="${avatarMeta.img}" alt="${escapeHtml(r.name)}" />`
       : `<div class="lb-rank ${rc}">${i + 1}</div>`;
     row.innerHTML = `
       ${rankEl}
       <div class="lb-info">
-        <div class="lb-name">${r.name} ${isMe ? '(我)' : ''} ${isOnline ? '<span class="online-dot" style="display:inline-block;vertical-align:middle"></span>' : ''}</div>
+        <div class="lb-name">${escapeHtml(r.name)} ${isMe ? '(我)' : ''} ${isOnline ? '<span class="online-dot" style="display:inline-block;vertical-align:middle"></span>' : ''}</div>
         <div class="lb-stats">完成 ${r.settledDays} 天 · 仓库贡献 ${r.warehouse || 0} · 第 ${r.currentDay + 1} 天</div>
         <div class="contribution-materials">${formatMaterialChips(r.materials)}</div>
       </div>
@@ -966,9 +1071,9 @@ function renderActivityFeed() {
   const today = getDateKey();
   getParticipants().forEach(p => {
     const todayState = Object.values(p.dayStates || {}).find(s => s && s.settled && s.settledDate === today);
-    if (todayState) items.push(`${p.name} 今天已登岛`);
+    if (todayState) items.push(`${escapeHtml(p.name)} 今天已登岛`);
     const materialCount = sumCounts(p.warehouseContribution || {});
-    if (materialCount > 0) items.push(`${p.name} 已贡献 ${materialCount} 份仓库材料`);
+    if (materialCount > 0) items.push(`${escapeHtml(p.name)} 已贡献 ${materialCount} 份仓库材料`);
   });
   if (hasPeerSettledToday() && getDayState(currentDayIndex).settled) items.unshift('双人同日登岛，码头送来里数券');
   const next = getNextUnlockTarget();
@@ -1151,7 +1256,7 @@ function renderMapResidents(map) {
     node.className = 'map-resident';
     node.style.setProperty('--x', `${r.x}%`);
     node.style.setProperty('--y', `${r.y}%`);
-    node.innerHTML = `<div class="resident-avatar" style="background:${r.color}">${avatarMarkup(r.avatar, r.name.charAt(0).toUpperCase())}</div><div class="resident-name">${r.name}</div>`;
+    node.innerHTML = `<div class="resident-avatar" style="background:${r.color}">${avatarMarkup(r.avatar, escapeHtml(r.name.charAt(0).toUpperCase()))}</div><div class="resident-name">${escapeHtml(r.name)}</div>`;
     map.appendChild(node);
   });
 }

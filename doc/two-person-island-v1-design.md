@@ -341,7 +341,7 @@ service-worker.js
 InfinityFree 上增加一个轻量重置接口：
 
 ```text
-GET api/reset.php?token=reset-fitness-island
+GET api/reset.php?token=your-long-random-token
 ```
 
 默认 token 只适合私人测试。正式使用时建议在 PHP 环境变量 `FITNESS_ISLAND_RESET_TOKEN` 中设置自己的 token，或者删除 `reset.php`。

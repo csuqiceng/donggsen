@@ -82,6 +82,15 @@ function cleanup_users(array &$state, int $maxUsers, int $staleAfterMs): void {
     }
 }
 
+function normalize_username(string $name): string {
+    $name = trim(preg_replace('/\s+/u', ' ', $name));
+    return $name === '' ? '' : strtolower($name);
+}
+
+function user_key_from_name(string $name): string {
+    return 'name_' . substr(hash('sha256', normalize_username($name)), 0, 24);
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 if ($method !== 'GET' && $method !== 'POST') respond_error(405, 'Method not allowed');
 $handle = fopen($dataFile, 'c+');
@@ -116,22 +125,50 @@ if ($method === 'POST') {
         fclose($handle);
         respond_error(400, 'Missing clientId');
     }
+    $displayName = trim((string)($user['displayName'] ?? $user['username'] ?? ''));
+    if ($displayName === '') {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        respond_error(400, 'Missing username');
+    }
+    $userKey = user_key_from_name($displayName);
 
     $allowed = [
         'clientId', 'username', 'displayName', 'avatar', 'message', 'dayStates', 'currentDayIndex',
         'inventory', 'warehouseContribution', 'collection', 'selectedDifficulty',
-        'lastActive', 'updated'
+        'lastActive', 'updated', 'syncVersion'
     ];
     $clean = [];
     foreach ($allowed as $key) {
         if (array_key_exists($key, $user)) $clean[$key] = $user[$key];
     }
     $clean['clientId'] = $clientId;
+    $clean['userKey'] = $userKey;
+    $clean['username'] = $displayName;
+    $clean['displayName'] = $displayName;
     $clean['lastActive'] = time() * 1000;
     $clean['updated'] = time() * 1000;
 
+    // ── 乐观并发：拒绝旧数据覆盖新数据 ──
+    $incomingVersion = (int)($clean['syncVersion'] ?? 0);
+    $existingUser = $state['users'][$userKey] ?? null;
+    $storedVersion = (int)($existingUser['syncVersion'] ?? 0);
+    if ($existingUser !== null && $incomingVersion < $storedVersion) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        http_response_code(409);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'Stale data rejected (version ' . $incomingVersion . ' < ' . $storedVersion . ')',
+            'version' => $storedVersion,
+            'users' => $state['users']
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $clean['syncVersion'] = $storedVersion + 1;
+
     if (!isset($state['users']) || !is_array($state['users'])) $state['users'] = [];
-    $state['users'][$clientId] = $clean;
+    $state['users'][$userKey] = $clean;
     $state['updatedAt'] = time() * 1000;
     write_state($handle, $state);
 }

@@ -1,9 +1,7 @@
-const CACHE_NAME = 'fitness-island-static-v2';
+const CACHE_NAME = 'fitness-island-static-v4';
 const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './styles.css?v=20260606-sync8',
-  './app.js?v=20260606-sync8',
+  './styles.css?v=20260606-sync18',
+  './app.js?v=20260606-sync18',
   './plan.json',
   './manifest.webmanifest',
   './assets/favicon.svg',
@@ -32,6 +30,10 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.pathname.includes('/api/')) return;
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
       const copy = response.clone();

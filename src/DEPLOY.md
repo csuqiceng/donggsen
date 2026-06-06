@@ -20,8 +20,8 @@ Smoke tests after upload:
 
 ```text
 https://your-domain/api/state.php
-https://your-domain/app.js?v=20260606-sync20
-https://your-domain/styles.css?v=20260606-sync20
+https://your-domain/app.js
+https://your-domain/styles.css
 https://your-domain/manifest.webmanifest
 ```
 
@@ -79,10 +79,4 @@ Edge cases:
 
 If the static page and PHP API are deployed to different domains, set `FITNESS_ISLAND_ALLOWED_ORIGIN` to the page origin. Use `*` only for private testing.
 
-If a phone still shows old UI, open:
-
-```text
-https://your-domain/?v=sync20
-```
-
-Then refresh once. The app also registers a service worker, so browser site data may need to be cleared after large updates.
+The app no longer registers a Service Worker while it is under active development. `index.html` also unregisters old Service Workers so phones stop using stale cached JS/CSS. If a phone still shows old UI after this change, refresh twice or clear browser site data once; later deployments should update with normal refreshes.

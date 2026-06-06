@@ -15,6 +15,11 @@ const DIFFICULTIES = {
   standard: { label: '标准', multiplier: 2, hint: '按今天计划完成，奖励稳定。' },
   challenge: { label: '挑战', multiplier: 3, hint: '状态好再选，可能触发稀有彩蛋。' }
 };
+const PLAN_MODES = {
+  recovery: { label: '恢复路线', hint: '只守住出现，适合状态一般的日子。', bonus: 0 },
+  standard: { label: '标准路线', hint: '按原计划推进小基地建设。', bonus: 1 },
+  power: { label: '强化路线', hint: '完成后更容易拿到建设材料。', bonus: 2 }
+};
 const ITEMS = {
   branch: ['树枝', '🌿', './assets/acnh-icons/branch.png'],
   wood: ['木材', '🪵', './assets/acnh-icons/wood.png'],
@@ -31,11 +36,25 @@ const ITEMS = {
   goldenLeaf: ['金色树叶', '🍂']
 };
 const BUILDINGS = [
-  { id: 'resident_services_tent', name: '服务处帐篷', icon: '⛺', need: 0, metric: 'checkins', x: 49, y: 43, desc: '小基地的入口，记录两个人今天有没有登岛。', reward: '默认开放，负责查看今日状态。' },
-  { id: 'storage', name: '收纳仓库', icon: '📦', img: './assets/acnh-icons/storage.png', need: 3, metric: 'checkins', x: 25, y: 34, desc: '把打卡得到的木材、石头和贝壳存进共同仓库。', reward: '累计打卡 3 天后开放仓库进度。' },
-  { id: 'nook_stop', name: '狸端机', icon: '🏧', img: './assets/acnh-icons/nookMilesTicket.png', need: 5, metric: 'checkins', x: 70, y: 33, desc: '用连续出现换里数券，适合当作双人同日登岛奖励。', reward: '累计打卡 5 天后开放里数券提示。' },
-  { id: 'museum', name: '博物馆', icon: '🏛', img: './assets/acnh-icons/museum.png', need: 10, metric: 'collection', x: 34, y: 66, desc: '收藏材料、建筑和隐藏任务，逐步补齐图鉴。', reward: '图鉴发现 10 项后解锁博物馆。' },
-  { id: 'pier', name: '海边码头', icon: '🌊', img: './assets/acnh-icons/shell.png', need: 120, metric: 'minutes', x: 74, y: 73, desc: '训练分钟数累计到一定程度后，海边会出现新的奖励点。', reward: '累计训练 120 分钟后开放码头。' }
+  { id: 'resident_services_tent', name: '服务处帐篷', icon: '⛺', need: 0, metric: 'checkins', coopNeed: 0, x: 49, y: 43, desc: '小基地的入口，记录两个人今天有没有登岛。', reward: '默认开放，负责查看今日状态。' },
+  { id: 'storage', name: '收纳仓库', icon: '📦', img: './assets/acnh-icons/storage.png', need: 3, metric: 'checkins', coopNeed: 1, x: 25, y: 34, desc: '把打卡得到的木材、石头和贝壳存进共同仓库。', reward: '累计打卡 3 天后开放仓库进度。' },
+  { id: 'nook_stop', name: '狸端机', icon: '🏧', img: './assets/acnh-icons/nookMilesTicket.png', need: 5, metric: 'checkins', coopNeed: 1, x: 70, y: 33, desc: '用连续出现换里数券，适合当作双人同日登岛奖励。', reward: '累计打卡 5 天后开放里数券提示。' },
+  { id: 'museum', name: '博物馆', icon: '🏛', img: './assets/acnh-icons/museum.png', need: 10, metric: 'collection', coopNeed: 2, x: 34, y: 66, desc: '收藏材料、建筑和隐藏任务，逐步补齐图鉴。', reward: '图鉴发现 10 项后解锁博物馆，需要两个人都贡献过。' },
+  { id: 'pier', name: '海边码头', icon: '🌊', img: './assets/acnh-icons/shell.png', need: 120, metric: 'minutes', coopNeed: 2, x: 74, y: 73, desc: '训练分钟数累计到一定程度后，海边会出现新的奖励点。', reward: '累计训练 120 分钟后开放码头，需要两个人都登岛过。' }
+];
+const GIFT_RULES = [
+  { id: 'milk_tea', title: '奶茶券', icon: '🧋', scope: 'personal', desc: '连续出现的小奖励。', target: '个人完成 3 次打卡。' },
+  { id: 'dinner_together', title: '一起吃饭券', icon: '🍲', scope: 'coop', desc: '两个人同一天都登岛后解锁。', target: '双人同日登岛 2 次。' },
+  { id: 'weekend_gift', title: '周末小礼物', icon: '🎁', scope: 'coop', desc: '一周稳定出现的包裹。', target: '本周两人合计完成 8 次。' },
+  { id: 'wish_pick', title: '任选心愿一次', icon: '🌟', scope: 'personal', desc: '挑战状态很好时使用。', target: '挑战难度完整完成 3 次。' },
+  { id: 'welcome_back', title: '欢迎回岛礼', icon: '🌈', scope: 'personal', desc: '休息后回来也值得被看见。', target: '休息记录后再次完成一次。' },
+  { id: 'base_decor', title: '小基地装修礼', icon: '🏡', scope: 'coop', desc: '共同仓库材料换一个真实小装饰。', target: '共同仓库材料达到 30。' }
+];
+const DECOR_ITEMS = [
+  { id: 'flower_sign', name: '花丛告示牌', icon: '🌼', cost: { wood: 1, weed: 2 }, x: 36, y: 49, desc: '给服务处旁边立一个小标记。' },
+  { id: 'shell_lamp', name: '贝壳灯', icon: '🐚', cost: { shell: 2, stone: 1 }, x: 80, y: 62, desc: '晚上在海边亮起来。' },
+  { id: 'camp_chair', name: '露营椅', icon: '🪑', cost: { wood: 2, softwood: 1 }, x: 43, y: 70, desc: '两个人的小基地休息点。' },
+  { id: 'star_tile', name: '星星地砖', icon: '⭐', cost: { starFragment: 1, stone: 1 }, x: 57, y: 37, desc: '夜间彩蛋留下的闪光。' }
 ];
 
 // ── State ──
@@ -45,6 +64,7 @@ let currentDayIndex = 0;
 let dayStates = {};
 let username = '';
 let clientId = getClientId();
+let selfUserKey = '';
 let userAvatar = getRandomAvatar();
 let userMessage = '';
 let peers = {}; // other users' data from shared PHP JSON storage
@@ -52,8 +72,16 @@ let syncVersion = 0; // 服务端版本号，用于乐观并发控制
 let inventory = createInventory();
 let warehouseContribution = createWarehouse();
 let collection = { discovered: ['resident_services_tent'], completed: [] };
+let giftClaims = {};
+let sharedGiftClaims = {};
+let wishList = [];
+let wishLists = {};
+let sharedDecor = {};
+let mailboxEntries = [];
+let sharedEvents = {};
 let activeView = 'today';
 let selectedDifficulty = 'standard';
+let selectedPlanMode = 'standard';
 let collectionFilter = 'all';
 let queuedBuildUpdates = [];
 let syncTimer = null;
@@ -140,6 +168,7 @@ async function initApp() {
 
 function resetUserSessionState() {
   clientId = getClientId();
+  selfUserKey = '';
   userAvatar = getRandomAvatar();
   userMessage = '';
   peers = {};
@@ -147,10 +176,18 @@ function resetUserSessionState() {
   inventory = createInventory();
   warehouseContribution = createWarehouse();
   collection = { discovered: ['resident_services_tent'], completed: [] };
+  giftClaims = {};
+  sharedGiftClaims = {};
+  wishList = [];
+  wishLists = {};
+  sharedDecor = {};
+  mailboxEntries = [];
+  sharedEvents = {};
   dayStates = {};
   currentDayIndex = 0;
   activeView = 'today';
   selectedDifficulty = 'standard';
+  selectedPlanMode = 'standard';
   collectionFilter = 'all';
   queuedBuildUpdates = [];
   syncState = { status: 'syncing', lastAt: null };
@@ -249,6 +286,7 @@ function getDayState(i) {
   if (!dayStates[i]) dayStates[i] = { checked: new Set(), settled: false, missed: false, difficulty: selectedDifficulty, score: 0, rewards: [], hiddenTasks: [], settledAt: null, settledDate: null, missedAt: null, missedDate: null };
   if (!dayStates[i].checked) dayStates[i].checked = new Set();
   if (!dayStates[i].difficulty) dayStates[i].difficulty = selectedDifficulty;
+  if (!dayStates[i].planMode) dayStates[i].planMode = selectedPlanMode;
   if (!dayStates[i].rewards) dayStates[i].rewards = [];
   if (!dayStates[i].hiddenTasks) dayStates[i].hiddenTasks = [];
   if (!('settledDate' in dayStates[i])) dayStates[i].settledDate = null;
@@ -268,6 +306,85 @@ function createWarehouse() {
 
 function normalizeCounts(base, saved) {
   return { ...base, ...(saved || {}) };
+}
+
+function normalizeGiftClaims(saved) {
+  const out = {};
+  Object.entries(saved || {}).forEach(([id, claim]) => {
+    const ruleId = String(claim?.ruleId || id).split('__')[0];
+    if (!GIFT_RULES.some(rule => rule.id === ruleId) || !claim || typeof claim !== 'object') return;
+    out[id] = {
+      id: String(claim.id || id),
+      ruleId,
+      ownerKey: String(claim.ownerKey || ''),
+      ownerName: String(claim.ownerName || ''),
+      status: ['requested', 'redeemed'].includes(claim.status) ? claim.status : 'requested',
+      requestedAt: Number(claim.requestedAt || 0),
+      redeemedAt: Number(claim.redeemedAt || 0),
+      redeemedBy: String(claim.redeemedBy || ''),
+      updatedAt: Number(claim.updatedAt || claim.redeemedAt || claim.requestedAt || 0)
+    };
+  });
+  return out;
+}
+
+function normalizeWishLists(saved) {
+  const out = {};
+  Object.entries(saved || {}).forEach(([key, entry]) => {
+    if (!entry || typeof entry !== 'object') return;
+    const items = Array.isArray(entry.items)
+      ? entry.items.map(item => String(item || '').trim()).filter(Boolean).slice(0, 5)
+      : [];
+    out[key] = {
+      ownerKey: String(entry.ownerKey || key),
+      ownerName: String(entry.ownerName || '伙伴'),
+      items,
+      updatedAt: Number(entry.updatedAt || 0)
+    };
+  });
+  return out;
+}
+
+function normalizeDecor(saved) {
+  const out = {};
+  Object.entries(saved || {}).forEach(([id, item]) => {
+    const meta = DECOR_ITEMS.find(d => d.id === id || d.id === item?.id);
+    if (!meta || !item || typeof item !== 'object') return;
+    out[meta.id] = {
+      id: meta.id,
+      ownerKey: String(item.ownerKey || ''),
+      ownerName: String(item.ownerName || ''),
+      placedAt: Number(item.placedAt || item.updatedAt || 0),
+      updatedAt: Number(item.updatedAt || item.placedAt || 0)
+    };
+  });
+  return out;
+}
+
+function normalizeMailbox(saved) {
+  return (Array.isArray(saved) ? saved : []).map(entry => ({
+    id: String(entry?.id || ''),
+    authorKey: String(entry?.authorKey || ''),
+    authorName: String(entry?.authorName || '伙伴'),
+    text: String(entry?.text || '').slice(0, 80),
+    createdAt: Number(entry?.createdAt || 0)
+  })).filter(entry => entry.text).slice(-20);
+}
+
+function normalizeSharedEvents(saved) {
+  const out = {};
+  Object.entries(saved || {}).forEach(([id, event]) => {
+    if (!event || typeof event !== 'object') return;
+    out[id] = {
+      id: String(event.id || id),
+      type: String(event.type || 'weekly'),
+      title: String(event.title || '周结算'),
+      summary: String(event.summary || '').slice(0, 120),
+      createdBy: String(event.createdBy || ''),
+      createdAt: Number(event.createdAt || 0)
+    };
+  });
+  return out;
 }
 
 function discover(id) {
@@ -302,7 +419,7 @@ function saveLocal() {
 function createArchivePayload() {
   const out = {};
   for (const [k, v] of Object.entries(dayStates)) {
-    out[k] = { checked: [...v.checked], settled: v.settled, missed: !!v.missed, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null, missedAt: v.missedAt || null, missedDate: v.missedDate || null };
+    out[k] = { checked: [...v.checked], settled: v.settled, missed: !!v.missed, difficulty: v.difficulty || selectedDifficulty, planMode: v.planMode || selectedPlanMode, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null, missedAt: v.missedAt || null, missedDate: v.missedDate || null };
   }
   return {
     version: 3,
@@ -316,7 +433,12 @@ function createArchivePayload() {
     inventory,
     warehouseContribution,
     collection,
+    giftClaims,
+    sharedGiftClaims,
+    wishList,
+    sharedDecor,
     selectedDifficulty,
+    selectedPlanMode,
     activeView
   };
 }
@@ -331,6 +453,7 @@ function applyArchivePayload(saved) {
       settled: v.settled || false,
       missed: v.missed || false,
       difficulty: v.difficulty || selectedDifficulty,
+      planMode: v.planMode || selectedPlanMode,
       score: v.score || 0,
       rewards: v.rewards || [],
       hiddenTasks: v.hiddenTasks || [],
@@ -344,7 +467,12 @@ function applyArchivePayload(saved) {
   inventory = normalizeCounts(createInventory(), saved.inventory);
   warehouseContribution = normalizeCounts(createWarehouse(), saved.warehouseContribution);
   collection = { discovered: saved.collection?.discovered || ['resident_services_tent'], completed: saved.collection?.completed || [] };
+  giftClaims = normalizeGiftClaims(saved.giftClaims);
+  sharedGiftClaims = normalizeGiftClaims(saved.sharedGiftClaims);
+  wishList = Array.isArray(saved.wishList) ? saved.wishList.map(item => String(item || '').trim()).filter(Boolean).slice(0, 5) : [];
+  sharedDecor = normalizeDecor(saved.sharedDecor);
   selectedDifficulty = saved.selectedDifficulty || 'standard';
+  selectedPlanMode = saved.selectedPlanMode || 'standard';
   if (saved.userAvatar && getAvatarMeta(saved.userAvatar)) {
     userAvatar = saved.userAvatar;
   }
@@ -358,7 +486,7 @@ function applyArchivePayload(saved) {
 function getSerializableStates() {
   const out = {};
   for (const [k, v] of Object.entries(dayStates)) {
-    out[k] = { checked: [...v.checked], settled: v.settled, missed: !!v.missed, difficulty: v.difficulty || selectedDifficulty, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null, missedAt: v.missedAt || null, missedDate: v.missedDate || null };
+    out[k] = { checked: [...v.checked], settled: v.settled, missed: !!v.missed, difficulty: v.difficulty || selectedDifficulty, planMode: v.planMode || selectedPlanMode, score: v.score || 0, rewards: v.rewards || [], hiddenTasks: v.hiddenTasks || [], settledAt: v.settledAt || null, settledDate: v.settledDate || null, missedAt: v.missedAt || null, missedDate: v.missedDate || null };
   }
   return out;
 }
@@ -375,22 +503,26 @@ function createSyncRecord() {
     inventory: inventory,
     warehouseContribution: warehouseContribution,
     collection: collection,
+    giftClaims: giftClaims,
     selectedDifficulty: selectedDifficulty,
+    selectedPlanMode: selectedPlanMode,
     lastActive: Date.now(),
     updated: Date.now(),
     syncVersion: syncVersion
   };
 }
 
-async function syncMyState() {
+async function syncMyState(sharedPatch = null) {
   if (!username) return;
   try {
     setSyncStatus('syncing');
+    const payload = { room: ROOM_KEY, user: createSyncRecord() };
+    if (sharedPatch && typeof sharedPatch === 'object') payload.shared = sharedPatch;
     const res = await fetch(SYNC_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
-      body: JSON.stringify({ room: ROOM_KEY, user: createSyncRecord() })
+      body: JSON.stringify(payload)
     });
     if (res.status === 409) {
       // 服务端拒绝：数据过旧，读取最新版本并恢复自己的数据
@@ -400,7 +532,8 @@ async function syncMyState() {
         await recoverConflictFromServer();
         return;
       }
-      recoverConflictPayload(body);
+      const recovered = recoverConflictPayload(body);
+      if (recovered && sharedPatch) await retrySharedPatchAfterConflict(sharedPatch);
       return;
     }
     if (!res.ok) throw new Error(`sync ${res.status}`);
@@ -408,12 +541,19 @@ async function syncMyState() {
     // 更新自己的版本号（服务端会 +1 后返回）
     const myData = findSelfRecord(body.users || {});
     if (myData?.syncVersion) syncVersion = myData.syncVersion;
+    if (myData?.userKey) selfUserKey = myData.userKey;
     applySharedState(body);
     setSyncStatus('ok');
   } catch (err) {
     setSyncStatus('fail');
     console.warn('Sync failed:', err);
   }
+}
+
+async function syncSharedPatch(patch) {
+  if (!(await ensureStableUserKey())) return false;
+  await syncMyState(patch);
+  return true;
 }
 
 async function pullSelfFromServer() {
@@ -425,6 +565,7 @@ async function pullSelfFromServer() {
     const serverSelf = findSelfRecord(body.users || {});
     if (serverSelf) {
       syncVersion = getConflictVersion(body, serverSelf);
+      if (serverSelf.userKey) selfUserKey = serverSelf.userKey;
       restoreSelfFromServer(serverSelf);
       if (serverSelf.avatar && getAvatarMeta(serverSelf.avatar)) userAvatar = serverSelf.avatar;
       if (typeof serverSelf.message === 'string') userMessage = serverSelf.message.slice(0, 40);
@@ -443,12 +584,47 @@ function recoverConflictPayload(payload) {
   const serverSelf = findSelfRecord(payload?.users || {});
   if (serverSelf) {
     syncVersion = getConflictVersion(payload, serverSelf);
+    if (serverSelf.userKey) selfUserKey = serverSelf.userKey;
     restoreSelfFromServer(serverSelf);
   }
   applySharedState(payload);
   findTodayIndex();
   render();
   setSyncStatus(serverSelf ? 'ok' : 'fail');
+  return !!serverSelf;
+}
+
+async function retrySharedPatchAfterConflict(sharedPatch) {
+  if (!sharedPatch) return false;
+  try {
+    const retryPayload = { room: ROOM_KEY, user: createSyncRecord(), shared: sharedPatch };
+    const res = await fetch(SYNC_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify(retryPayload)
+    });
+    if (!res.ok) throw new Error(`sync retry ${res.status}`);
+    const body = await res.json();
+    const myData = findSelfRecord(body.users || {});
+    if (myData?.syncVersion) syncVersion = myData.syncVersion;
+    if (myData?.userKey) selfUserKey = myData.userKey;
+    applySharedState(body);
+    setSyncStatus('ok');
+    return true;
+  } catch (err) {
+    setSyncStatus('fail');
+    console.warn('Shared patch retry failed:', err);
+    return false;
+  }
+}
+
+async function ensureStableUserKey() {
+  if (selfUserKey) return true;
+  await pullSelfFromServer();
+  if (selfUserKey) return true;
+  await syncMyState();
+  return !!selfUserKey;
 }
 
 function getConflictVersion(payload, serverSelf) {
@@ -522,12 +698,37 @@ function findSelfRecord(users) {
   return Object.entries(users || {}).find(([id, data]) => isSelfRecord(id, data))?.[1] || null;
 }
 
+function getSelfUserKey(users = null) {
+  const serverSelf = users ? findSelfRecord(users) : null;
+  if (serverSelf?.userKey) selfUserKey = serverSelf.userKey;
+  if (selfUserKey) return selfUserKey;
+  return serverSelf?.userKey || `name_${encodeURIComponent(normalizeName(username))}`;
+}
+
+function getParticipantKey(participant) {
+  if (participant?.userKey) return participant.userKey;
+  return `name_${encodeURIComponent(normalizeName(participant?.name || username))}`;
+}
+
+function getGiftClaimId(ruleId, participant = getParticipants()[0]) {
+  return `${ruleId}__${encodeURIComponent(getParticipantKey(participant))}`;
+}
+
 function applySharedState(payload) {
   const users = payload?.users || {};
+  const shared = normalizeRemoteObject(payload?.shared, {});
+  sharedGiftClaims = normalizeGiftClaims(normalizeRemoteObject(shared.giftClaims, {}));
+  wishLists = normalizeWishLists(normalizeRemoteObject(shared.wishLists, {}));
+  sharedDecor = normalizeDecor(normalizeRemoteObject(shared.decor, {}));
+  mailboxEntries = normalizeMailbox(normalizeRemoteObject(shared.mailbox, []));
+  sharedEvents = normalizeSharedEvents(normalizeRemoteObject(shared.events, {}));
+  const selfKey = getSelfUserKey(users);
+  if (wishLists[selfKey]) wishList = [...wishLists[selfKey].items];
   const nextPeers = {};
   Object.entries(users).forEach(([id, data]) => {
     if (!data || isSelfRecord(id, data)) return;
     nextPeers[id] = {
+      userKey: data.userKey || id,
       name: data.displayName || data.username || id,
       avatar: data.avatar || '',
       message: typeof data.message === 'string' ? data.message.slice(0, 40) : '',
@@ -536,7 +737,9 @@ function applySharedState(payload) {
       inventory: normalizeCounts(createInventory(), normalizeRemoteObject(data.inventory, {})),
       warehouseContribution: normalizeCounts(createWarehouse(), normalizeRemoteObject(data.warehouseContribution, {})),
       collection: normalizeRemoteObject(data.collection, { discovered: [], completed: [] }),
+      giftClaims: normalizeGiftClaims(normalizeRemoteObject(data.giftClaims, {})),
       selectedDifficulty: data.selectedDifficulty || 'standard',
+      selectedPlanMode: data.selectedPlanMode || 'standard',
       lastActive: data.lastActive || 0
     };
   });
@@ -547,6 +750,7 @@ function applySharedState(payload) {
   renderBuddies();
   renderLeaderboard();
   renderIsland();
+  renderGiftDock();
   retroactiveHiddenCheck();
 }
 
@@ -575,6 +779,7 @@ function restoreSelfFromServer(serverSelf) {
       if (Number.isFinite(Number(s.score))) dayStates[i].score = Number(s.score) || 0;
       if (Array.isArray(s.rewards)) dayStates[i].rewards = [...s.rewards];
       if (s.difficulty) dayStates[i].difficulty = s.difficulty;
+      if (s.planMode) dayStates[i].planMode = s.planMode;
     });
   }
   if (serverSelf.inventory) {
@@ -588,6 +793,8 @@ function restoreSelfFromServer(serverSelf) {
       ? [...new Set([...(collection.discovered || []), ...serverSelf.collection.discovered])]
       : (collection.discovered || []);
   }
+  giftClaims = normalizeGiftClaims(serverSelf.giftClaims);
+  selectedPlanMode = serverSelf.selectedPlanMode || selectedPlanMode;
   saveLocal();
 }
 
@@ -622,7 +829,7 @@ function render() {
   const state = getDayState(currentDayIndex);
 
   document.getElementById('userAvatar').innerHTML = avatarMarkup(userAvatar, '🏝');
-  document.getElementById('userDisplayName').textContent = username;
+  document.getElementById('userDisplayName').textContent = `${username} · ${getUserTitle({ dayStates, warehouseContribution, collection, isMe: true })}`;
   document.getElementById('heroDate').textContent = formatDate();
   document.getElementById('heroPrompt').textContent = day.summary || '';
   document.getElementById('heroMinutes').textContent = `${day.minutes || 0} 分钟`;
@@ -641,6 +848,7 @@ function render() {
   renderDifficulty(day, state);
   renderBaseOverview(day, state);
   renderSyncStatus();
+  applyFestivalBonus();
   renderMessageBoard();
   renderAvatarChoices();
   renderReview(day);
@@ -649,6 +857,7 @@ function render() {
   renderLeaderboard();
   renderCoopGoals();
   renderActivityFeed();
+  renderGiftDock();
   renderIsland();
   renderInventory();
   renderCollection();
@@ -686,12 +895,24 @@ function renderMessageBoard() {
   const list = document.getElementById('messageList');
   if (!input || !list) return;
   if (document.activeElement !== input) input.value = userMessage;
-  const notes = [{ name: username, avatar: userAvatar, message: userMessage }].concat(
-    Object.values(peers).map(p => ({ name: p.name || '伙伴', avatar: p.avatar || '', message: p.message || '' }))
+  const legacyNotes = [{ name: username, avatar: userAvatar, message: userMessage, createdAt: 0 }].concat(
+    Object.values(peers).map(p => ({ name: p.name || '伙伴', avatar: p.avatar || '', message: p.message || '', createdAt: 0 }))
   ).filter(note => note.message);
+  const history = mailboxEntries.map(entry => ({
+    name: entry.authorName,
+    avatar: getAvatarForName(entry.authorName),
+    message: entry.text,
+    createdAt: entry.createdAt
+  }));
+  const notes = [...history, ...legacyNotes].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
   list.innerHTML = notes.length ? notes.map(note => `
-    <div class="message-note">${avatarMarkup(note.avatar, '🏝')}<strong>${escapeHtml(note.name)}</strong><span>${escapeHtml(note.message)}</span></div>
+    <div class="message-note">${avatarMarkup(note.avatar, '🏝')}<strong>${escapeHtml(note.name)}</strong><span>${escapeHtml(note.message)}</span>${note.createdAt ? `<small>${formatShortDate(note.createdAt)}</small>` : ''}</div>
   `).join('') : '<div class="message-note"><span>还没有留言</span></div>';
+}
+
+function getAvatarForName(name) {
+  if (normalizeName(name) === normalizeName(username)) return userAvatar;
+  return Object.values(peers).find(p => normalizeName(p.name) === normalizeName(name))?.avatar || '';
 }
 
 function renderAvatarChoices() {
@@ -808,10 +1029,17 @@ function renderDifficulty(day, state) {
     btn.disabled = !!state.settled || !canCheckInDay(currentDayIndex);
   });
   const diff = DIFFICULTIES[currentDifficulty] || DIFFICULTIES.standard;
-  const fullScore = (day.exercises.length || 0) * diff.multiplier;
+  const mode = PLAN_MODES[selectedPlanMode] || PLAN_MODES.standard;
+  const fullScore = (day.exercises.length || 0) * diff.multiplier + mode.bonus;
   const preview = document.getElementById('rewardPreview');
-  preview.innerHTML = `<div class="reward-line"><span>${diff.label}奖励</span><span>${fullScore} 积分 · ${diff.multiplier} 份材料</span></div>`;
+  preview.innerHTML = `<div class="reward-line"><span>${diff.label}奖励 · ${mode.label}</span><span>${fullScore} 积分 · ${diff.multiplier + mode.bonus} 份材料</span></div>`;
   document.getElementById('hiddenQuestHint').textContent = getHiddenQuestHint(currentDifficulty, day);
+  document.querySelectorAll('#planModeSelector .plan-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.planMode === selectedPlanMode);
+    btn.disabled = !!state.settled || !canCheckInDay(currentDayIndex);
+  });
+  const hint = document.getElementById('planModeHint');
+  if (hint) hint.textContent = mode.hint;
 }
 
 function renderBaseOverview(day, state) {
@@ -868,13 +1096,16 @@ function getHiddenQuestStatuses(day, state) {
   const hour = new Date().getHours();
   const difficulty = state.difficulty || selectedDifficulty;
   const fullDone = state.checked.size >= (day.exercises.length || 0);
-  return [
+  const festival = getFestivalToday();
+  const statuses = [
     { id: 'starFragment', name: '夜海星光', found: collection.discovered.includes('starFragment'), ready: hour >= 20 || hour < 5, clue: '夜色落下后，海边有时会闪一下。' },
     { id: 'same_day_checkin', name: '同日登岛', found: collection.discovered.includes('same_day_checkin'), ready: hasPeerSettledToday(), clue: '两位岛民同一天盖章，码头会送来船票。' },
     { id: 'bells_bag', name: '铃钱袋', found: collection.discovered.includes('bells_bag'), ready: difficulty === 'challenge' && fullDone, clue: '状态很好时走完整条挑战路线，铃声会更响。' },
     { id: 'goldenLeaf', name: '金色树叶', found: collection.discovered.includes('goldenLeaf'), ready: difficulty === 'easy' && countRecentDifficulty('easy') >= 2, clue: '轻轻地连续出现几天，树叶可能变成金色。' },
     { id: 'museum_entry', name: '博物馆条目', found: collection.discovered.includes('museum_entry'), ready: !!day.review && fullDone, clue: '复盘日完整盖章，博物馆会添一条记录。' }
   ];
+  if (festival) statuses.push({ id: festival.id, name: festival.name, found: collection.discovered.includes(festival.id), ready: state.settled, clue: `今天岛上有${festival.name}的传闻。` });
+  return statuses;
 }
 
 function renderHiddenStatus(item) {
@@ -924,7 +1155,7 @@ function renderBuddies() {
     card.innerHTML = `
       <div class="buddy-avatar" style="background:${color}">${avatarMarkup(p.avatar, name.charAt(0).toUpperCase())}</div>
       <div class="buddy-info">
-        <div class="buddy-name">${escapeHtml(name)} ${isOnline ? '<span class="online-dot"></span>' : '<span class="offline-dot"></span>'}</div>
+        <div class="buddy-name">${escapeHtml(name)} · ${escapeHtml(getUserTitle(p))} ${isOnline ? '<span class="online-dot"></span>' : '<span class="offline-dot"></span>'}</div>
         <div class="buddy-status">${statusText} · 累计 ${settledDays} 天</div>
         ${p.message ? `<div class="buddy-message">${escapeHtml(p.message)}</div>` : ''}
         <div class="buddy-progress"><div class="buddy-progress-fill" style="width:${pct}%;background:${color}"></div></div>
@@ -946,7 +1177,7 @@ function renderLeaderboard() {
     if (s.settled) mySettled++;
     myScore += s.score || 0;
   });
-  rows.push({ name: username, isMe: true, avatar: userAvatar, settledDays: mySettled, totalChecked: myChecked, totalScore: myScore, currentDay: currentDayIndex, lastActive: Date.now(), warehouse: sumCounts(warehouseContribution), materials: warehouseContribution });
+  rows.push({ name: username, isMe: true, avatar: userAvatar, settledDays: mySettled, totalChecked: myChecked, totalScore: myScore, currentDay: currentDayIndex, lastActive: Date.now(), warehouse: sumCounts(warehouseContribution), materials: warehouseContribution, title: getUserTitle({ dayStates, warehouseContribution, collection }) });
 
   // Add peers
   Object.entries(peers).forEach(([id, p]) => {
@@ -959,7 +1190,7 @@ function renderLeaderboard() {
         score += ds[i].score || 0;
       }
     });
-    rows.push({ name: p.name || id, isMe: false, avatar: p.avatar || '', settledDays: settled, totalChecked: checked, totalScore: score, currentDay: p.currentDayIndex || 0, lastActive: p.lastActive || 0, warehouse: sumCounts(p.warehouseContribution || {}), materials: p.warehouseContribution || {} });
+    rows.push({ name: p.name || id, isMe: false, avatar: p.avatar || '', settledDays: settled, totalChecked: checked, totalScore: score, currentDay: p.currentDayIndex || 0, lastActive: p.lastActive || 0, warehouse: sumCounts(p.warehouseContribution || {}), materials: p.warehouseContribution || {}, title: getUserTitle(p) });
   });
 
   const rankings = rows.map(r => ({
@@ -984,7 +1215,7 @@ function renderLeaderboard() {
     row.innerHTML = `
       ${rankEl}
       <div class="lb-info">
-        <div class="lb-name">${escapeHtml(r.name)} ${isMe ? '(我)' : ''} ${isOnline ? '<span class="online-dot" style="display:inline-block;vertical-align:middle"></span>' : ''}</div>
+        <div class="lb-name">${escapeHtml(r.name)} ${isMe ? '(我)' : ''} · ${escapeHtml(r.title || getUserTitle({ dayStates, warehouseContribution, collection }))} ${isOnline ? '<span class="online-dot" style="display:inline-block;vertical-align:middle"></span>' : ''}</div>
         <div class="lb-stats">完成 ${r.settledDays} 天 · 仓库贡献 ${r.warehouse || 0} · 第 ${r.currentDay + 1} 天</div>
         <div class="contribution-materials">${formatMaterialChips(r.materials)}</div>
       </div>
@@ -1008,8 +1239,8 @@ function formatMaterialChips(materials) {
 
 function getParticipants() {
   return [
-    { name: username, avatar: userAvatar, dayStates, warehouseContribution, collection, isMe: true },
-    ...Object.values(peers).map(p => ({ name: p.name || '伙伴', avatar: p.avatar || '', dayStates: p.dayStates || {}, warehouseContribution: p.warehouseContribution || {}, collection: p.collection || {}, isMe: false }))
+    { userKey: getSelfUserKey(), name: username, avatar: userAvatar, dayStates, warehouseContribution, collection, giftClaims, isMe: true },
+    ...Object.values(peers).map(p => ({ userKey: p.userKey || '', name: p.name || '伙伴', avatar: p.avatar || '', dayStates: p.dayStates || {}, warehouseContribution: p.warehouseContribution || {}, collection: p.collection || {}, giftClaims: p.giftClaims || {}, isMe: false }))
   ];
 }
 
@@ -1036,6 +1267,175 @@ function countSameDayCheckins(range = getCurrentWeekRange()) {
   return count;
 }
 
+function getGiftProgress(rule, participant = getParticipants()[0]) {
+  const states = participant.dayStates || {};
+  const range = getCurrentWeekRange();
+  if (rule.id === 'milk_tea') {
+    return { value: countSettledStates(states), target: 3 };
+  }
+  if (rule.id === 'dinner_together') {
+    return { value: countSameDayCheckins(range), target: 2 };
+  }
+  if (rule.id === 'weekend_gift') {
+    const value = getParticipants().reduce((sum, p) => sum + countWeekSettled(p.dayStates, range), 0);
+    return { value, target: 8 };
+  }
+  if (rule.id === 'wish_pick') {
+    const value = Object.values(states || {}).filter((s, index) => {
+      const day = allDays[index];
+      const total = day?.exercises?.length || 0;
+      const checked = Array.isArray(s?.checked) ? s.checked.length : s?.checked?.size || 0;
+      return s?.settled && s.difficulty === 'challenge' && checked >= total;
+    }).length;
+    return { value, target: 3 };
+  }
+  if (rule.id === 'welcome_back') {
+    let sawRest = false;
+    let returned = false;
+    Object.keys(states || {}).map(Number).sort((a, b) => a - b).forEach(index => {
+      const s = states[index];
+      if (s?.missed) sawRest = true;
+      if (sawRest && s?.settled) returned = true;
+    });
+    return { value: returned ? 1 : 0, target: 1 };
+  }
+  if (rule.id === 'base_decor') {
+    return { value: sumCounts(getSharedWarehouse()), target: 30 };
+  }
+  return { value: 0, target: 1 };
+}
+
+function isGiftUnlocked(rule, participant = getParticipants()[0]) {
+  const progress = getGiftProgress(rule, participant);
+  return progress.value >= progress.target;
+}
+
+function renderGiftCard(rule, participant, isMine) {
+  const progress = getGiftProgress(rule, participant);
+  const unlocked = progress.value >= progress.target;
+  const claimId = getGiftClaimId(rule.id, participant);
+  const claim = sharedGiftClaims[claimId] || (participant.isMe ? giftClaims[rule.id] : participant.giftClaims?.[rule.id]) || null;
+  const pct = Math.min(100, Math.round(progress.value / progress.target * 100));
+  let action = `<button class="gift-action" type="button" disabled>${unlocked ? '可申请' : '未解锁'}</button>`;
+  if (isMine && unlocked && !claim) action = `<button class="gift-action" type="button" data-gift-request="${rule.id}">申请兑换</button>`;
+  else if (claim?.status === 'requested' && isMine) action = '<button class="gift-action pending" type="button" disabled>等待对方兑现</button>';
+  else if (claim?.status === 'requested') action = `<button class="gift-action" type="button" data-gift-redeem="${escapeHtml(claimId)}">确认兑现</button>`;
+  else if (claim?.status === 'redeemed') action = '<button class="gift-action done" type="button" disabled>已兑现</button>';
+  return `<div class="gift-card ${unlocked ? 'unlocked' : 'locked'}">
+    <div class="gift-top"><span class="gift-icon">${rule.icon}</span><div><strong>${escapeHtml(rule.title)}</strong><small>${escapeHtml(rule.scope === 'coop' ? '双人奖励' : '个人奖励')}</small></div></div>
+    <p>${escapeHtml(rule.desc)}</p>
+    <div class="gift-target">${escapeHtml(rule.target)}</div>
+    <div class="gift-bar"><span style="width:${pct}%"></span></div>
+    <div class="gift-foot"><span>${progress.value}/${progress.target}</span>${action}</div>
+  </div>`;
+}
+
+function renderGiftDock() {
+  const dock = document.getElementById('giftDock');
+  const peerDock = document.getElementById('giftPeerDock');
+  const history = document.getElementById('giftHistory');
+  if (!dock || !peerDock || !history) return;
+  const me = getParticipants()[0];
+  dock.innerHTML = GIFT_RULES.map(rule => renderGiftCard(rule, me, true)).join('');
+  renderWishPanel();
+  const peerCards = [];
+  Object.values(peers).forEach(peer => {
+    const participant = { userKey: peer.userKey || '', name: peer.name || '伙伴', dayStates: peer.dayStates || {}, warehouseContribution: peer.warehouseContribution || {}, collection: peer.collection || {}, giftClaims: peer.giftClaims || {}, isMe: false };
+    GIFT_RULES.forEach(rule => {
+      const claim = sharedGiftClaims[getGiftClaimId(rule.id, participant)] || participant.giftClaims?.[rule.id];
+      if (claim?.status === 'requested') peerCards.push(renderGiftCard(rule, participant, false));
+    });
+  });
+  peerDock.innerHTML = peerCards.length ? peerCards.join('') : '<div class="gift-empty">暂时没有待兑现包裹</div>';
+  const redeemed = [];
+  getParticipants().forEach(p => {
+    const claims = { ...(p.isMe ? giftClaims : p.giftClaims || {}) };
+    GIFT_RULES.forEach(rule => {
+      const sharedClaim = sharedGiftClaims[getGiftClaimId(rule.id, p)];
+      if (sharedClaim) claims[rule.id] = sharedClaim;
+    });
+    Object.entries(claims).forEach(([id, claim]) => {
+      if (claim.status !== 'redeemed') return;
+      const rule = GIFT_RULES.find(r => r.id === (claim.ruleId || id));
+      if (rule) redeemed.push({ name: p.name, title: rule.title, at: claim.redeemedAt || claim.requestedAt || 0 });
+    });
+  });
+  redeemed.sort((a, b) => b.at - a.at);
+  history.innerHTML = redeemed.length
+    ? redeemed.slice(0, 6).map(item => `<div class="gift-history-item"><span>${escapeHtml(item.name)} · ${escapeHtml(item.title)}</span><small>${formatShortDate(item.at)}</small></div>`).join('')
+    : '<div class="gift-empty">兑现后会留下记录</div>';
+}
+
+function renderWishPanel() {
+  const list = document.getElementById('wishList');
+  const peerList = document.getElementById('wishPeerList');
+  if (!list || !peerList) return;
+  list.innerHTML = wishList.length
+    ? wishList.map((item, index) => `<button class="wish-chip" type="button" data-wish-remove="${index}">${escapeHtml(item)}<span>×</span></button>`).join('')
+    : '<div class="gift-empty">还没有写心愿</div>';
+  const selfKey = getSelfUserKey();
+  const peerEntries = Object.entries(wishLists).filter(([key]) => key !== selfKey);
+  peerList.innerHTML = peerEntries.length
+    ? peerEntries.map(([, entry]) => `<div class="wish-peer"><strong>${escapeHtml(entry.ownerName || '伙伴')}</strong><span>${entry.items.map(escapeHtml).join('、') || '还没写心愿'}</span></div>`).join('')
+    : '<div class="gift-empty">对方心愿会显示在这里</div>';
+}
+
+function formatShortDate(ts) {
+  if (!ts) return '刚刚';
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+async function handleGiftRequest(ruleId) {
+  if (!(await ensureStableUserKey())) { showToast('同步身份中，请稍后再试'); return; }
+  const rule = GIFT_RULES.find(r => r.id === ruleId);
+  const me = getParticipants()[0];
+  const claimId = getGiftClaimId(ruleId, me);
+  if (!rule || sharedGiftClaims[claimId] || giftClaims[ruleId] || !isGiftUnlocked(rule)) return;
+  const claim = { id: claimId, ruleId, ownerKey: getParticipantKey(me), ownerName: username, status: 'requested', requestedAt: Date.now(), redeemedAt: 0, redeemedBy: '' };
+  sharedGiftClaims[claimId] = claim;
+  giftClaims[ruleId] = { status: 'requested', requestedAt: claim.requestedAt, redeemedAt: 0, redeemedBy: '' };
+  discover(`gift_${ruleId}`);
+  saveLocal();
+  await syncSharedPatch({ giftClaim: claim });
+  renderGiftDock();
+  renderCollection();
+  showToast(`${rule.title} 已放进码头包裹`);
+}
+
+async function handleGiftRedeem(claimId) {
+  const claim = sharedGiftClaims[claimId];
+  const rule = GIFT_RULES.find(r => r.id === claim?.ruleId);
+  if (!claim || claim.status !== 'requested' || !rule) return;
+  sharedGiftClaims[claimId].status = 'redeemed';
+  sharedGiftClaims[claimId].redeemedAt = Date.now();
+  sharedGiftClaims[claimId].redeemedBy = username;
+  const updated = { ...sharedGiftClaims[claimId] };
+  discover(`gift_${rule.id}`);
+  saveLocal();
+  await syncSharedPatch({ giftClaim: updated });
+  renderGiftDock();
+  renderCollection();
+  showToast(`${rule.title} 已记录兑现`);
+}
+
+async function handleWishAdd() {
+  const input = document.getElementById('wishInput');
+  const value = (input?.value || '').trim().slice(0, 40);
+  if (!value) return;
+  wishList = [...new Set([...wishList, value])].slice(0, 5);
+  if (input) input.value = '';
+  await syncSharedPatch({ wishList });
+  renderGiftDock();
+  showToast('心愿已放进码头');
+}
+
+async function handleWishRemove(index) {
+  wishList = wishList.filter((_, i) => i !== index);
+  await syncSharedPatch({ wishList });
+  renderGiftDock();
+}
+
 function renderCoopGoals() {
   const lead = document.getElementById('coopGoal');
   const list = document.getElementById('coopGoalList');
@@ -1059,6 +1459,48 @@ function renderCoopGoals() {
       <div class="coop-goal-bar"><div class="coop-goal-fill" style="width:${pct}%"></div></div>
     </div>`;
   }).join('');
+  renderWeeklyEvents(weeklyCheckins, sameDay, warehouseTotal);
+}
+
+function renderWeeklyEvents(weeklyCheckins = 0, sameDay = 0, warehouseTotal = 0) {
+  const list = document.getElementById('weeklyEventList');
+  const btn = document.getElementById('weeklySettleBtn');
+  if (!list || !btn) return;
+  const currentId = getWeeklyEventId();
+  btn.disabled = !!sharedEvents[currentId];
+  btn.textContent = sharedEvents[currentId] ? '本周已结算' : '生成本周结算';
+  btn.dataset.weeklyCheckins = String(weeklyCheckins);
+  btn.dataset.sameDay = String(sameDay);
+  btn.dataset.warehouseTotal = String(warehouseTotal);
+  const events = Object.values(sharedEvents).filter(e => e.type === 'weekly').sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
+  list.innerHTML = events.length
+    ? events.map(e => `<div class="weekly-event"><strong>${escapeHtml(e.title)}</strong><span>${escapeHtml(e.summary)}</span><small>${formatShortDate(e.createdAt)}</small></div>`).join('')
+    : '<div class="gift-empty">本周结算后会出现公告</div>';
+}
+
+function getWeeklyEventId() {
+  const range = getCurrentWeekRange();
+  return `weekly_${range.wi}_${getDateKey().slice(0, 7)}`;
+}
+
+async function handleWeeklySettlement() {
+  if (!(await ensureStableUserKey())) { showToast('同步身份中，请稍后再试'); return; }
+  const range = getCurrentWeekRange();
+  const participants = getParticipants();
+  const weeklyCheckins = participants.reduce((sum, p) => sum + countWeekSettled(p.dayStates, range), 0);
+  const sameDay = countSameDayCheckins(range);
+  const warehouseTotal = sumCounts(getSharedWarehouse());
+  const event = {
+    id: getWeeklyEventId(),
+    type: 'weekly',
+    title: `第 ${range.wi + 1} 周结算`,
+    summary: `本周合计登岛 ${weeklyCheckins} 次，同日登岛 ${sameDay} 次，仓库材料 ${warehouseTotal} 份。`,
+    createdAt: Date.now()
+  };
+  sharedEvents[event.id] = { ...event, createdBy: username };
+  await syncSharedPatch({ weeklyEvent: event });
+  renderCoopGoals();
+  showToast('周结算公告已贴到贡献页');
 }
 
 function renderActivityFeed() {
@@ -1071,6 +1513,8 @@ function renderActivityFeed() {
     if (todayState) items.push(`${escapeHtml(p.name)} 今天已登岛`);
     const materialCount = sumCounts(p.warehouseContribution || {});
     if (materialCount > 0) items.push(`${escapeHtml(p.name)} 已贡献 ${materialCount} 份仓库材料`);
+    const giftCount = Object.values(p.isMe ? giftClaims : p.giftClaims || {}).filter(claim => claim.status === 'redeemed').length;
+    if (giftCount > 0) items.push(`${escapeHtml(p.name)} 已兑现 ${giftCount} 张礼物券`);
   });
   if (hasPeerSettledToday() && getDayState(currentDayIndex).settled) items.unshift('双人同日登岛，码头送来里数券');
   const next = getNextUnlockTarget();
@@ -1111,6 +1555,7 @@ function renderIsland() {
     if (top) deco.style.top = top;
     map.appendChild(deco);
   });
+  renderPlacedDecor(map);
   if (hasPeerSettledToday() && getDayState(currentDayIndex).settled) {
     const bubble = document.createElement('div');
     bubble.className = 'coop-bubble';
@@ -1153,15 +1598,72 @@ function renderIsland() {
     chip.textContent = `${ITEMS[key]?.[0] || key} ${value}`;
     wh.appendChild(chip);
   });
+  renderDecorWorkshop();
+}
+
+function renderPlacedDecor(map) {
+  Object.keys(sharedDecor).forEach(id => {
+    const meta = DECOR_ITEMS.find(item => item.id === id);
+    if (!meta) return;
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.className = 'decor-point';
+    node.style.setProperty('--x', `${meta.x}%`);
+    node.style.setProperty('--y', `${meta.y}%`);
+    node.setAttribute('aria-label', `${meta.name}，由 ${sharedDecor[id].ownerName || '伙伴'} 放置`);
+    node.innerHTML = `<span>${meta.icon}</span>`;
+    node.addEventListener('click', () => showToast(`${meta.name} · ${sharedDecor[id].ownerName || '伙伴'} 放置`));
+    map.appendChild(node);
+  });
+}
+
+function renderDecorWorkshop() {
+  const grid = document.getElementById('decorGrid');
+  if (!grid) return;
+  grid.innerHTML = DECOR_ITEMS.map(item => {
+    const placed = !!sharedDecor[item.id];
+    const ready = canAffordDecor(item);
+    return `<div class="decor-card ${placed ? 'placed' : ''}">
+      <div class="decor-main"><span class="decor-icon">${item.icon}</span><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.desc)}</small></div></div>
+      <div class="decor-cost">${formatDecorCost(item.cost)}</div>
+      <button class="decor-btn" type="button" data-decor-place="${item.id}" ${placed || !ready ? 'disabled' : ''}>${placed ? '已放置' : ready ? '放置' : '材料不足'}</button>
+    </div>`;
+  }).join('');
+}
+
+function formatDecorCost(cost) {
+  return Object.entries(cost || {}).map(([key, value]) => `${ITEMS[key]?.[0] || key} ${inventory[key] || 0}/${value}`).join(' · ');
+}
+
+function canAffordDecor(item) {
+  return Object.entries(item.cost || {}).every(([key, value]) => (inventory[key] || 0) >= value);
+}
+
+async function handlePlaceDecor(id) {
+  if (!(await ensureStableUserKey())) { showToast('同步身份中，请稍后再试'); return; }
+  const item = DECOR_ITEMS.find(d => d.id === id);
+  if (!item || sharedDecor[id] || !canAffordDecor(item)) return;
+  Object.entries(item.cost || {}).forEach(([key, value]) => {
+    inventory[key] = Math.max(0, (inventory[key] || 0) - value);
+  });
+  const placed = { id, ownerName: username, ownerKey: getSelfUserKey(), placedAt: Date.now() };
+  sharedDecor[id] = placed;
+  discover(`decor_${id}`);
+  saveLocal();
+  await syncSharedPatch({ decorItem: placed });
+  render();
+  showToast(`${item.name} 已放到岛上`);
 }
 
 function getBuildingStatus(building, metrics, warehouse = getSharedWarehouse()) {
   const value = building.metric === 'checkins' ? metrics.checkins : building.metric === 'minutes' ? metrics.minutes : metrics.collection;
   const need = building.need || value || 1;
-  const unlocked = value >= building.need;
+  const coopCount = getContributorCount();
+  const coopReady = coopCount >= (building.coopNeed || 0);
+  const unlocked = value >= building.need && coopReady;
   const pct = building.need ? Math.min(100, Math.round(value / building.need * 100)) : 100;
   const material = getMaterialReadiness(building.id, warehouse);
-  return { value, need, unlocked, pct, materialPct: material.pct, materialText: material.text };
+  return { value, need, unlocked, pct, materialPct: material.pct, materialText: material.text, coopCount, coopNeed: building.coopNeed || 0, coopReady };
 }
 
 function getBuildingStatusLabel(status) {
@@ -1197,6 +1699,7 @@ function getMaterialReadiness(id, warehouse) {
 
 function getRemainingText(building, status) {
   if (status.unlocked) return '已经开放，可以查看。';
+  if (!status.coopReady) return `还需要 ${status.coopNeed} 人参与建设，当前 ${status.coopCount}/${status.coopNeed}。`;
   const rest = Math.max(0, building.need - status.value);
   if (building.metric === 'checkins') return `还差 ${rest} 次打卡。`;
   if (building.metric === 'minutes') return `还差 ${rest} 分钟训练。`;
@@ -1214,7 +1717,7 @@ function showIslandPoint(building, status) {
   document.getElementById('islandDetailIcon').innerHTML = iconMarkup(building);
   document.getElementById('islandDetailTitle').textContent = building.name;
   const stage = getBuildingStage(status);
-  document.getElementById('islandDetailMeta').innerHTML = `${getBuildingStatusLabel(status)} · ${stage.label}阶段 · ${metricLabel(building.metric)}<br>${building.desc}<br>${building.reward}<br>${getRemainingText(building, status)}<br>共同材料：${status.materialText}`;
+  document.getElementById('islandDetailMeta').innerHTML = `${getBuildingStatusLabel(status)} · ${stage.label}阶段 · ${metricLabel(building.metric)}<br>${building.desc}<br>${building.reward}<br>${getRemainingText(building, status)}<br>协作人数：${status.coopCount}/${status.coopNeed || 0}<br>共同材料：${status.materialText}`;
   document.getElementById('islandDetailFill').style.width = `${status.pct}%`;
   document.getElementById('islandDetailCount').textContent = building.need ? `进度 ${status.value}/${building.need}` : '进度 100%';
   modal.classList.add('show');
@@ -1289,6 +1792,10 @@ function getSharedWarehouse() {
   return out;
 }
 
+function getContributorCount() {
+  return getParticipants().filter(p => countSettledStates(p.dayStates || {}) > 0 || sumCounts(p.warehouseContribution || {}) > 0).length;
+}
+
 function renderInventory() {
   const grid = document.getElementById('inventoryGrid');
   if (!grid) return;
@@ -1308,9 +1815,15 @@ function renderCollection() {
   const entries = [
     ...Object.entries(ITEMS).map(([id, meta]) => ({ id, name: meta[0], icon: meta[1], img: meta[2], type: '材料' })),
     ...BUILDINGS.map(b => ({ id: b.id, name: b.name, icon: b.icon, img: b.img, type: '建筑' })),
+    ...DECOR_ITEMS.map(d => ({ id: `decor_${d.id}`, name: d.name, icon: d.icon, type: '建筑' })),
+    ...GIFT_RULES.map(g => ({ id: `gift_${g.id}`, name: g.title, icon: g.icon, type: '真实礼物' })),
     { id: 'same_day_checkin', name: '双人同日登岛', icon: '🎫', type: '隐藏任务' },
     { id: 'museum_entry', name: '博物馆图鉴条目', icon: '🏛', type: '隐藏任务' },
-    { id: 'bells_bag', name: '铃钱袋', icon: '🔔', type: '隐藏任务' }
+    { id: 'bells_bag', name: '铃钱袋', icon: '🔔', type: '隐藏任务' },
+    { id: 'festival_new_year', name: '新年烟花', icon: '🎆', type: '隐藏任务' },
+    { id: 'festival_valentine', name: '心意巧克力', icon: '💝', type: '隐藏任务' },
+    { id: 'festival_halloween', name: '南瓜灯', icon: '🎃', type: '隐藏任务' },
+    { id: 'festival_toy_day', name: '玩具日包裹', icon: '🎁', type: '隐藏任务' }
   ];
   grid.innerHTML = '';
   entries.filter(entry => collectionFilter === 'all' || entry.type === collectionFilter).forEach(entry => {
@@ -1372,11 +1885,13 @@ function showDayDetail(index) {
   else if (state.settled) status = `今天到这 ${done}/${total}`;
   const rewards = (state.rewards || []).map(key => ITEMS[key]?.[0] || key).join('、') || '无';
   const hidden = (state.hiddenTasks || []).map(key => ITEMS[key]?.[0] || key).join('、') || '无';
+  const mode = PLAN_MODES[state.planMode || selectedPlanMode] || PLAN_MODES.standard;
   const actions = day.exercises.map((ex, i) => `${state.checked.has(i) ? '✓' : '○'} ${ex[0]} · ${ex[1]}`).join('<br>');
   document.getElementById('dayDetailTitle').textContent = `${getWeekdayLabel(day.dayInWeek)} · ${day.title}`;
   document.getElementById('dayDetailMeta').innerHTML = `
     状态：${status}<br>
     难度：${diff.label}<br>
+    路线：${mode.label}<br>
     分数：${state.score || 0}<br>
     奖励：${rewards}<br>
     隐藏：${hidden}<br>
@@ -1428,6 +1943,44 @@ function calcStreak() {
   return s;
 }
 
+function getUserTitle(participant) {
+  const states = participant.dayStates || {};
+  const settled = countSettledStates(states);
+  const challengeFull = Object.values(states).filter((s, index) => {
+    const total = allDays[index]?.exercises?.length || 0;
+    const checked = Array.isArray(s?.checked) ? s.checked.length : s?.checked?.size || 0;
+    return s?.settled && s.difficulty === 'challenge' && checked >= total;
+  }).length;
+  if (sumCounts(participant.warehouseContribution || {}) >= 20) return '建设代表';
+  if ((participant.collection?.discovered || []).includes('same_day_checkin')) return '同日岛民';
+  if (challengeFull >= 3) return '挑战岛民';
+  if (settled >= 7) return '常驻岛民';
+  if (settled >= 3) return '上岛新星';
+  return '新岛民';
+}
+
+function getFestivalToday() {
+  const md = getDateKey().slice(5);
+  const table = {
+    '01-01': { id: 'festival_new_year', name: '新年烟花', reward: 'nookMilesTicket', text: '新年登岛，码头送来一张里数券。' },
+    '02-14': { id: 'festival_valentine', name: '心意巧克力', reward: 'bells', text: '今天的留言板适合放一颗心意。' },
+    '10-31': { id: 'festival_halloween', name: '南瓜灯', reward: 'clay', text: '万圣夜的小基地多了一点装饰材料。' },
+    '12-25': { id: 'festival_toy_day', name: '玩具日包裹', reward: 'starFragment', text: '玩具日包裹落到岛上。' }
+  };
+  return table[md] || null;
+}
+
+function applyFestivalBonus() {
+  const festival = getFestivalToday();
+  const state = getDayState(currentDayIndex);
+  if (!festival || !state.settled || collection.discovered.includes(festival.id)) return;
+  collection.discovered.push(festival.id);
+  inventory[festival.reward] = (inventory[festival.reward] || 0) + 1;
+  saveLocal();
+  syncMyState();
+  showToast(`${festival.name}：${festival.text}`);
+}
+
 // ── Archive ──
 function renderArchive() {
   const content = document.getElementById('archiveContent');
@@ -1457,15 +2010,17 @@ function renderArchive() {
 function applySettlementRewards(state, day) {
   const difficulty = state.difficulty || selectedDifficulty;
   const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.standard;
+  const mode = PLAN_MODES[state.planMode || selectedPlanMode] || PLAN_MODES.standard;
   const total = day.exercises.length;
   const fullDone = state.checked.size >= total;
   const base = Math.max(1, state.checked.size);
-  const score = base * diff.multiplier;
-  const materialCount = fullDone ? diff.multiplier : 1;
+  const score = base * diff.multiplier + (fullDone ? mode.bonus : 0);
+  const materialCount = fullDone ? diff.multiplier + mode.bonus : 1;
   const rewards = chooseRewards(difficulty, materialCount);
   const hiddenTasks = detectHiddenTasks(difficulty, day, fullDone);
 
   state.difficulty = difficulty;
+  state.planMode = state.planMode || selectedPlanMode;
   state.score = score;
   state.rewards = rewards;
   state.hiddenTasks = hiddenTasks;
@@ -1623,6 +2178,22 @@ document.querySelectorAll('#difficultySelector .difficulty-btn').forEach(btn => 
   });
 });
 
+document.querySelectorAll('#planModeSelector .plan-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const state = getDayState(currentDayIndex);
+    if (state.settled) return;
+    if (!canCheckInDay(currentDayIndex)) {
+      showToast(hasSettledToday() ? '今天已经盖章，明天再继续' : `只能选择${getWeekdayLabel()}路线`);
+      return;
+    }
+    selectedPlanMode = btn.dataset.planMode || 'standard';
+    state.planMode = selectedPlanMode;
+    saveLocal();
+    syncMyState();
+    render();
+  });
+});
+
 document.getElementById('completeBtn').addEventListener('click', handleSettle);
 document.getElementById('completeStrip').addEventListener('click', e => { if (e.target.id !== 'completeBtn') handleSettle(); });
 document.getElementById('restDayBtn').addEventListener('click', handleRestDay);
@@ -1670,7 +2241,8 @@ document.getElementById('messageSaveBtn').addEventListener('click', () => {
   const input = document.getElementById('messageInput');
   userMessage = (input.value || '').trim().slice(0, 40);
   saveLocal();
-  syncMyState();
+  const patch = userMessage ? { mailboxEntry: { id: `mail_${Date.now()}_${clientId.slice(0, 6)}`, text: userMessage, createdAt: Date.now() } } : null;
+  syncMyState(patch);
   renderMessageBoard();
   showToast(userMessage ? '留言已贴上' : '留言已清空');
 });
@@ -1683,6 +2255,33 @@ document.querySelectorAll('#collectionTabs .collection-tab').forEach(btn => {
     renderCollection();
   });
 });
+
+document.getElementById('giftDock')?.addEventListener('click', e => {
+  const requestBtn = e.target.closest('[data-gift-request]');
+  if (requestBtn) {
+    handleGiftRequest(requestBtn.dataset.giftRequest);
+    return;
+  }
+  const redeemBtn = e.target.closest('[data-gift-redeem]');
+  if (redeemBtn) handleGiftRedeem(redeemBtn.dataset.giftRedeem);
+});
+document.getElementById('giftPeerDock')?.addEventListener('click', e => {
+  const redeemBtn = e.target.closest('[data-gift-redeem]');
+  if (redeemBtn) handleGiftRedeem(redeemBtn.dataset.giftRedeem);
+});
+document.getElementById('wishAddBtn')?.addEventListener('click', handleWishAdd);
+document.getElementById('wishInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleWishAdd();
+});
+document.getElementById('wishList')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-wish-remove]');
+  if (btn) handleWishRemove(Number(btn.dataset.wishRemove));
+});
+document.getElementById('decorGrid')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-decor-place]');
+  if (btn) handlePlaceDecor(btn.dataset.decorPlace);
+});
+document.getElementById('weeklySettleBtn')?.addEventListener('click', handleWeeklySettlement);
 
 document.querySelectorAll('.floating-nav .nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {

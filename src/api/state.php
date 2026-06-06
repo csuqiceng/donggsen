@@ -41,8 +41,24 @@ function default_state(string $room): array {
         'version' => 1,
         'room' => $room,
         'updatedAt' => 0,
-        'users' => new stdClass()
+        'users' => new stdClass(),
+        'shared' => [
+            'giftClaims' => new stdClass(),
+            'wishLists' => new stdClass(),
+            'mailbox' => [],
+            'events' => [],
+            'decor' => new stdClass()
+        ]
     ];
+}
+
+function ensure_shared_state(array &$state): void {
+    if (!isset($state['shared']) || !is_array($state['shared'])) $state['shared'] = [];
+    if (!isset($state['shared']['giftClaims']) || !is_array($state['shared']['giftClaims'])) $state['shared']['giftClaims'] = [];
+    if (!isset($state['shared']['wishLists']) || !is_array($state['shared']['wishLists'])) $state['shared']['wishLists'] = [];
+    if (!isset($state['shared']['mailbox']) || !is_array($state['shared']['mailbox'])) $state['shared']['mailbox'] = [];
+    if (!isset($state['shared']['events']) || !is_array($state['shared']['events'])) $state['shared']['events'] = [];
+    if (!isset($state['shared']['decor']) || !is_array($state['shared']['decor'])) $state['shared']['decor'] = [];
 }
 
 function read_state($handle, string $room): array {
@@ -52,6 +68,7 @@ function read_state($handle, string $room): array {
     $state = json_decode($raw, true);
     if (!is_array($state)) return default_state($room);
     if (!isset($state['users']) || !is_array($state['users'])) $state['users'] = [];
+    ensure_shared_state($state);
     $state['ok'] = true;
     $state['room'] = $room;
     return $state;
@@ -89,6 +106,127 @@ function normalize_username(string $name): string {
 
 function user_key_from_name(string $name): string {
     return 'name_' . substr(hash('sha256', normalize_username($name)), 0, 24);
+}
+
+function clean_text(string $value, int $maxLen): string {
+    $value = trim(preg_replace('/\s+/u', ' ', $value));
+    if (function_exists('mb_substr')) return mb_substr($value, 0, $maxLen, 'UTF-8');
+    return substr($value, 0, $maxLen);
+}
+
+function clean_id(string $value): string {
+    return substr(preg_replace('/[^a-zA-Z0-9_.%-]/', '', $value), 0, 96);
+}
+
+function merge_shared_state(array &$state, array $sharedPatch, string $userKey, string $displayName): void {
+    ensure_shared_state($state);
+    $now = time() * 1000;
+
+    if (array_key_exists('wishList', $sharedPatch) && is_array($sharedPatch['wishList'])) {
+        $items = [];
+        foreach ($sharedPatch['wishList'] as $item) {
+            $clean = clean_text((string)$item, 40);
+            if ($clean !== '' && !in_array($clean, $items, true)) $items[] = $clean;
+            if (count($items) >= 5) break;
+        }
+        $state['shared']['wishLists'][$userKey] = [
+            'ownerKey' => $userKey,
+            'ownerName' => $displayName,
+            'items' => $items,
+            'updatedAt' => $now
+        ];
+    }
+
+    if (array_key_exists('giftClaim', $sharedPatch) && is_array($sharedPatch['giftClaim'])) {
+        $claim = $sharedPatch['giftClaim'];
+        $id = clean_id((string)($claim['id'] ?? ''));
+        $ruleId = clean_id((string)($claim['ruleId'] ?? ''));
+        $status = (string)($claim['status'] ?? 'requested');
+        if ($id !== '' && $ruleId !== '' && in_array($status, ['requested', 'redeemed'], true)) {
+            $existing = $state['shared']['giftClaims'][$id] ?? [];
+            if (!is_array($existing)) $existing = [];
+            $ownerKey = clean_id((string)($claim['ownerKey'] ?? ($existing['ownerKey'] ?? $userKey)));
+            $ownerName = clean_text((string)($claim['ownerName'] ?? ($existing['ownerName'] ?? $displayName)), 20);
+            $requestedAt = (int)($claim['requestedAt'] ?? ($existing['requestedAt'] ?? $now));
+            if (($existing['status'] ?? '') === 'redeemed' && $status !== 'redeemed') {
+                // Cannot reopen redeemed gift.
+                return;
+            }
+            if ($status === 'requested' && $ownerKey !== $userKey) {
+                return;
+            }
+            if ($status === 'redeemed') {
+                if (($existing['status'] ?? '') !== 'requested') return;
+                if (($existing['ownerKey'] ?? $ownerKey) === $userKey) {
+                    // Cannot redeem own gift.
+                    return;
+                }
+                $ownerKey = clean_id((string)($existing['ownerKey'] ?? $ownerKey));
+                $ownerName = clean_text((string)($existing['ownerName'] ?? $ownerName), 20);
+                $requestedAt = (int)($existing['requestedAt'] ?? $requestedAt);
+            }
+            $next = [
+                'id' => $id,
+                'ruleId' => $ruleId,
+                'ownerKey' => $ownerKey ?: $userKey,
+                'ownerName' => $ownerName ?: $displayName,
+                'status' => $status,
+                'requestedAt' => $requestedAt,
+                'redeemedAt' => 0,
+                'redeemedBy' => '',
+                'updatedAt' => $now
+            ];
+            if ($status === 'redeemed') {
+                $next['redeemedAt'] = (int)($claim['redeemedAt'] ?? $now);
+                $next['redeemedBy'] = clean_text((string)($claim['redeemedBy'] ?? $displayName), 20);
+            }
+            $state['shared']['giftClaims'][$id] = $next;
+        }
+    }
+
+    if (array_key_exists('decorItem', $sharedPatch) && is_array($sharedPatch['decorItem'])) {
+        $decor = $sharedPatch['decorItem'];
+        $id = clean_id((string)($decor['id'] ?? ''));
+        if ($id !== '') {
+            $state['shared']['decor'][$id] = [
+                'id' => $id,
+                'ownerKey' => $userKey,
+                'ownerName' => $displayName,
+                'placedAt' => (int)($decor['placedAt'] ?? $now),
+                'updatedAt' => $now
+            ];
+        }
+    }
+
+    if (array_key_exists('mailboxEntry', $sharedPatch) && is_array($sharedPatch['mailboxEntry'])) {
+        $entry = $sharedPatch['mailboxEntry'];
+        $text = clean_text((string)($entry['text'] ?? ''), 80);
+        if ($text !== '') {
+            $state['shared']['mailbox'][] = [
+                'id' => clean_id((string)($entry['id'] ?? ('mail_' . $now))),
+                'authorKey' => $userKey,
+                'authorName' => $displayName,
+                'text' => $text,
+                'createdAt' => (int)($entry['createdAt'] ?? $now)
+            ];
+            $state['shared']['mailbox'] = array_slice($state['shared']['mailbox'], -20);
+        }
+    }
+
+    if (array_key_exists('weeklyEvent', $sharedPatch) && is_array($sharedPatch['weeklyEvent'])) {
+        $event = $sharedPatch['weeklyEvent'];
+        $id = clean_id((string)($event['id'] ?? ''));
+        if ($id !== '') {
+            $state['shared']['events'][$id] = [
+                'id' => $id,
+                'type' => clean_id((string)($event['type'] ?? 'weekly')),
+                'title' => clean_text((string)($event['title'] ?? '周结算'), 40),
+                'summary' => clean_text((string)($event['summary'] ?? ''), 120),
+                'createdBy' => $displayName,
+                'createdAt' => (int)($event['createdAt'] ?? $now)
+            ];
+        }
+    }
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -136,7 +274,7 @@ if ($method === 'POST') {
     $allowed = [
         'clientId', 'username', 'displayName', 'avatar', 'message', 'dayStates', 'currentDayIndex',
         'inventory', 'warehouseContribution', 'collection', 'selectedDifficulty',
-        'lastActive', 'updated', 'syncVersion'
+        'selectedPlanMode', 'giftClaims', 'lastActive', 'updated', 'syncVersion'
     ];
     $clean = [];
     foreach ($allowed as $key) {
@@ -161,7 +299,8 @@ if ($method === 'POST') {
             'ok' => false,
             'error' => 'Stale data rejected (version ' . $incomingVersion . ' < ' . $storedVersion . ')',
             'version' => $storedVersion,
-            'users' => $state['users']
+            'users' => $state['users'],
+            'shared' => $state['shared']
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -169,6 +308,9 @@ if ($method === 'POST') {
 
     if (!isset($state['users']) || !is_array($state['users'])) $state['users'] = [];
     $state['users'][$userKey] = $clean;
+    if (isset($input['shared']) && is_array($input['shared'])) {
+        merge_shared_state($state, $input['shared'], $userKey, $displayName);
+    }
     $state['updatedAt'] = time() * 1000;
     write_state($handle, $state);
 }

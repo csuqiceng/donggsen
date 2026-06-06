@@ -6,7 +6,7 @@
 <title>动森训练岛</title>
 <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="stylesheet" href="./styles.css?v=20260606-sync20">
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 
@@ -76,6 +76,12 @@
       <button class="difficulty-btn active" data-difficulty="standard">标准</button>
       <button class="difficulty-btn" data-difficulty="challenge">挑战</button>
     </div>
+    <div class="plan-mode-row" id="planModeSelector">
+      <button class="plan-mode-btn" data-plan-mode="recovery" type="button">恢复路线</button>
+      <button class="plan-mode-btn active" data-plan-mode="standard" type="button">标准路线</button>
+      <button class="plan-mode-btn" data-plan-mode="power" type="button">强化路线</button>
+    </div>
+    <div class="plan-mode-hint" id="planModeHint"></div>
     <div class="reward-preview" id="rewardPreview"></div>
     <div class="hidden-quest" id="hiddenQuestHint"></div>
   </div>
@@ -148,6 +154,10 @@
       <div class="island-status-grid" id="islandStats"></div>
       <div class="island-map" id="islandMap" aria-label="两个人的小基地地图"></div>
       <div class="warehouse-strip" id="warehouseGrid"></div>
+      <div class="decor-workshop">
+        <div class="section-title small">装饰工坊</div>
+        <div class="decor-grid" id="decorGrid"></div>
+      </div>
     </div>
   </section>
 
@@ -176,6 +186,7 @@
         <button class="collection-tab" data-filter="材料">材料</button>
         <button class="collection-tab" data-filter="建筑">建筑</button>
         <button class="collection-tab" data-filter="隐藏任务">隐藏</button>
+        <button class="collection-tab" data-filter="真实礼物">礼物</button>
       </div>
       <div class="collection-grid" id="collectionGrid"></div>
     </div>
@@ -191,9 +202,40 @@
       </div>
       <div class="coop-goal" id="coopGoal">本周一起完成 8 次打卡，给服务处升级</div>
       <div class="coop-goal-list" id="coopGoalList"></div>
+      <div class="weekly-ceremony">
+        <div class="section-title small">周结算仪式</div>
+        <button class="weekly-btn" id="weeklySettleBtn" type="button">生成本周结算</button>
+        <div class="weekly-event-list" id="weeklyEventList"></div>
+      </div>
       <div class="activity-feed" id="activityFeed"></div>
       <div id="weeklyContributionBody"></div>
       <div id="leaderboardBody" style="display:none"></div>
+    </div>
+  </section>
+
+  <section class="app-view" id="viewGift">
+    <div class="gift-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">礼物码头</div>
+          <div class="section-sub">训练成果可以变成真实的小礼物</div>
+        </div>
+      </div>
+      <div class="wish-panel">
+        <div class="section-title small">心愿清单</div>
+        <div class="wish-row">
+          <input class="wish-input" id="wishInput" maxlength="40" placeholder="想要的小礼物">
+          <button class="wish-btn" id="wishAddBtn" type="button">放入</button>
+        </div>
+        <div class="wish-list" id="wishList"></div>
+        <div class="wish-peer-list" id="wishPeerList"></div>
+      </div>
+      <div class="gift-grid" id="giftDock"></div>
+      <div class="gift-peer-section">
+        <div class="section-title small">待兑现包裹</div>
+        <div class="gift-grid compact" id="giftPeerDock"></div>
+      </div>
+      <div class="gift-history" id="giftHistory"></div>
     </div>
   </section>
 
@@ -284,15 +326,18 @@
   <button class="nav-btn" data-view="island" id="navIsland"><span class="nav-icon">🏝</span><span>岛屿</span></button>
   <button class="nav-btn" data-view="bag" id="navBag"><span class="nav-icon">🎒</span><span>背包</span></button>
   <button class="nav-btn" data-view="collection" id="navCollection"><span class="nav-icon">📖</span><span>图鉴</span></button>
+  <button class="nav-btn" data-view="gift" id="navGift"><span class="nav-icon">🎁</span><span>礼物</span></button>
   <button class="nav-btn" data-view="ranking" id="navRanking"><span class="nav-icon">🏆</span><span>贡献</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<script src="./app.js?v=20260606-sync20"></script>
+<script src="./app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+  navigator.serviceWorker.getRegistrations()
+    .then(registrations => registrations.forEach(registration => registration.unregister()))
+    .catch(() => {});
 }
 </script>
 </body>

@@ -1,7 +1,7 @@
-const CACHE_NAME = 'fitness-island-static-v6';
+const CACHE_NAME = 'fitness-island-static-v9';
 const STATIC_ASSETS = [
-  './styles.css?v=20260606-sync20',
-  './app.js?v=20260606-sync20',
+  './styles.css?v=20260606-sync23',
+  './app.js?v=20260606-sync23',
   './plan.json',
   './manifest.webmanifest',
   './assets/favicon.svg',

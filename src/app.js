@@ -477,6 +477,32 @@ function applySharedState(payload) {
   renderBuddies();
   renderLeaderboard();
   renderIsland();
+  retroactiveHiddenCheck();
+}
+
+// ── 回溯检查：结算时对方数据还未到达，补发隐藏任务奖励 ──
+function retroactiveHiddenCheck() {
+  const todayKey = getDateKey();
+  // 找到今天已结算的 dayState
+  let todayIndex = -1, todayState = null;
+  for (let i = 0; i < allDays.length; i++) {
+    const s = getDayState(i);
+    if ((s.settled && s.settledDate === todayKey) || (s.missed && s.missedDate === todayKey)) {
+      todayIndex = i; todayState = s; break;
+    }
+  }
+  if (!todayState || !todayState.settled) return; // 今天没结算，不需要回溯
+  if (todayState.hiddenTasks.includes('same_day_checkin')) return; // 已经拿到了
+
+  // 检查现在是否满足同日登岛条件
+  if (!hasPeerSettledToday()) return;
+
+  // 补发奖励
+  todayState.hiddenTasks.push('same_day_checkin');
+  inventory.nookMilesTicket = (inventory.nookMilesTicket || 0) + 1;
+  if (!collection.discovered.includes('same_day_checkin')) collection.discovered.push('same_day_checkin');
+  saveLocal();
+  showToast('双人同日登岛！补发里数券 x1');
 }
 
 // ── Render ──

@@ -170,7 +170,7 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 .message-input{min-width:0;border:3px solid #d8d0c3;border-radius:999px;background:#fffdf5;padding:10px 14px;font-family:var(--animal-font-family);font-size:14px;font-weight:800;color:var(--animal-text-color);outline:none}
 .message-input:focus{border-color:var(--animal-primary-color)}
 .message-btn{border:3px solid #d8d0c3;border-radius:999px;background:var(--animal-focus-yellow);padding:0 14px;font-family:var(--animal-font-family);font-size:14px;font-weight:900;color:#4a3729;box-shadow:0 4px 0 0 var(--animal-shadow-3d)}
-.message-list{display:grid;gap:7px;margin-top:10px}
+.message-list{display:grid;gap:7px;margin-top:10px;max-height:190px;overflow-y:auto;padding-right:3px;-webkit-overflow-scrolling:touch}
 .message-note{display:flex;align-items:center;gap:8px;border:2px solid #e4dac8;border-radius:18px;background:#fffdf5;padding:8px 10px;color:#6f665e;font-size:12px;font-weight:900}
 .message-note .avatar-img{width:24px;height:24px;flex-shrink:0}
 .message-note strong{color:#4a3729}
@@ -313,6 +313,16 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 .item-card{cursor:url("./assets/animal-island/cursor-icon-small.png") 4 0,pointer;transition:transform .18s,box-shadow .18s}
 .item-card:hover{transform:translateY(-2px);box-shadow:0 6px 0 0 rgba(196,184,168,.75),0 13px 18px rgba(61,52,40,.1)}
 .item-source{margin-top:8px;color:#6f665e;font-size:12px;font-weight:800;line-height:1.45}
+.museum-room-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.museum-room{min-width:0;border:3px solid #e4dac8;border-radius:18px;background:#fffdf5;padding:9px 10px;text-align:left;color:#4a3729;box-shadow:0 4px 0 0 rgba(196,184,168,.75);display:grid;grid-template-columns:auto 1fr auto;column-gap:8px;row-gap:6px;align-items:center;font-family:var(--animal-font-family);transition:transform .18s,box-shadow .18s,border-color .18s}
+.museum-room:hover{transform:translateY(-1px);box-shadow:0 5px 0 0 rgba(196,184,168,.75),0 10px 14px rgba(61,52,40,.08);border-color:var(--animal-primary-color)}
+.museum-room.active{background:#ecfbf7;border-color:var(--animal-primary-color);box-shadow:0 4px 0 0 rgba(89,201,165,.55)}
+.museum-room-icon{width:28px;height:28px;border-radius:11px;background:var(--animal-focus-yellow);display:grid;place-items:center;font-size:16px;box-shadow:0 2px 0 0 var(--animal-focus-yellow-dark)}
+.museum-room-icon .acnh-icon{width:22px;height:22px}
+.museum-room-name{min-width:0;font-size:12px;font-weight:900;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.museum-room-count{font-size:11px;font-weight:900;color:var(--animal-primary-dark);font-family:'SF Mono','Menlo','Consolas',monospace;white-space:nowrap}
+.museum-room-bar{grid-column:1 / -1;height:7px;border-radius:999px;background:#eee5d6;overflow:hidden;box-shadow:inset 0 1px 0 rgba(122,91,52,.1)}
+.museum-room-bar span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--animal-primary-color),var(--animal-focus-yellow))}
 .collection-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:8px;margin-bottom:12px}
 .collection-tab{border:3px solid #d4c9b4;border-radius:999px;background:#fffdf5;color:#6f665e;padding:8px 4px;font-family:var(--animal-font-family);font-size:12px;font-weight:900;box-shadow:0 4px 0 0 var(--animal-shadow-3d)}
 .collection-tab.active{background:var(--animal-focus-yellow);border-color:var(--animal-focus-yellow);color:#4a3729;box-shadow:0 3px 0 0 var(--animal-focus-yellow-dark)}
@@ -352,6 +362,7 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 .wish-peer strong{color:#4a3729}
 .gift-card{border:3px solid #d8d0c3;border-radius:24px;background:#fffdf5;padding:14px;box-shadow:0 5px 0 0 var(--animal-shadow-3d)}
 .gift-card.locked{opacity:.68}
+.wish-gift-card{border-color:var(--animal-focus-yellow);background:linear-gradient(180deg,#fff8d8 0%,#fffdf5 100%)}
 .gift-top{display:flex;align-items:center;gap:10px}
 .gift-icon{width:42px;height:42px;border-radius:16px;background:var(--animal-focus-yellow);display:grid;place-items:center;font-size:24px;box-shadow:0 4px 0 0 var(--animal-focus-yellow-dark)}
 .gift-top strong{display:block;font-size:16px;color:#4a3729}
@@ -430,8 +441,10 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 .avatar-choice.active .avatar-choice-check{display:grid}
 /* 博物馆展柜 */
 .museum-sub{margin:0 0 12px;text-align:center;color:var(--animal-text-color-muted);font-size:12px;font-weight:800;letter-spacing:.05em}
-.museum-cabinet{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.museum-case{display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center;border:3px solid #ebe4d4;border-radius:var(--animal-radius-card);background:linear-gradient(180deg,#fffdf5 0%,var(--animal-bg-content) 100%);padding:12px 14px;box-shadow:0 4px 0 0 rgba(196,184,168,.75),0 8px 14px rgba(61,52,40,.08);color:var(--animal-text-color-muted);min-width:0;text-align:left;transition:transform .18s,box-shadow .18s}
+.museum-sub-spaced{margin-top:14px}
+.museum-modal-rooms{margin-bottom:12px}
+.museum-cabinet{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.museum-case{width:100%;font-family:var(--animal-font-family);display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center;border:3px solid #ebe4d4;border-radius:var(--animal-radius-card);background:linear-gradient(180deg,#fffdf5 0%,var(--animal-bg-content) 100%);padding:12px 14px;box-shadow:0 4px 0 0 rgba(196,184,168,.75),0 8px 14px rgba(61,52,40,.08);color:var(--animal-text-color-muted);min-width:0;text-align:left;transition:transform .18s,box-shadow .18s}
 .museum-case:hover{transform:translateY(-1px);box-shadow:0 5px 0 0 rgba(196,184,168,.75),0 10px 16px rgba(61,52,40,.1)}
 .museum-case.done{border-color:var(--animal-primary-color);background:linear-gradient(180deg,#ecfbf7 0%,#d4f5ee 100%);color:var(--animal-primary-dark);box-shadow:0 4px 0 0 rgba(89,201,165,.55),0 8px 14px rgba(61,52,40,.08)}
 .museum-case.done:hover{box-shadow:0 5px 0 0 rgba(89,201,165,.55),0 10px 16px rgba(61,52,40,.1)}
@@ -476,6 +489,7 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
   .route-node.selected{height:86px}
   .route-node::before{width:30px;height:30px;font-size:16px}
   .island-map{height:390px}
+  .museum-room-grid{grid-template-columns:1fr}
   .map-point{width:74px}
   .map-point-icon{width:48px;height:48px;border-radius:18px}
   .map-point-label{font-size:10px;max-width:78px}

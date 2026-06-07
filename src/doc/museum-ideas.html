@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>博物馆方案草图</title>
+<style>
+  :root {
+    --bg: #77c79d;
+    --paper: #fffaf0;
+    --ink: #4d3828;
+    --muted: #83786a;
+    --line: #dacdbc;
+    --yellow: #ffd45a;
+    --green: #27b99a;
+    --blue: #aee6f3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 16px 16px, rgba(255,255,255,.14) 0 8px, transparent 9px) 0 0/54px 54px,
+      linear-gradient(180deg, #82d4a8 0%, #69bea0 100%);
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 18px 42px; }
+  h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 48px); line-height: 1; text-shadow: 0 5px 0 rgba(70,54,35,.18); }
+  .lead { margin: 0 0 22px; color: #fffaf0; font-weight: 800; text-shadow: 0 2px 0 rgba(70,54,35,.2); }
+  .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .option {
+    background: var(--paper);
+    border: 4px solid var(--line);
+    border-radius: 28px;
+    padding: 14px;
+    box-shadow: 0 7px 0 rgba(86,71,51,.22), 0 15px 24px rgba(55,45,32,.16);
+    min-width: 0;
+  }
+  .tag { display: inline-flex; padding: 5px 10px; border-radius: 999px; background: var(--yellow); font-weight: 900; font-size: 12px; box-shadow: 0 3px 0 #c9a844; }
+  h2 { margin: 12px 0 8px; font-size: 20px; }
+  p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0 0 12px; font-weight: 700; }
+  .phone {
+    width: 100%;
+    aspect-ratio: 9 / 14;
+    border-radius: 28px;
+    background: linear-gradient(180deg, #fdf8e8 0%, #f4edd9 100%);
+    border: 3px solid #cfc3af;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 0 0 5px rgba(255,255,255,.45);
+  }
+  .hall-title { padding: 18px 18px 8px; font-weight: 1000; font-size: 23px; }
+  .hall-sub { padding: 0 18px; color: #8b7d6d; font-size: 11px; font-weight: 900; }
+  .rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 14px; }
+  .room { border: 3px solid #ddd1bf; border-radius: 18px; background: #fffdf5; padding: 10px; min-height: 78px; box-shadow: 0 3px 0 rgba(150,133,111,.35); }
+  .room b { display: block; font-size: 13px; margin-bottom: 8px; }
+  .room .icons { display: flex; gap: 5px; flex-wrap: wrap; }
+  .dot { width: 24px; height: 24px; border-radius: 10px; display: grid; place-items: center; background: #eef7f1; border: 2px solid #cddfd6; font-size: 14px; }
+  .dot.done { background: #d6f5ed; border-color: var(--green); }
+  .exhibit-map { margin: 12px; height: 62%; border-radius: 24px; background: #d9f4ff; border: 3px solid #bad2d9; position: relative; overflow: hidden; }
+  .path { position: absolute; inset: 52px 35px 72px 35px; border: 10px solid #e9dbc2; border-radius: 38px; }
+  .case { position: absolute; width: 54px; height: 54px; border-radius: 18px; background: #fffdf5; border: 3px solid #d7cab7; display: grid; place-items: center; font-size: 25px; box-shadow: 0 4px 0 rgba(110,90,61,.25); }
+  .case.lock { filter: grayscale(1); opacity: .55; }
+  .case:nth-child(2) { left: 34px; top: 46px; }
+  .case:nth-child(3) { right: 34px; top: 46px; }
+  .case:nth-child(4) { left: 34px; bottom: 56px; }
+  .case:nth-child(5) { right: 34px; bottom: 56px; }
+  .progress { position: absolute; left: 18px; right: 18px; bottom: 18px; border-radius: 999px; height: 20px; background: #fffdf5; border: 3px solid #d7cab7; overflow: hidden; }
+  .progress span { display: block; height: 100%; background: repeating-linear-gradient(135deg, #27c5b5 0 14px, #1fb3a8 14px 28px); }
+  .timeline { padding: 12px 15px; display: grid; gap: 9px; }
+  .record { display: grid; grid-template-columns: 42px 1fr; gap: 9px; background: #fffdf5; border: 3px solid #ded2bd; border-radius: 18px; padding: 9px; box-shadow: 0 3px 0 rgba(150,133,111,.35); }
+  .stamp { width: 42px; height: 42px; border-radius: 15px; background: var(--yellow); display: grid; place-items: center; font-size: 21px; box-shadow: 0 3px 0 #c9a844; }
+  .record strong { display: block; font-size: 13px; }
+  .record small { color: #897d70; font-weight: 800; }
+  .take { margin-top: 14px; border-top: 2px dashed #ded2bd; padding-top: 12px; font-size: 13px; font-weight: 800; color: #6d5a42; }
+  @media (max-width: 900px) {
+    .options { grid-template-columns: 1fr; }
+    .phone { aspect-ratio: 9 / 12; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>博物馆改造方向</h1>
+  <p class="lead">目标：不只是一个奖杯弹窗，而是像岛上的一座小博物馆，有展厅、展柜、入馆进度和收藏叙事。</p>
+  <section class="options">
+    <article class="option">
+      <span class="tag">方案 A · 展厅分区</span>
+      <h2>图鉴页变成博物馆大厅</h2>
+      <p>把材料、建筑、隐藏任务、真实礼物、奖杯做成五个展厅。入口先看到大厅，再进入不同展厅看展柜。</p>
+      <div class="phone">
+        <div class="hall-title">博物馆</div>
+        <div class="hall-sub">馆长记录 · 已发现 18 / 52</div>
+        <div class="rooms">
+          <div class="room"><b>材料展厅</b><div class="icons"><span class="dot done">🪵</span><span class="dot done">🪨</span><span class="dot">?</span></div></div>
+          <div class="room"><b>建筑展厅</b><div class="icons"><span class="dot done">⛺</span><span class="dot">?</span><span class="dot">?</span></div></div>
+          <div class="room"><b>隐藏任务</b><div class="icons"><span class="dot done">⭐</span><span class="dot">?</span><span class="dot">?</span></div></div>
+          <div class="room"><b>奖杯展厅</b><div class="icons"><span class="dot done">🏝</span><span class="dot done">🌱</span><span class="dot">?</span></div></div>
+        </div>
+      </div>
+      <div class="take">优点：最容易落地，也最像“馆内分类”。推荐作为第一版。</div>
+    </article>
+    <article class="option">
+      <span class="tag">方案 B · 可逛地图</span>
+      <h2>博物馆内部小地图</h2>
+      <p>点岛上的博物馆后进入内部平面图，展柜摆在房间里。点击展柜查看具体成就、来源、谁贡献的。</p>
+      <div class="phone">
+        <div class="hall-title">馆内地图</div>
+        <div class="hall-sub">点击展柜查看记录</div>
+        <div class="exhibit-map">
+          <div class="path"></div>
+          <div class="case">🏝</div>
+          <div class="case">⭐</div>
+          <div class="case">🎁</div>
+          <div class="case lock">?</div>
+          <div class="progress"><span style="width:58%"></span></div>
+        </div>
+      </div>
+      <div class="take">优点：沉浸感最强。缺点：要多做一套交互和布局。</div>
+    </article>
+    <article class="option">
+      <span class="tag">方案 C · 馆藏时间线</span>
+      <h2>每次发现都是入馆记录</h2>
+      <p>博物馆重点不是分类，而是“我们什么时候一起解锁了什么”。更适合双人纪念册和真实礼物回顾。</p>
+      <div class="phone">
+        <div class="hall-title">馆藏日志</div>
+        <div class="hall-sub">最近入馆的收藏</div>
+        <div class="timeline">
+          <div class="record"><div class="stamp">⭐</div><div><strong>夜海星光</strong><small>周三 21:40 · 你完成挑战</small></div></div>
+          <div class="record"><div class="stamp">🎫</div><div><strong>同日登岛</strong><small>周五 · 两个人都打卡</small></div></div>
+          <div class="record"><div class="stamp">🎁</div><div><strong>奶茶券兑现</strong><small>对方确认已送出</small></div></div>
+          <div class="record"><div class="stamp">🏡</div><div><strong>收纳仓库升级</strong><small>木材和石头达标</small></div></div>
+        </div>
+      </div>
+      <div class="take">优点：双人记忆感强。适合和 A 合并，不建议单独做。</div>
+    </article>
+  </section>
+</main>
+</body>
+</html>

@@ -1,6 +1,7 @@
-const CACHE_NAME = 'fitness-island-static-v11';
+const CACHE_NAME = 'fitness-island-static-v12';
 
 const NETWORK_FIRST_PATHS = [
+  '/config.js',
   '/app.js',
   '/styles.css',
   '/plan.json',
@@ -19,6 +20,7 @@ const CACHE_FIRST_EXTENSIONS = [
 ];
 
 const STATIC_ASSETS = [
+  './config.js',
   './manifest.webmanifest',
   './assets/favicon.svg',
   './assets/animal-island/home-bg.webp',

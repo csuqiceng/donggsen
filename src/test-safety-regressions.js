@@ -4,6 +4,8 @@ const crypto = require('crypto');
 
 const root = __dirname;
 const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const configPath = path.join(root, 'config.js');
+const config = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
 const reset = fs.readFileSync(path.join(root, 'api', 'reset.php'), 'utf8');
@@ -44,11 +46,14 @@ assert(/register\(['"]\.\/service-worker\.js/.test(html), '页面应注册 Servi
 assert(/serviceWorker\.addEventListener\('controllerchange'/.test(html) && /updateNotice/.test(html), '页面应在 Service Worker 更新后提示刷新');
 assert(!/getRegistrations\(\)[\s\S]{0,120}unregister\(\)/.test(html), '页面不应主动注销 Service Worker');
 assert(/<script src="\.\/app\.js"><\/script>/.test(html), 'app.js 应使用固定引用，不带 sync 版本参数');
+assert(/<script src="\.\/config\.js"><\/script>\s*<script src="\.\/app\.js"><\/script>/.test(html), '页面应先加载 config.js 再加载 app.js');
 assert(/href="\.\/styles\.css"/.test(html), 'styles.css 应使用固定引用，不带 sync 版本参数');
 assert(!/sync\d+/.test(html), 'index.html 不应再包含 sync 缓存破坏参数');
-assert(/NETWORK_FIRST_PATHS/.test(sw) && /\/app\.js/.test(sw) && /\/styles\.css/.test(sw) && /\/plan\.json/.test(sw), 'app.js/styles.css/plan.json 应使用 network-first 缓存策略');
+assert(/NETWORK_FIRST_PATHS/.test(sw) && /\/app\.js/.test(sw) && /\/config\.js/.test(sw) && /\/styles\.css/.test(sw) && /\/plan\.json/.test(sw), 'app.js/config.js/styles.css/plan.json 应使用 network-first 缓存策略');
 assert(/CACHE_FIRST_EXTENSIONS/.test(sw) && /svg/.test(sw) && /png/.test(sw) && /webp/.test(sw), '图片和 SVG 应使用 cache-first 缓存策略');
 assert(/skipWaiting\(\)/.test(sw) && /clients\.claim\(\)/.test(sw), '新 Service Worker 应立即安装并接管页面');
+assert(/window\.FITNESS_ISLAND_CONFIG/.test(config) && /ITEMS/.test(config) && /HIDDEN_QUESTS/.test(config), '可维护配置应集中在 config.js');
+assert(!/^const ITEMS\b/m.test(app) && !/^const BUILDINGS\b/m.test(app) && /FITNESS_ISLAND_CONFIG/.test(app), 'app.js 不应内联物品和建筑配置');
 
 assert(!reset.includes("?: 'reset-fitness-island'"), 'reset.php 不应保留公开默认 token');
 assert(!/\blocalStorage\b/.test(app), 'app.js 不应再读取或写入 localStorage');
@@ -59,7 +64,10 @@ assert(/viewGift/.test(html) && /data-view="gift"/.test(html), '页面应包含�
 assert(/'giftClaims'/.test(phpState), '后端应允许同步 giftClaims');
 assert(/'shared'\s*=>/.test(phpState) && /merge_shared_state/.test(phpState), '后端应提供 shared 共享区');
 assert(/sharedGiftClaims/.test(app) && /wishList/.test(app), '前端应有共享礼物和心愿单状态');
-assert(/mirrorOwnWishList/.test(app) && /我的心愿/.test(app), '添加心愿后应进入下方心愿汇总');
+assert(/mirrorOwnWishList/.test(app) && /对方想要/.test(app), '对方心愿应以同样卡片样式放在礼物码头');
+assert(!/wish-peer/.test(app), '上方心愿清单不应再展示任何人的心愿汇总');
+assert(/renderWishGiftCards\(\),\s*\.\.\.GIFT_RULES/.test(app) && /getWishGiftEntries/.test(app) && /Object\.entries\(wishLists\)/.test(app) && !/ownEntries/.test(app), '只有对方已有心愿应插到礼物码头最上方');
+assert(!/还没有写心愿/.test(app) && !/对方心愿会显示在这里/.test(app), '空心愿区域不应显示占位文案');
 assert(/syncSharedPatch/.test(app), '前端应能提交 shared patch');
 assert(/sharedGiftClaims\[claimId\]\.status\s*=\s*'redeemed'/.test(app), '对方确认应更新共享礼物状态');
 assert(/retrySharedPatchAfterConflict/.test(app), '共享补丁遇到 409 后应恢复并重试提交');
@@ -67,6 +75,7 @@ assert(/ensureStableUserKey/.test(app), '共享操作前应确保拿到稳定 us
 assert(/DECOR_ITEMS/.test(app) && /handlePlaceDecor/.test(app) && /sharedDecor/.test(app), '应支持共享岛屿装饰');
 assert(/coopNeed/.test(app) && /getContributorCount/.test(app), '协作建筑应校验参与人数');
 assert(/mailboxEntry/.test(app) && /mailboxEntries/.test(app), '留言板应保留共享历史');
+assert(/\.slice\(0,\s*8\)/.test(app) && /\.message-list\{[^}]*max-height:[^}]*overflow-y:auto/.test(css), '今日留言板应最多渲染 8 条并在列表内滚动');
 assert(/weeklyEvent/.test(app) && /handleWeeklySettlement/.test(app), '应支持每周结算公告');
 assert(!/id="planModeSelector"/.test(html), '页面不应再显示第二排路线模式按钮');
 assert(/getDifficultyDay/.test(app) && /getDifficultyExercises/.test(app), '应按难度生成今日动作内容');
@@ -93,14 +102,18 @@ assert(/clean_text\(\(string\)\(\$event\['summary'\][\s\S]*220\)/.test(phpState)
 assert(/Cannot redeem own gift/.test(phpState) && /Cannot reopen redeemed gift/.test(phpState), '后端应限制礼物自兑和已兑现回退');
 assert(/TROPHIES/.test(app) && /showMuseumTrophies/.test(app), '博物馆应展示成就奖杯');
 assert(/showCollectionDetail/.test(app) && /data-collection-id/.test(app), '图鉴已发现项目应可点击查看详情');
+assert(!/id="museumHall"/.test(html) && !/data-filter="奖杯"/.test(html), '图鉴页不应混入博物馆大厅或奖杯展厅');
+assert(/getMuseumExhibits/.test(app) && /特殊物品展厅/.test(app) && /隐藏传闻展厅/.test(app) && /真实礼物展厅/.test(app) && /奖杯展厅/.test(app), '博物馆应独立展示稀有馆藏展厅');
+assert(/function renderMuseumModalBody/.test(app) && /data-museum-room/.test(app), '博物馆每个稀有展厅都应可点击查看');
+assert(!/材料展厅/.test(app) && !/建筑展厅/.test(app), '博物馆不应把普通材料或普通建筑作为展厅');
 assert(/useItemAction/.test(app) && /handleUseItem/.test(app), '背包物品应有可执行用途');
 assert(/nookMilesTicket/.test(app) && /revealExtraBottleClue/.test(app), '里数券应可用于瓶中信线索');
 assert(/getWeeklySettlementStatus/.test(app), '本周结算应有统一可点击状态判断');
 assert(/getTodayWeekdayIndex\(\)\s*!==\s*6/.test(app) && /周日完成后结算/.test(app), '周一到周六应禁止生成本周结算');
 assert(/先完成今天/.test(app) && /sundayState\.settled/.test(app) && /sundayState\.missed/.test(app), '周日未打卡或未休息时应禁止本周结算');
 assert(/const ok = await syncSharedPatch\(\{ weeklyEvent: event \}\)/.test(app) && /周结算同步失败/.test(app), '本周结算应在同步成功后再本地标记完成');
-assert(/HIDDEN_QUESTS/.test(app) && /tier:\s*'普通'/.test(app) && /tier:\s*'稀有'/.test(app) && /tier:\s*'传说'/.test(app), '隐藏任务应分为普通、稀有、传说');
-assert(/id:\s*'night_star'/.test(app) && !/id:\s*'starFragment',\s*name:\s*'夜海星光'/.test(app), '夜海星光隐藏任务不应复用星星碎片材料 ID');
+assert(/HIDDEN_QUESTS/.test(config) && /tier:\s*'普通'/.test(config) && /tier:\s*'稀有'/.test(config) && /tier:\s*'传说'/.test(config), '隐藏任务应分为普通、稀有、传说');
+assert(/id:\s*'night_star'/.test(config) && !/id:\s*'starFragment',\s*name:\s*'夜海星光'/.test(config), '夜海星光隐藏任务不应复用星星碎片材料 ID');
 assert(/retroactiveHiddenCheck[\s\S]*coop_wood_sign/.test(app) && /retroactiveHiddenCheck[\s\S]*secret_pier_parcel/.test(app), '同日隐藏任务回溯应补全标准同日和挑战同日奖励');
 assert(/applyHiddenTaskEffect/.test(app) && /uniqueTasks\.forEach\(applyHiddenTaskEffect\)/.test(app), '隐藏任务奖励发放应复用统一副作用函数');
 assert(/async function retroactiveHiddenCheck[\s\S]*const synced = await syncMyState\(\)[\s\S]*if \(!synced\)/.test(app), '回溯补发隐藏任务应等待同步成功，失败时回滚');

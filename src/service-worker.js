@@ -1,8 +1,24 @@
-const CACHE_NAME = 'fitness-island-static-v10';
+const CACHE_NAME = 'fitness-island-static-v11';
+
+const NETWORK_FIRST_PATHS = [
+  '/app.js',
+  '/styles.css',
+  '/plan.json',
+  '/manifest.webmanifest'
+];
+
+const CACHE_FIRST_EXTENSIONS = [
+  'svg',
+  'png',
+  'webp',
+  'jpg',
+  'jpeg',
+  'gif',
+  'woff',
+  'woff2'
+];
+
 const STATIC_ASSETS = [
-  './styles.css',
-  './app.js',
-  './plan.json',
   './manifest.webmanifest',
   './assets/favicon.svg',
   './assets/animal-island/home-bg.webp',
@@ -23,7 +39,11 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', event => {
@@ -34,28 +54,49 @@ self.addEventListener('activate', event => {
   );
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
   if (url.pathname.includes('/api/')) return;
+
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request));
     return;
   }
-  if (url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css')) {
-    event.respondWith(
-      fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        return response;
-      }).catch(() => caches.match(event.request))
-    );
+
+  if (NETWORK_FIRST_PATHS.some(path => url.pathname.endsWith(path))) {
+    event.respondWith(networkFirst(event.request));
     return;
   }
-  event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-      return response;
-    }))
-  );
+
+  const ext = url.pathname.split('.').pop().toLowerCase();
+  if (CACHE_FIRST_EXTENSIONS.includes(ext)) {
+    event.respondWith(cacheFirst(event.request));
+  }
 });
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(request, { cache: 'no-store' });
+    if (response && response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch (err) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    throw err;
+  }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response && response.ok) await cache.put(request, response.clone());
+  return response;
+}

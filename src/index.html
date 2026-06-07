@@ -327,13 +327,39 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<button class="update-notice hidden" id="updateNotice" type="button">发现新版本，点击刷新</button>
 
 <script src="./app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations()
-    .then(registrations => registrations.forEach(registration => registration.unregister()))
-    .catch(() => {});
+  const updateNotice = document.getElementById('updateNotice');
+  let refreshing = false;
+
+  navigator.serviceWorker.register('./service-worker.js').then(registration => {
+    registration.addEventListener('updatefound', () => {
+      const worker = registration.installing;
+      if (!worker) return;
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed' && navigator.serviceWorker.controller && updateNotice) {
+          updateNotice.classList.remove('hidden');
+        }
+      });
+    });
+  }).catch(() => {});
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+
+  updateNotice?.addEventListener('click', () => {
+    navigator.serviceWorker.getRegistration().then(registration => {
+      const waiting = registration && registration.waiting;
+      if (waiting) waiting.postMessage({ type: 'SKIP_WAITING' });
+      else window.location.reload();
+    });
+  });
 }
 </script>
 </body>

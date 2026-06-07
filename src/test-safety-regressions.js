@@ -40,11 +40,15 @@ console.log('');
 assert(!sw.includes("'./',") && !sw.includes('"./",'), 'Service Worker 不应预缓存 ./ 壳页面');
 assert(!sw.includes("'./index.html'") && !sw.includes('"./index.html"'), 'Service Worker 不应预缓存 index.html');
 assert(/request\.mode\s*===\s*'navigate'/.test(sw), 'Service Worker 应对导航请求使用网络优先');
-assert(!/register\(['"]\.\/service-worker\.js/.test(html), '开发期页面不应继续注册 Service Worker');
-assert(/getRegistrations\(\)/.test(html) && /unregister\(\)/.test(html), '页面应注销旧 Service Worker');
+assert(/register\(['"]\.\/service-worker\.js/.test(html), '页面应注册 Service Worker 以保留 PWA');
+assert(/serviceWorker\.addEventListener\('controllerchange'/.test(html) && /updateNotice/.test(html), '页面应在 Service Worker 更新后提示刷新');
+assert(!/getRegistrations\(\)[\s\S]{0,120}unregister\(\)/.test(html), '页面不应主动注销 Service Worker');
 assert(/<script src="\.\/app\.js"><\/script>/.test(html), 'app.js 应使用固定引用，不带 sync 版本参数');
 assert(/href="\.\/styles\.css"/.test(html), 'styles.css 应使用固定引用，不带 sync 版本参数');
 assert(!/sync\d+/.test(html), 'index.html 不应再包含 sync 缓存破坏参数');
+assert(/NETWORK_FIRST_PATHS/.test(sw) && /\/app\.js/.test(sw) && /\/styles\.css/.test(sw) && /\/plan\.json/.test(sw), 'app.js/styles.css/plan.json 应使用 network-first 缓存策略');
+assert(/CACHE_FIRST_EXTENSIONS/.test(sw) && /svg/.test(sw) && /png/.test(sw) && /webp/.test(sw), '图片和 SVG 应使用 cache-first 缓存策略');
+assert(/skipWaiting\(\)/.test(sw) && /clients\.claim\(\)/.test(sw), '新 Service Worker 应立即安装并接管页面');
 
 assert(!reset.includes("?: 'reset-fitness-island'"), 'reset.php 不应保留公开默认 token');
 assert(!/\blocalStorage\b/.test(app), 'app.js 不应再读取或写入 localStorage');

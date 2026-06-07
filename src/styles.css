@@ -460,6 +460,8 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--animal-text-color);color:white;padding:10px 22px;border-radius:var(--animal-radius-pill);font-size:14px;font-weight:600;opacity:0;transition:opacity .3s,transform .3s;z-index:950;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.update-notice{position:fixed;left:50%;bottom:112px;transform:translateX(-50%);z-index:980;border:3px solid #d4c9b4;border-radius:999px;background:#fffdf5;color:#4a3729;font-family:var(--animal-font-family);font-size:13px;font-weight:900;padding:9px 18px;box-shadow:0 5px 0 0 var(--animal-shadow-3d);cursor:pointer}
+.update-notice.hidden{display:none}
 
 .footer-sea{height:80px;background:url("./assets/animal-island/footer-sea.svg") left bottom/auto 80px repeat-x;opacity:.92;margin-top:var(--animal-stack-gap)}
 

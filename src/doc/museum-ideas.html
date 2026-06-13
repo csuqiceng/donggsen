@@ -27,6 +27,202 @@
   .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 18px 42px; }
   h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 48px); line-height: 1; text-shadow: 0 5px 0 rgba(70,54,35,.18); }
   .lead { margin: 0 0 22px; color: #fffaf0; font-weight: 800; text-shadow: 0 2px 0 rgba(70,54,35,.2); }
+  .map-reference {
+    margin: 0 0 22px;
+    border: 4px solid rgba(255,250,240,.7);
+    border-radius: 32px;
+    background:
+      radial-gradient(circle at 18% 25%, rgba(255,255,255,.16) 0 14px, transparent 15px),
+      radial-gradient(circle at 80% 66%, rgba(255,255,255,.13) 0 10px, transparent 11px),
+      linear-gradient(180deg, #7bd7cb 0%, #68c7b8 100%);
+    box-shadow: 0 9px 0 rgba(86,71,51,.2), 0 20px 34px rgba(55,45,32,.16);
+    overflow: hidden;
+  }
+  .map-frame {
+    position: relative;
+    min-height: 560px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr) 170px;
+    gap: 18px;
+    padding: 24px;
+  }
+  .resident-panel {
+    border-radius: 42px;
+    background: rgba(46, 158, 142, .32);
+    padding: 18px 18px 22px;
+    align-self: stretch;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 18px;
+  }
+  .resident-title {
+    justify-self: center;
+    min-width: 130px;
+    border-radius: 18px;
+    background: #62bfb2;
+    color: #fffaf0;
+    padding: 10px 18px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 1000;
+    box-shadow: 0 4px 0 rgba(41,106,93,.28);
+  }
+  .resident-grid {
+    align-content: start;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px 18px;
+  }
+  .resident-face {
+    width: 66px;
+    height: 66px;
+    justify-self: center;
+    border-radius: 20px;
+    background: #fff8e8;
+    border: 4px solid rgba(255,255,255,.8);
+    display: grid;
+    place-items: center;
+    font-size: 34px;
+    box-shadow: 0 5px 0 rgba(60,111,95,.25);
+  }
+  .reference-center { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
+  .map-ribbon {
+    justify-self: center;
+    position: relative;
+    min-width: 270px;
+    border-radius: 8px;
+    background: #ffe46d;
+    color: #6d4b22;
+    padding: 15px 34px;
+    text-align: center;
+    font-size: 26px;
+    font-weight: 1000;
+    box-shadow: 0 5px 0 #d1a94e;
+  }
+  .map-ribbon::before,
+  .map-ribbon::after {
+    content: '';
+    position: absolute;
+    top: 18px;
+    width: 48px;
+    height: 38px;
+    background: #d1a94e;
+    z-index: -1;
+  }
+  .map-ribbon::before { left: -30px; transform: skewY(16deg); }
+  .map-ribbon::after { right: -30px; transform: skewY(-16deg); }
+  .island-board {
+    position: relative;
+    align-self: center;
+    min-height: 410px;
+    margin-top: 16px;
+    border-radius: 30% 34% 28% 32% / 24% 24% 34% 34%;
+    background:
+      linear-gradient(rgba(255,255,255,.24) 2px, transparent 2px) 0 0/82px 82px,
+      linear-gradient(90deg, rgba(255,255,255,.24) 2px, transparent 2px) 0 0/82px 82px,
+      radial-gradient(circle at 22% 22%, #7fdc9a 0 12%, transparent 13%),
+      radial-gradient(circle at 72% 24%, #7bd596 0 10%, transparent 11%),
+      linear-gradient(135deg, #92dc8b 0%, #61bf70 100%);
+    box-shadow:
+      inset 0 0 0 22px #f6df96,
+      inset 0 0 0 31px rgba(255,253,245,.42),
+      0 18px 26px rgba(45,91,76,.28);
+    overflow: hidden;
+  }
+  .island-board::before {
+    content: '';
+    position: absolute;
+    left: 38%;
+    top: -6%;
+    width: 18%;
+    height: 110%;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #7eddda, #54c2cd);
+    transform: rotate(13deg);
+    box-shadow: inset 9px 0 0 rgba(255,255,255,.22), 0 0 0 6px rgba(246,223,150,.48);
+  }
+  .island-board::after {
+    content: '';
+    position: absolute;
+    left: 10%;
+    right: 12%;
+    top: 24%;
+    height: 62%;
+    background:
+      linear-gradient(90deg, transparent 0 20%, #d7be86 21% 25%, transparent 26% 100%),
+      linear-gradient(0deg, transparent 0 47%, #d7be86 48% 54%, transparent 55% 100%),
+      linear-gradient(90deg, transparent 0 58%, #d7be86 59% 64%, transparent 65% 100%);
+    opacity: .9;
+  }
+  .grid-label-x,
+  .grid-label-y {
+    position: absolute;
+    z-index: 4;
+    color: rgba(68,90,79,.38);
+    font-weight: 1000;
+  }
+  .grid-label-x { bottom: 20px; font-size: 15px; }
+  .grid-label-y { left: 12px; font-size: 15px; }
+  .pin {
+    position: absolute;
+    z-index: 5;
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: #ffd45a;
+    color: #65451e;
+    font-size: 24px;
+    box-shadow: 0 5px 0 rgba(112,82,38,.34), 0 9px 14px rgba(55,45,32,.14);
+  }
+  .pin.round { border-radius: 50%; background: #5b554a; color: #fffaf0; }
+  .pin.lock { background: #6d665b; color: #fffaf0; }
+  .pin.flag { color: #fffaf0; background: #ef8354; }
+  .building-panel {
+    display: grid;
+    align-content: center;
+    gap: 18px;
+  }
+  .building-icon {
+    width: 108px;
+    height: 74px;
+    justify-self: center;
+    border-radius: 24px 24px 18px 18px;
+    background: #fff8e8;
+    border: 4px solid rgba(255,255,255,.8);
+    display: grid;
+    place-items: center;
+    font-size: 42px;
+    box-shadow: 0 8px 0 rgba(54,103,91,.25);
+  }
+  .map-controls {
+    justify-self: end;
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .control-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: #fff8e8;
+    color: #7a624a;
+    padding: 8px 14px;
+    font-weight: 1000;
+    box-shadow: 0 4px 0 rgba(86,71,51,.22);
+  }
+  .control-key {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #7a624a;
+    color: #fffaf0;
+  }
   .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .option {
     background: var(--paper);
@@ -76,6 +272,12 @@
   @media (max-width: 900px) {
     .options { grid-template-columns: 1fr; }
     .phone { aspect-ratio: 9 / 12; }
+    .map-frame { grid-template-columns: 1fr; min-height: auto; }
+    .resident-panel { display: none; }
+    .building-panel { grid-template-columns: repeat(3, 1fr); align-content: start; }
+    .building-icon { width: 82px; height: 62px; font-size: 34px; }
+    .map-ribbon { min-width: 220px; font-size: 22px; }
+    .island-board { min-height: 380px; }
   }
 </style>
 </head>
@@ -83,6 +285,58 @@
 <main class="wrap">
   <h1>博物馆改造方向</h1>
   <p class="lead">目标：不只是一个奖杯弹窗，而是像岛上的一座小博物馆，有展厅、展柜、入馆进度和收藏叙事。</p>
+  <section class="map-reference" aria-label="岛屿地图参考图">
+    <div class="map-frame">
+      <aside class="resident-panel">
+        <div class="resident-title">各位居民</div>
+        <div class="resident-grid">
+          <div class="resident-face">🙂</div>
+          <div class="resident-face">🦊</div>
+          <div class="resident-face">🐻</div>
+          <div class="resident-face">🐧</div>
+          <div class="resident-face">🐼</div>
+          <div class="resident-face">🐰</div>
+          <div class="resident-face">🐸</div>
+          <div class="resident-face">🐯</div>
+          <div class="resident-face">🐹</div>
+        </div>
+      </aside>
+      <div class="reference-center">
+        <div class="map-ribbon">训练岛地图</div>
+        <div class="island-board">
+          <span class="grid-label-y" style="top:22%">A</span>
+          <span class="grid-label-y" style="top:38%">B</span>
+          <span class="grid-label-y" style="top:54%">C</span>
+          <span class="grid-label-y" style="top:70%">D</span>
+          <span class="grid-label-x" style="left:18%">1</span>
+          <span class="grid-label-x" style="left:34%">2</span>
+          <span class="grid-label-x" style="left:50%">3</span>
+          <span class="grid-label-x" style="left:66%">4</span>
+          <button class="pin flag" style="left:9%;top:22%" aria-label="入口点位">●</button>
+          <button class="pin" style="left:27%;top:55%" aria-label="服务处帐篷">⌂</button>
+          <button class="pin" style="left:38%;top:46%" aria-label="收纳仓库">▣</button>
+          <button class="pin" style="left:61%;top:31%" aria-label="狸端机">▦</button>
+          <button class="pin" style="left:64%;top:62%" aria-label="博物馆">🏛</button>
+          <button class="pin round" style="left:74%;top:76%" aria-label="海边码头">⚓</button>
+          <button class="pin round" style="left:51%;top:80%" aria-label="机场">✈</button>
+          <button class="pin round" style="left:22%;top:72%" aria-label="贝壳灯">🐚</button>
+          <button class="pin round" style="left:35%;top:70%" aria-label="露营椅">🪑</button>
+          <button class="pin lock" style="left:82%;top:63%" aria-label="未解锁点位">?</button>
+        </div>
+        <div class="map-controls">
+          <span class="control-pill"><span class="control-key">X</span>迷你地图</span>
+          <span class="control-pill"><span class="control-key">B</span>关闭</span>
+        </div>
+      </div>
+      <aside class="building-panel" aria-label="建筑图标参考">
+        <div class="building-icon">🏛</div>
+        <div class="building-icon">🏪</div>
+        <div class="building-icon">🏠</div>
+        <div class="building-icon">⛺</div>
+        <div class="building-icon">🚤</div>
+      </aside>
+    </div>
+  </section>
   <section class="options">
     <article class="option">
       <span class="tag">方案 A · 展厅分区</span>

@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $maxBodyBytes = 262144;
 $maxUsers = 8;
 $staleAfterMs = 14 * 24 * 60 * 60 * 1000;
+const FIXED_USERS = ['哥哥', '乖宝'];
 $room = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['room'] ?? 'fitness-island-v1');
 $dataDir = dirname(__DIR__) . '/data';
 $dataFile = $dataDir . '/' . $room . '.json';
@@ -45,6 +46,7 @@ function default_state(string $room): array {
         'shared' => [
             'giftClaims' => new stdClass(),
             'wishLists' => new stdClass(),
+            'wishFulfillments' => new stdClass(),
             'mailbox' => [],
             'events' => [],
             'decor' => new stdClass()
@@ -56,6 +58,7 @@ function ensure_shared_state(array &$state): void {
     if (!isset($state['shared']) || !is_array($state['shared'])) $state['shared'] = [];
     if (!isset($state['shared']['giftClaims']) || !is_array($state['shared']['giftClaims'])) $state['shared']['giftClaims'] = [];
     if (!isset($state['shared']['wishLists']) || !is_array($state['shared']['wishLists'])) $state['shared']['wishLists'] = [];
+    if (!isset($state['shared']['wishFulfillments']) || !is_array($state['shared']['wishFulfillments'])) $state['shared']['wishFulfillments'] = [];
     if (!isset($state['shared']['mailbox']) || !is_array($state['shared']['mailbox'])) $state['shared']['mailbox'] = [];
     if (!isset($state['shared']['events']) || !is_array($state['shared']['events'])) $state['shared']['events'] = [];
     if (!isset($state['shared']['decor']) || !is_array($state['shared']['decor'])) $state['shared']['decor'] = [];
@@ -88,6 +91,10 @@ function cleanup_users(array &$state, int $maxUsers, int $staleAfterMs): void {
     }
     $nowMs = time() * 1000;
     foreach ($state['users'] as $id => $user) {
+        if (!is_allowed_username((string)($user['displayName'] ?? $user['username'] ?? ''))) {
+            unset($state['users'][$id]);
+            continue;
+        }
         $lastActive = (int)($user['lastActive'] ?? $user['updated'] ?? 0);
         if ($lastActive > 0 && ($nowMs - $lastActive) > $staleAfterMs) unset($state['users'][$id]);
     }
@@ -102,6 +109,10 @@ function cleanup_users(array &$state, int $maxUsers, int $staleAfterMs): void {
 function normalize_username(string $name): string {
     $name = trim(preg_replace('/\s+/u', ' ', $name));
     return $name === '' ? '' : strtolower($name);
+}
+
+function is_allowed_username(string $name): bool {
+    return in_array(normalize_username($name), array_map('normalize_username', FIXED_USERS), true);
 }
 
 function user_key_from_name(string $name): string {
@@ -181,6 +192,30 @@ function merge_shared_state(array &$state, array $sharedPatch, string $userKey, 
                 $next['redeemedBy'] = clean_text((string)($claim['redeemedBy'] ?? $displayName), 20);
             }
             $state['shared']['giftClaims'][$id] = $next;
+        }
+    }
+
+    if (array_key_exists('wishFulfillment', $sharedPatch) && is_array($sharedPatch['wishFulfillment'])) {
+        $entry = $sharedPatch['wishFulfillment'];
+        $id = clean_id((string)($entry['id'] ?? ''));
+        $item = clean_text((string)($entry['item'] ?? ''), 40);
+        $ownerKey = clean_id((string)($entry['ownerKey'] ?? ''));
+        $ownerName = clean_text((string)($entry['ownerName'] ?? '伙伴'), 20);
+        if ($id !== '' && $item !== '' && $ownerKey !== '' && $ownerKey !== $userKey) {
+            if (isset($state['shared']['wishFulfillments'][$id])) return;
+            $ownerList = $state['shared']['wishLists'][$ownerKey]['items'] ?? [];
+            if (!is_array($ownerList) || !in_array($item, $ownerList, true)) return;
+            $state['shared']['wishFulfillments'][$id] = [
+                'id' => $id,
+                'item' => $item,
+                'ownerKey' => $ownerKey,
+                'ownerName' => $ownerName,
+                'fulfilledByKey' => $userKey,
+                'fulfilledByName' => $displayName,
+                'fulfilledAt' => (int)($entry['fulfilledAt'] ?? $now),
+                'status' => 'fulfilled',
+                'updatedAt' => $now
+            ];
         }
     }
 
@@ -268,6 +303,11 @@ if ($method === 'POST') {
         flock($handle, LOCK_UN);
         fclose($handle);
         respond_error(400, 'Missing username');
+    }
+    if (!is_allowed_username($displayName)) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        respond_error(403, 'User is not allowed');
     }
     $userKey = user_key_from_name($displayName);
 

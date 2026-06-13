@@ -22,9 +22,11 @@
   <div class="name-card">
     <div class="name-stamp">🏝</div>
     <h2>欢迎来到训练岛</h2>
-    <p>输入你的名字，开始冒险</p>
-    <input class="name-input" id="nameInput" placeholder="你的名字" maxlength="20" autocomplete="off">
-    <button class="name-btn" id="nameBtn">登岛</button>
+    <p>选择岛民，开始冒险</p>
+    <div class="user-choice-grid" id="userChoiceButtons">
+      <button class="name-btn user-choice-btn" type="button" data-username="哥哥">哥哥</button>
+      <button class="name-btn user-choice-btn" type="button" data-username="乖宝">乖宝</button>
+    </div>
   </div>
 </div>
 
@@ -257,6 +259,17 @@
       <button class="modal-btn secondary" id="archiveImportBtn">导入存档</button>
       <input type="file" id="archiveImportInput" accept="application/json,.json" hidden>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="islandMapModal">
+  <div class="modal-card island-map-modal">
+    <div class="reward-title">岛屿地图</div>
+    <p class="item-detail-meta">可以上下左右滑动查看，点建筑继续查看详情。</p>
+    <div class="island-map-scroll">
+      <div class="island-map large-island-map" id="islandMapLarge" aria-label="放大的两个人小基地地图"></div>
+    </div>
+    <button class="modal-btn" id="islandMapCloseBtn">关闭</button>
   </div>
 </div>
 

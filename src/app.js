@@ -5,6 +5,7 @@ if (!CONFIG) throw new Error('Fitness Island config missing: load config.js befo
 const {
   ROOM_KEY,
   SYNC_API,
+  FIXED_USERS,
   ANIMALS,
   COLORS,
   AVATARS,
@@ -38,6 +39,7 @@ let giftClaims = {};
 let sharedGiftClaims = {};
 let wishList = [];
 let wishLists = {};
+let wishFulfillments = {};
 let sharedDecor = {};
 let mailboxEntries = [];
 let sharedEvents = {};
@@ -67,16 +69,21 @@ function getClientId() {
 }
 
 const nameOverlay = document.getElementById('nameOverlay');
-const nameInput = document.getElementById('nameInput');
-const nameBtn = document.getElementById('nameBtn');
+const userChoiceButtons = document.getElementById('userChoiceButtons');
 
-nameInput.focus();
-nameBtn.addEventListener('click', submitName);
-nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
+function isAllowedUserName(name) {
+  return FIXED_USERS.some(item => normalizeName(item) === normalizeName(name));
+}
 
-async function submitName() {
-  const n = nameInput.value.trim();
-  if (!n) { nameInput.style.borderColor = 'var(--animal-error-color)'; return; }
+userChoiceButtons?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-username]');
+  if (!btn) return;
+  submitName(btn.dataset.username);
+});
+
+async function submitName(name) {
+  const n = String(name || '').trim();
+  if (!isAllowedUserName(n)) return;
   resetUserSessionState();
   username = n;
   nameOverlay.classList.add('hidden');
@@ -85,9 +92,7 @@ async function submitName() {
 }
 
 document.getElementById('changeName').addEventListener('click', () => {
-  nameInput.value = '';
   nameOverlay.classList.remove('hidden');
-  setTimeout(() => nameInput.focus(), 100);
 });
 document.getElementById('avatarBtn')?.addEventListener('click', () => {
   renderAvatarChoices();
@@ -373,6 +378,30 @@ function getCurrentTrainingWeekIndex() {
   return Math.max(0, plan.weeks.length - 1);
 }
 
+function getWeekStartDate(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - getTodayWeekdayIndex(d));
+  return d;
+}
+
+function getEarliestHandledDateKey() {
+  const dates = Object.values(dayStates)
+    .flatMap(state => [state?.settledDate, state?.missedDate])
+    .filter(Boolean)
+    .sort();
+  return dates[0] || '';
+}
+
+function getCalendarTrainingWeekIndex(date = new Date()) {
+  const firstDateKey = getEarliestHandledDateKey();
+  if (!firstDateKey) return getCurrentTrainingWeekIndex();
+  const firstDate = new Date(`${firstDateKey}T00:00:00`);
+  if (Number.isNaN(firstDate.getTime())) return getCurrentTrainingWeekIndex();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const elapsedWeeks = Math.max(0, Math.floor((getWeekStartDate(date) - getWeekStartDate(firstDate)) / weekMs));
+  return Math.min(elapsedWeeks, Math.max(0, plan.weeks.length - 1));
+}
+
 function findSettledDateIndex(dateKey = getDateKey()) {
   for (let i = 0; i < allDays.length; i++) {
     const state = getDayState(i);
@@ -382,7 +411,7 @@ function findSettledDateIndex(dateKey = getDateKey()) {
 }
 
 function getFirstUnsettledIndex() {
-  const weekIndex = getCurrentTrainingWeekIndex();
+  const weekIndex = getCalendarTrainingWeekIndex();
   return getClampedDayIndex(Math.min(getWeekStartIndex(weekIndex) + getTodayWeekdayIndex(), getWeekEndIndex(weekIndex)));
 }
 
@@ -463,6 +492,26 @@ function normalizeWishLists(saved) {
       ownerName: String(entry.ownerName || '伙伴'),
       items,
       updatedAt: Number(entry.updatedAt || 0)
+    };
+  });
+  return out;
+}
+
+function normalizeWishFulfillments(saved) {
+  const out = {};
+  Object.entries(saved || {}).forEach(([id, entry]) => {
+    if (!entry || typeof entry !== 'object') return;
+    const item = String(entry.item || '').trim();
+    if (!item) return;
+    out[String(entry.id || id)] = {
+      id: String(entry.id || id),
+      item,
+      ownerKey: String(entry.ownerKey || ''),
+      ownerName: String(entry.ownerName || '伙伴'),
+      fulfilledByKey: String(entry.fulfilledByKey || ''),
+      fulfilledByName: String(entry.fulfilledByName || '伙伴'),
+      fulfilledAt: Number(entry.fulfilledAt || 0),
+      status: entry.status === 'fulfilled' ? 'fulfilled' : 'fulfilled'
     };
   });
   return out;
@@ -562,6 +611,7 @@ function createArchivePayload() {
     giftClaims,
     sharedGiftClaims,
     wishList,
+    wishFulfillments,
     sharedDecor,
     selectedDifficulty,
     selectedPlanMode,
@@ -596,6 +646,7 @@ function applyArchivePayload(saved) {
   giftClaims = normalizeGiftClaims(saved.giftClaims);
   sharedGiftClaims = normalizeGiftClaims(saved.sharedGiftClaims);
   wishList = Array.isArray(saved.wishList) ? saved.wishList.map(item => String(item || '').trim()).filter(Boolean).slice(0, 5) : [];
+  wishFulfillments = normalizeWishFulfillments(saved.wishFulfillments);
   sharedDecor = normalizeDecor(saved.sharedDecor);
   selectedDifficulty = saved.selectedDifficulty || 'standard';
   selectedPlanMode = saved.selectedPlanMode || 'standard';
@@ -843,11 +894,25 @@ function getGiftClaimId(ruleId, participant = getParticipants()[0]) {
   return `${ruleId}__${encodeURIComponent(getParticipantKey(participant))}`;
 }
 
+function makeShortHash(value) {
+  let hash = 5381;
+  const text = String(value || '');
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function getWishFulfillmentId(ownerKey, item) {
+  return `wish_${makeShortHash(ownerKey)}_${makeShortHash(normalizeName(item))}`;
+}
+
 function applySharedState(payload) {
   const users = payload?.users || {};
   const shared = normalizeRemoteObject(payload?.shared, {});
   sharedGiftClaims = normalizeGiftClaims(normalizeRemoteObject(shared.giftClaims, {}));
   wishLists = normalizeWishLists(normalizeRemoteObject(shared.wishLists, {}));
+  wishFulfillments = normalizeWishFulfillments(normalizeRemoteObject(shared.wishFulfillments, {}));
   sharedDecor = normalizeDecor(normalizeRemoteObject(shared.decor, {}));
   mailboxEntries = normalizeMailbox(normalizeRemoteObject(shared.mailbox, []));
   sharedEvents = normalizeSharedEvents(normalizeRemoteObject(shared.events, {}));
@@ -856,6 +921,7 @@ function applySharedState(payload) {
   const nextPeers = {};
   Object.entries(users).forEach(([id, data]) => {
     if (!data || isSelfRecord(id, data)) return;
+    if (!isAllowedUserName(data.displayName || data.username)) return;
     nextPeers[id] = {
       userKey: data.userKey || id,
       name: data.displayName || data.username || id,
@@ -1502,19 +1568,27 @@ function getWishGiftEntries() {
   return Object.entries(wishLists).filter(([key, entry]) => key !== selfKey && entry.items?.length)
     .flatMap(([, entry]) => entry.items.map(item => ({
       item,
-      ownerName: entry.ownerName || '伙伴'
+      ownerKey: entry.ownerKey || '',
+      ownerName: entry.ownerName || '伙伴',
+      fulfillmentId: getWishFulfillmentId(entry.ownerKey || '', item)
     })));
 }
 
 function renderWishGiftCards() {
   const entries = getWishGiftEntries();
-  return entries.map((entry, index) => `<div class="gift-card wish-gift-card">
+  return entries.map((entry, index) => {
+    const fulfillment = wishFulfillments[entry.fulfillmentId];
+    const action = fulfillment
+      ? '<button class="gift-action done" type="button" disabled>已实现</button>'
+      : `<button class="gift-action" type="button" data-wish-fulfill="${escapeHtml(entry.fulfillmentId)}">我已实现</button>`;
+    return `<div class="gift-card wish-gift-card">
     <div class="gift-top"><span class="gift-icon">🎟</span><div><strong>${escapeHtml(entry.item)}</strong><small>${escapeHtml(`${entry.ownerName}的心愿`)}</small></div></div>
     <p>这是对方写下的心愿，兑换真实礼物时可以照着准备。</p>
     <div class="gift-target">心愿 ${index + 1}/${entries.length}</div>
     <div class="gift-bar"><span style="width:100%"></span></div>
-    <div class="gift-foot"><span>心愿清单</span><button class="gift-action pending" type="button" disabled>对方想要</button></div>
-  </div>`);
+    <div class="gift-foot"><span>${fulfillment ? '实现心愿' : '未实现'}</span>${action}</div>
+  </div>`;
+  });
 }
 
 function renderGiftDock() {
@@ -1547,7 +1621,7 @@ function renderGiftDock() {
     return renderGiftCard(rule, participant, false);
   }).filter(Boolean);
   peerDock.innerHTML = peerCards.length ? peerCards.join('') : '<div class="gift-empty">暂时没有待兑现包裹</div>';
-  const redeemed = [];
+  const historyEntries = [];
   getParticipants().forEach(p => {
     const claims = { ...(p.isMe ? giftClaims : p.giftClaims || {}) };
     GIFT_RULES.forEach(rule => {
@@ -1557,12 +1631,19 @@ function renderGiftDock() {
     Object.entries(claims).forEach(([id, claim]) => {
       if (claim.status !== 'redeemed') return;
       const rule = GIFT_RULES.find(r => r.id === (claim.ruleId || id));
-      if (rule) redeemed.push({ name: p.name, title: rule.title, at: claim.redeemedAt || claim.requestedAt || 0 });
+      if (rule) historyEntries.push({ name: p.name, title: rule.title, at: claim.redeemedAt || claim.requestedAt || 0 });
     });
   });
-  redeemed.sort((a, b) => b.at - a.at);
-  history.innerHTML = redeemed.length
-    ? redeemed.slice(0, 6).map(item => `<div class="gift-history-item"><span>${escapeHtml(item.name)} · ${escapeHtml(item.title)}</span><small>${formatShortDate(item.at)}</small></div>`).join('')
+  Object.values(wishFulfillments).forEach(entry => {
+    historyEntries.push({
+      name: entry.fulfilledByName || '伙伴',
+      title: `实现心愿：${entry.item}`,
+      at: entry.fulfilledAt || 0
+    });
+  });
+  historyEntries.sort((a, b) => b.at - a.at);
+  history.innerHTML = historyEntries.length
+    ? historyEntries.slice(0, 6).map(item => `<div class="gift-history-item"><span>${escapeHtml(item.name)} · ${escapeHtml(item.title)}</span><small>${formatShortDate(item.at)}</small></div>`).join('')
     : '<div class="gift-empty">兑现后会留下记录</div>';
 }
 
@@ -1621,6 +1702,32 @@ async function handleGiftRedeem(claimId) {
   renderGiftDock();
   renderCollection();
   showToast(`${rule.title} 已记录兑现`);
+}
+
+async function handleWishFulfill(fulfillmentId) {
+  if (!(await ensureStableUserKey())) { showToast('同步身份中，请稍后再试'); return; }
+  const entry = getWishGiftEntries().find(item => item.fulfillmentId === fulfillmentId);
+  if (!entry || wishFulfillments[fulfillmentId]) return;
+  const fulfillment = {
+    id: fulfillmentId,
+    item: entry.item,
+    ownerKey: entry.ownerKey,
+    ownerName: entry.ownerName,
+    fulfilledByKey: getSelfUserKey(),
+    fulfilledByName: username,
+    fulfilledAt: Date.now(),
+    status: 'fulfilled'
+  };
+  wishFulfillments[fulfillmentId] = fulfillment;
+  renderGiftDock();
+  const synced = await syncSharedPatch({ wishFulfillment: fulfillment });
+  if (!synced || !wishFulfillments[fulfillmentId]) {
+    delete wishFulfillments[fulfillmentId];
+    renderGiftDock();
+    showToast('心愿实现同步失败，请稍后再试');
+    return;
+  }
+  showToast('已记录你实现了这个心愿');
 }
 
 async function handleWishAdd() {
@@ -1786,6 +1893,20 @@ function renderIsland() {
       <div class="island-stat"><strong>${metrics.minutes}</strong><span>训练分钟</span></div>
       <div class="island-stat"><strong>${metrics.collection}</strong><span>图鉴发现</span></div>`;
   }
+  renderIslandMap(map);
+  wh.innerHTML = '';
+  Object.entries(getSharedWarehouse()).forEach(([key, value]) => {
+    const chip = document.createElement('div');
+    chip.className = 'warehouse-chip';
+    chip.textContent = `${ITEMS[key]?.[0] || key} ${value}`;
+    wh.appendChild(chip);
+  });
+  renderDecorWorkshop();
+}
+
+function renderIslandMap(map) {
+  const metrics = getCoopMetrics();
+  const warehouse = getSharedWarehouse();
   map.innerHTML = '';
   [
     ['map-tree', '18%', '22%'], ['map-tree', '78%', '22%'], ['map-tree', '20%', '74%'],
@@ -1798,6 +1919,22 @@ function renderIsland() {
     if (top) deco.style.top = top;
     map.appendChild(deco);
   });
+  if (map.id === 'islandMap') {
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.id = 'islandMapOpenBtn';
+    openBtn.className = 'island-map-open-btn';
+    openBtn.setAttribute('aria-label', '放大查看岛屿');
+    openBtn.textContent = '⌕';
+    openBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      showIslandMapModal();
+    });
+    map.appendChild(openBtn);
+    map.onclick = showIslandMapModal;
+  } else {
+    map.onclick = null;
+  }
   renderPlacedDecor(map);
   if (hasPeerSettledToday() && getDayState(currentDayIndex).settled) {
     const bubble = document.createElement('div');
@@ -1810,10 +1947,12 @@ function renderIsland() {
   bottle.className = 'bottle-point';
   bottle.textContent = '💌';
   bottle.setAttribute('aria-label', '瓶中信隐藏任务线索');
-  bottle.addEventListener('click', showBottleHints);
+  bottle.addEventListener('click', e => {
+    e.stopPropagation();
+    showBottleHints();
+  });
   map.appendChild(bottle);
   renderMapResidents(map);
-  const warehouse = getSharedWarehouse();
   BUILDINGS.forEach(building => {
     const status = getBuildingStatus(building, metrics, warehouse);
     const stage = getBuildingStage(status);
@@ -1831,17 +1970,20 @@ function renderIsland() {
       <span class="map-point-label">${building.name}</span>
       <span class="map-point-stage">${stage.label}</span>
       <span class="map-point-progress"><span style="width:${pct}%"></span></span>`;
-    point.addEventListener('click', () => showIslandPoint(building, status));
+    point.addEventListener('click', e => {
+      e.stopPropagation();
+      showIslandPoint(building, status);
+    });
     map.appendChild(point);
   });
-  wh.innerHTML = '';
-  Object.entries(warehouse).forEach(([key, value]) => {
-    const chip = document.createElement('div');
-    chip.className = 'warehouse-chip';
-    chip.textContent = `${ITEMS[key]?.[0] || key} ${value}`;
-    wh.appendChild(chip);
-  });
-  renderDecorWorkshop();
+}
+
+function showIslandMapModal() {
+  const modal = document.getElementById('islandMapModal');
+  const largeMap = document.getElementById('islandMapLarge');
+  if (!modal || !largeMap) return;
+  renderIslandMap(largeMap);
+  modal.classList.add('show');
 }
 
 function renderPlacedDecor(map) {
@@ -1850,14 +1992,34 @@ function renderPlacedDecor(map) {
     if (!meta) return;
     const node = document.createElement('button');
     node.type = 'button';
-    node.className = 'decor-point';
+    node.className = `decor-point decor-${escapeHtml(id)}`;
     node.style.setProperty('--x', `${meta.x}%`);
     node.style.setProperty('--y', `${meta.y}%`);
     node.setAttribute('aria-label', `${meta.name}，由 ${sharedDecor[id].ownerName || '伙伴'} 放置`);
     node.innerHTML = `<span>${meta.icon}</span>`;
-    node.addEventListener('click', () => showToast(`${meta.name} · ${sharedDecor[id].ownerName || '伙伴'} 放置`));
+    node.addEventListener('click', e => {
+      e.stopPropagation();
+      showDecorDetail(id);
+    });
     map.appendChild(node);
   });
+}
+
+function showDecorDetail(id) {
+  const meta = DECOR_ITEMS.find(item => item.id === id);
+  const placed = sharedDecor[id] || {};
+  if (!meta) return;
+  document.getElementById('itemDetailIcon').innerHTML = `<span>${meta.icon}</span>`;
+  document.getElementById('itemDetailTitle').textContent = meta.name;
+  document.getElementById('itemDetailMeta').innerHTML = `
+    类型：岛屿装饰<br>
+    装饰说明：${escapeHtml(meta.desc || '放在小岛上的纪念装饰。')}<br>
+    放置人：${escapeHtml(placed.ownerName || '伙伴')}<br>
+    放置时间：${formatShortDate(placed.placedAt)}<br>
+    放置成本：${escapeHtml(Object.entries(meta.cost || {}).map(([key, value]) => `${ITEMS[key]?.[0] || key} ${value}`).join(' · ') || '无')}
+  `;
+  configureItemUseButton(null);
+  document.getElementById('itemDetailModal').classList.add('show');
 }
 
 function renderDecorWorkshop() {
@@ -2907,6 +3069,8 @@ document.getElementById('rewardModal').addEventListener('click', e => {
 });
 document.getElementById('islandDetailBtn').addEventListener('click', () => document.getElementById('islandPointModal').classList.remove('show'));
 document.getElementById('islandPointModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('islandPointModal').classList.remove('show'); });
+document.getElementById('islandMapCloseBtn')?.addEventListener('click', () => document.getElementById('islandMapModal')?.classList.remove('show'));
+document.getElementById('islandMapModal')?.addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('islandMapModal')?.classList.remove('show'); });
 document.getElementById('itemDetailBtn').addEventListener('click', () => document.getElementById('itemDetailModal').classList.remove('show'));
 document.getElementById('itemDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('itemDetailModal').classList.remove('show'); });
 document.getElementById('itemUseBtn')?.addEventListener('click', e => handleUseItem(e.currentTarget.dataset.item));
@@ -2941,20 +3105,22 @@ document.getElementById('messageSaveBtn').addEventListener('click', async () => 
   const rollback = createArchivePayload();
   const previousMessage = userMessage;
   const input = document.getElementById('messageInput');
-  userMessage = (input.value || '').trim().slice(0, 40);
+  const messageText = (input.value || '').trim().slice(0, 40);
+  userMessage = '';
   saveLocal();
-  const patch = userMessage ? { mailboxEntry: { id: `mail_${Date.now()}_${clientId.slice(0, 6)}`, text: userMessage, createdAt: Date.now() } } : null;
+  const patch = messageText ? { mailboxEntry: { id: `mail_${Date.now()}_${clientId.slice(0, 6)}`, text: messageText, createdAt: Date.now() } } : null;
   const ok = await syncMyState(patch);
   if (!ok) {
     applyArchivePayload(rollback);
     userMessage = previousMessage;
-    if (input) input.value = previousMessage;
+    if (input) input.value = messageText || previousMessage;
     renderMessageBoard();
     showToast('留言同步失败，请稍后再试');
     return;
   }
+  if (input) input.value = '';
   renderMessageBoard();
-  showToast(userMessage ? '留言已贴上' : '留言已清空');
+  showToast(messageText ? '留言已贴上' : '留言已清空');
 });
 document.getElementById('messageInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('messageSaveBtn').click();
@@ -2967,6 +3133,11 @@ document.querySelectorAll('#collectionTabs .collection-tab').forEach(btn => {
 });
 
 document.getElementById('giftDock')?.addEventListener('click', e => {
+  const wishBtn = e.target.closest('[data-wish-fulfill]');
+  if (wishBtn) {
+    handleWishFulfill(wishBtn.dataset.wishFulfill);
+    return;
+  }
   const requestBtn = e.target.closest('[data-gift-request]');
   if (requestBtn) {
     handleGiftRequest(requestBtn.dataset.giftRequest);

@@ -1,29 +1,64 @@
-import { Table, type TableColumn } from 'animal-island-ui';
-import { isOnline } from '../domain/leaderboard';
+import { AVATARS, ITEMS } from '../domain/config';
+import { isOnline, sumCounts } from '../domain/leaderboard';
+import type { CountMap } from '../domain/types';
 
-interface Participant {
+export interface Participant {
   name: string;
   avatar?: string;
   settledDays: number;
   minutes: number;
   lastActive: number;
+  totalChecked: number;
+  materials: CountMap;
+  title: string;
+  currentDay: number;
+  isMe?: boolean;
+}
+
+function avatarImg(id?: string): string | undefined {
+  if (!id) return undefined;
+  return AVATARS.find(item => item.id === id)?.img;
 }
 
 export function Leaderboard({ participants, now }: { participants: Participant[]; now: number }) {
   if (!participants.length) return <p className="muted">还没有岛民登岛。</p>;
-  const sorted = [...participants].sort((a, b) => b.settledDays - a.settledDays || b.minutes - a.minutes);
-  const columns: TableColumn[] = [
-    { title: '排名', dataIndex: 'rank', width: 48, align: 'center' },
-    { title: '岛民', dataIndex: 'name' },
-    { title: '打卡', dataIndex: 'settled', align: 'right' },
-    { title: '状态', dataIndex: 'online', align: 'center', render: value => (value ? '●在线' : '离线') },
-  ];
-  const dataSource = sorted.map((participant, index) => ({
-    key: participant.name,
-    rank: index + 1,
-    name: participant.name,
-    settled: `${participant.settledDays}天 · ${participant.minutes}分`,
-    online: isOnline(participant.lastActive, now),
-  }));
-  return <Table columns={columns} dataSource={dataSource} rowKey="key" showHeader={false} />;
+  const sorted = [...participants]
+    .map(p => ({ ...p, score: p.settledDays * 10 + p.totalChecked }))
+    .sort((a, b) => b.score - a.score);
+  const medals = ['gold', 'silver', 'bronze'] as const;
+  return (
+    <div className="lb-list">
+      {sorted.map((p, index) => {
+        const rankClass = index < 3 ? medals[index] : 'normal';
+        const img = avatarImg(p.avatar);
+        const online = isOnline(p.lastActive, now);
+        const chips = Object.entries(p.materials || {}).filter(([, value]) => Number(value) > 0);
+        return (
+          <div className="lb-row" key={p.name}>
+            {index < 3 && img ? (
+              <img className="lb-avatar" src={img} alt={p.name} />
+            ) : (
+              <div className={`lb-rank ${rankClass}`}>{index + 1}</div>
+            )}
+            <div className="lb-info">
+              <div className="lb-name">
+                {p.name}{p.isMe ? ' (我)' : ''} · {p.title}
+                {online && <span className="online-dot" />}
+              </div>
+              <div className="lb-stats">完成 {p.settledDays} 天 · 仓库贡献 {sumCounts(p.materials)} · 第 {p.currentDay + 1} 天</div>
+              <div className="contribution-materials">
+                {chips.length ? chips.map(([key, value]) => (
+                  <span className="contribution-chip" key={key}>{ITEMS[key]?.name || key} {value}</span>
+                )) : <span className="contribution-chip">还没有入库材料</span>}
+              </div>
+            </div>
+            <div className="lb-score">
+              <div className="lb-score-num">{p.score}</div>
+              <div className="lb-score-label">积分</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

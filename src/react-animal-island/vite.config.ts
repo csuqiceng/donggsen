@@ -12,6 +12,7 @@ export default defineConfig({
   plugins: [react(), legacyDevApi()],
   server: {
     host: true,
+    allowedHosts: true,
   },
   test: {
     setupFiles: ['./src/test-setup.ts'],

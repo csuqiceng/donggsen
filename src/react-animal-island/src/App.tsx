@@ -386,7 +386,6 @@ export default function App() {
         setMessageText={setMessageText}
         onMessage={handleMessage}
         onDifficulty={difficulty => updateState({ ...activeUserState, selectedDifficulty: difficulty }, '难度已切换')}
-        onPlanMode={selectedPlanMode => updateState({ ...activeUserState, selectedPlanMode }, '路线已切换')}
         onToggle={index => updateState(toggleTask(activeUserState, dayKey, index, activeAdjustedDay.exercises.length), '任务已更新')}
         onSettle={() => {
           const next = settleToday(activeUserState, dayKey, activeAdjustedDay);
@@ -600,7 +599,6 @@ function TodayView(props: {
   setMessageText: (value: string) => void;
   onMessage: () => void;
   onDifficulty: (value: LocalUserState['selectedDifficulty']) => void;
-  onPlanMode: (value: LocalUserState['selectedPlanMode']) => void;
   onToggle: (index: number) => void;
   onSettle: () => void;
   onRest: () => void;
@@ -649,7 +647,13 @@ function TodayView(props: {
           ))}
         </div>
         <div className="reward-preview">{DIFFICULTIES[props.userState.selectedDifficulty].hint}</div>
-        <div className="hidden-quest">{PLAN_MODES[props.userState.selectedPlanMode].hint}</div>
+        <div className="route-nodes">
+          {weekDays.map(index => (
+            <div key={index} className={`route-node ${index === (props.day.dayInWeek || 0) ? 'current' : ''} ${index < (props.day.dayInWeek || 0) ? 'done' : ''}`}>
+              <span>{index + 1}</span>
+            </div>
+          ))}
+        </div>
       </Card>
 
       <Card className="base-overview island-panel">
@@ -673,32 +677,6 @@ function TodayView(props: {
             <div key={item.id} className={`hidden-status ${item.status}`}>
               <span>{item.name}</span>
               <small>{item.label}</small>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card color="app-teal" pattern="app-teal" className="route-card island-panel">
-        <div className="route-header">
-          <strong>{props.day.weekTheme || '本周路线'}</strong>
-          <span>{PLAN_MODES[props.userState.selectedPlanMode].label}</span>
-        </div>
-        <div className="segmented route-mode-segmented">
-          {Object.entries(PLAN_MODES).map(([key, item]) => (
-            <button
-              key={key}
-              type="button"
-              className={`route-mode-btn ${props.userState.selectedPlanMode === key ? 'active' : ''}`}
-              onClick={() => props.onPlanMode(key as LocalUserState['selectedPlanMode'])}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="route-nodes">
-          {weekDays.map(index => (
-            <div key={index} className={`route-node ${index === (props.day.dayInWeek || 0) ? 'current' : ''} ${index < (props.day.dayInWeek || 0) ? 'done' : ''}`}>
-              <span>{index + 1}</span>
             </div>
           ))}
         </div>

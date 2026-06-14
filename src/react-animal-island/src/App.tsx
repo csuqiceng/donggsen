@@ -58,8 +58,6 @@ import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from '.
 import { diffBuildStages, type BuildStage } from './domain/buildings';
 import { BuildUpdateModal } from './components/BuildUpdateModal';
 import { Leaderboard } from './components/Leaderboard';
-import { ActivityFeed } from './components/ActivityFeed';
-import { MapResidents } from './components/MapResidents';
 import { AvatarPicker } from './components/AvatarPicker';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
@@ -551,11 +549,11 @@ function TodayView(props: {
           </div>
         </div>
         <div className="hero-animal">🐱</div>
-        <div className="progress-meter">
-          <div className="progress-bar"><div className="progress-fill" style={{ width: `${props.completion}%` }} /></div>
-          <div className="progress-count">{checkedCount}/{props.day.exercises.length}</div>
-        </div>
       </section>
+      <div className="progress-meter">
+        <div className="progress-bar"><div className="progress-fill" style={{ width: `${props.completion}%` }} /></div>
+        <div className="progress-count">{checkedCount}/{props.day.exercises.length}</div>
+      </div>
 
       <Card color="app-yellow" pattern="app-yellow" className="difficulty-card island-panel">
         <div className="section-head">
@@ -941,7 +939,15 @@ function IslandView({ state, server, onDetail, onDecorPlace }: {
               </button>
             );
           })}
-          <MapResidents residents={residents} />
+          {residents.map(resident => {
+            const residentAvatar = AVATARS.find(item => item.id === resident.avatar) || AVATARS[0];
+            return (
+              <div key={resident.name} className="map-resident" style={{ left: `${resident.x}%`, top: `${resident.y}%` }}>
+                <img className="resident-avatar" src={residentAvatar.img} alt={resident.name} />
+                <span className="resident-name">{resident.name}</span>
+              </div>
+            );
+          })}
         </div>
         <div className="warehouse-strip">
           {warehouseChips.map(([key, value]) => (
@@ -1561,7 +1567,9 @@ function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUser
       </Card>
       <Card className="island-panel">
         <Title size="small">活动动态</Title>
-        <ActivityFeed items={activityItems.slice(0, 5)} />
+        {activityItems.slice(0, 5).map((item, index) => (
+          <p key={index} className="activity-item">{item}</p>
+        ))}
       </Card>
       <Card color="purple" pattern="purple" className="coop-section island-panel">
         <Title size="middle">本周贡献</Title>

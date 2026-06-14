@@ -10,8 +10,16 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), legacyDevApi()],
+  server: {
+    host: true,
+  },
   test: {
     setupFiles: ['./src/test-setup.ts'],
+    server: {
+      deps: {
+        inline: ['animal-island-ui'],
+      },
+    },
   },
 })
 

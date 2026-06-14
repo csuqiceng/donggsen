@@ -12,8 +12,8 @@ describe('BuildUpdateModal', () => {
   });
 
   it('无更新时不渲染', () => {
-    const { container } = render(<BuildUpdateModal updates={[]} onClose={() => {}} />);
-    expect(container.querySelector('.build-update')).toBeNull();
+    render(<BuildUpdateModal updates={[]} onClose={() => {}} />);
+    expect(screen.queryByText('岛上有了新变化')).toBeNull();
   });
 
   it('点击关闭按钮触发 onClose', () => {

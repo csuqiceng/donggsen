@@ -1,3 +1,5 @@
+import { Button, Modal } from 'animal-island-ui';
+
 interface BuildUpdate {
   id: string;
   name: string;
@@ -6,21 +8,20 @@ interface BuildUpdate {
 }
 
 export function BuildUpdateModal({ updates, onClose }: { updates: BuildUpdate[]; onClose: () => void }) {
-  if (!updates.length) return null;
   return (
-    <div className="build-update modal-mask" role="dialog" aria-label="建筑升级通知">
-      <div className="build-update-panel">
-        <div className="build-update-title">🏗 岛上有了新变化</div>
-        <ul className="build-update-list">
-          {updates.map(update => (
-            <li key={update.id}>
-              <strong>{update.name}</strong>
-              <span>{update.from} → {update.to}</span>
-            </li>
-          ))}
-        </ul>
-        <button type="button" className="build-update-close" onClick={onClose}>知道了</button>
-      </div>
-    </div>
+    <Modal
+      open={updates.length > 0}
+      title="🏗 岛上有了新变化"
+      typewriter={false}
+      onClose={onClose}
+      footer={<Button type="primary" onClick={onClose}>知道了</Button>}
+    >
+      {updates.map(update => (
+        <div key={update.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <strong>{update.name}</strong>
+          <span>{update.from} → {update.to}</span>
+        </div>
+      ))}
+    </Modal>
   );
 }

@@ -11,7 +11,7 @@ export function diffBuildStages(
   return Object.entries(after)
     .filter(([id, next]) => {
       const prev = before[id];
-      return prev && (prev.stage !== next.stage || next.pct === 100);
+      return prev && (prev.stage !== next.stage || (prev.pct < 100 && next.pct === 100));
     })
     .map(([id, next]) => ({ id, name: next.name, from: before[id].stage, to: next.stage }));
 }

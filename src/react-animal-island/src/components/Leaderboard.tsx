@@ -1,3 +1,4 @@
+import { Table, type TableColumn } from 'animal-island-ui';
 import { isOnline } from '../domain/leaderboard';
 
 interface Participant {
@@ -11,16 +12,18 @@ interface Participant {
 export function Leaderboard({ participants, now }: { participants: Participant[]; now: number }) {
   if (!participants.length) return <p className="muted">还没有岛民登岛。</p>;
   const sorted = [...participants].sort((a, b) => b.settledDays - a.settledDays || b.minutes - a.minutes);
-  return (
-    <ol className="leaderboard">
-      {sorted.map((participant, index) => (
-        <li key={participant.name} data-testid="lb-row" data-online={isOnline(participant.lastActive, now) ? 'true' : 'false'}>
-          <span className="lb-rank">{index + 1}</span>
-          <span className="lb-name">{participant.name}</span>
-          <span className="lb-days">{participant.settledDays} 天 · {participant.minutes} 分</span>
-          <span className="lb-dot" />
-        </li>
-      ))}
-    </ol>
-  );
+  const columns: TableColumn[] = [
+    { title: '排名', dataIndex: 'rank', width: 48, align: 'center' },
+    { title: '岛民', dataIndex: 'name' },
+    { title: '打卡', dataIndex: 'settled', align: 'right' },
+    { title: '状态', dataIndex: 'online', align: 'center', render: value => (value ? '●在线' : '离线') },
+  ];
+  const dataSource = sorted.map((participant, index) => ({
+    key: participant.name,
+    rank: index + 1,
+    name: participant.name,
+    settled: `${participant.settledDays}天 · ${participant.minutes}分`,
+    online: isOnline(participant.lastActive, now),
+  }));
+  return <Table columns={columns} dataSource={dataSource} rowKey="key" showHeader={false} />;
 }

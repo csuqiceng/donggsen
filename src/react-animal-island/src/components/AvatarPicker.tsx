@@ -1,3 +1,5 @@
+import { Button } from 'animal-island-ui';
+
 interface AvatarOption {
   id: string;
   name: string;
@@ -12,15 +14,14 @@ export function AvatarPicker({ avatars, selected, onSelect }: {
   return (
     <div className="avatar-picker">
       {avatars.map(avatar => (
-        <button
+        <Button
           key={avatar.id}
-          type="button"
-          aria-pressed={selected === avatar.id}
-          className={`avatar-option ${selected === avatar.id ? 'selected' : ''}`}
+          type={selected === avatar.id ? 'primary' : 'default'}
           onClick={() => onSelect(avatar.id)}
+          aria-label={avatar.name}
         >
-          <img src={avatar.img} alt={avatar.name} />
-        </button>
+          <img src={avatar.img} alt={avatar.name} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+        </Button>
       ))}
     </div>
   );

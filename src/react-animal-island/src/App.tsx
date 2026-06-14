@@ -51,6 +51,7 @@ import {
   updateWishList,
 } from './domain/gifts';
 import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } from './domain/decor';
+import { Leaderboard } from './components/Leaderboard';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
 type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop';
@@ -746,7 +747,7 @@ function createHiddenStatuses(state: LocalUserState, day: PlanDay, checkedCount:
   const entries = [
     { id: 'night_star', name: '夜海星光', tier: '普通', ready: hasNight, clue: '晚上登岛会看到星光。' },
     { id: 'same_day_checkin', name: '同日登岛', tier: '普通', ready: false, clue: '两个人同一天都出现。' },
-    { id: 'golden_leaf', name: '金色树叶', tier: '普通', ready: state.selectedDifficulty === 'easy' && fullDone, clue: '轻松路线完整完成。' },
+    { id: 'goldenLeaf', name: '金色树叶', tier: '普通', ready: state.selectedDifficulty === 'easy' && fullDone, clue: '轻松路线完整完成。' },
     { id: 'museum_entry', name: '博物馆图鉴条目', tier: '普通', ready: Boolean(day.review && fullDone), clue: '周复盘完整完成。' },
   ];
   return entries.map(item => {
@@ -1463,8 +1464,23 @@ function formatShortDate(ts: number) {
 
 function CoopView({ state, server, mailbox }: { state: LocalUserState; server: ServerState | null; mailbox: MailboxEntry[] }) {
   const summary = createCoopSummary(state, server, mailbox.length);
+  const leaderboardParticipants = [
+    { name: state.username, settledDays: countSettledDays(state), minutes: countMinutes(state), lastActive: Date.now() },
+    ...Object.values(server?.users || {})
+      .filter(user => (user.displayName || user.username) !== state.username)
+      .map(user => ({
+        name: user.displayName || user.username || '伙伴',
+        settledDays: Object.values(user.dayStates || {}).filter(day => day?.settled && !day?.rest).length,
+        minutes: Object.values(user.dayStates || {}).reduce((sum, day) => sum + (day?.settled && !day?.rest ? Number(day.minutes || 0) : 0), 0),
+        lastActive: user.lastActive || 0,
+      })),
+  ];
   return (
     <section className="view-stack">
+      <Card className="island-panel">
+        <Title size="small">排行榜</Title>
+        <Leaderboard participants={leaderboardParticipants} now={Date.now()} />
+      </Card>
       <Card color="purple" pattern="purple" className="coop-section island-panel">
         <Title size="middle">本周贡献</Title>
         <p>不是排名，是两个人一起给小岛供能</p>

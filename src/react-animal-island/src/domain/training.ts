@@ -1,4 +1,6 @@
-import { AVATARS, DIFFICULTIES, ITEMS, REWARD_POOL } from './config';
+import { AVATARS, DIFFICULTIES } from './config';
+import { getDifficultyExercises } from './difficulty';
+import { chooseRewards, computeMaterialCount, computeRewardScore, rewardCounts, warehouseCounts } from './rewards';
 import type { DayState, LocalUserState, PlanDay, TrainingPlan } from './types';
 
 export function createClientId(): string {
@@ -97,23 +99,25 @@ export function toggleTask(source: LocalUserState, dayKey: string, taskIndex: nu
 
 export function getAdjustedDay(day: PlanDay, difficulty: LocalUserState['selectedDifficulty']): PlanDay {
   const diff = DIFFICULTIES[difficulty];
-  const minutes = Math.max(3, Math.round((day.minutes || day.exercises.length * 3) * diff.minutesFactor + diff.bonus * 2));
-  return { ...day, minutes, summary: difficulty === 'standard' ? day.summary : `${diff.label} · ${diff.hint}` };
+  const exercises = getDifficultyExercises(day.exercises, difficulty);
+  const baseMinutes = day.minutes || day.exercises.length * 3;
+  const minutes = Math.max(3, Math.round(baseMinutes * diff.minutesFactor + diff.bonus * 2));
+  return { ...day, minutes, exercises, summary: difficulty === 'standard' ? day.summary : `${diff.label} · ${diff.hint}` };
 }
 
 export function settleToday(source: LocalUserState, dayKey: string, day: PlanDay): LocalUserState {
   const taskCount = day.exercises.length;
   const dayState = ensureDayState(source, dayKey, taskCount);
   const checkedCount = dayState.checked?.filter(Boolean).length || 0;
-  const rewards = checkedCount > 0 ? pickRewards(day, checkedCount + DIFFICULTIES[source.selectedDifficulty].bonus) : [];
-  const inventory = { ...source.inventory };
-  const warehouseContribution = { ...source.warehouseContribution };
+  const difficulty = source.selectedDifficulty;
+  const fullDone = checkedCount >= taskCount;
+  const score = computeRewardScore(difficulty, checkedCount);
+  const materialCount = checkedCount > 0 ? computeMaterialCount(difficulty, fullDone) : 0;
+  const rewards = materialCount > 0 ? chooseRewards(difficulty, materialCount, source.currentDayIndex, day) : [];
+  const inventory = addCounts({ ...source.inventory }, rewardCounts(rewards, score));
+  const warehouseContribution = addCounts({ ...source.warehouseContribution }, warehouseCounts(rewards));
   const discovered = new Set(source.collection.discovered);
-  rewards.forEach(item => {
-    inventory[item] = (inventory[item] || 0) + 1;
-    warehouseContribution[item] = (warehouseContribution[item] || 0) + 1;
-    discovered.add(item);
-  });
+  rewards.forEach(item => discovered.add(item));
   return {
     ...source,
     inventory,
@@ -174,14 +178,11 @@ function getStoredDayState(states: LocalUserState['dayStates'], index: number): 
   return states[getDayKey(index)] || states[String(index)] || {};
 }
 
-function pickRewards(day: PlanDay, count: number): string[] {
-  const categories = day.exercises.map(item => item[2] || '').join('|');
-  const preferred = categories.includes('腿部') ? ['wood', 'stone', 'branch']
-    : categories.includes('上身') ? ['softwood', 'hardwood', 'wood']
-      : categories.includes('核心') ? ['stone', 'clay', 'wood']
-        : ['branch', 'weed', 'shell', 'wood'];
-  return Array.from({ length: Math.max(1, Math.min(4, count)) }, (_, index) => preferred[index % preferred.length] || REWARD_POOL[index % REWARD_POOL.length])
-    .filter(item => ITEMS[item]);
+function addCounts(target: Record<string, number>, delta: Record<string, number>): Record<string, number> {
+  Object.entries(delta).forEach(([key, value]) => {
+    target[key] = (target[key] || 0) + (Number(value) || 0);
+  });
+  return target;
 }
 
 export function countSettledDays(state: LocalUserState): number {
@@ -190,4 +191,29 @@ export function countSettledDays(state: LocalUserState): number {
 
 export function countMinutes(state: LocalUserState): number {
   return Object.values(state.dayStates).reduce((sum, day) => sum + (day.settled && !day.rest ? Number(day.minutes || 0) : 0), 0);
+}
+
+export function calcStreak(dayStates: Record<string, DayState>, dayCount: number): number {
+  let streak = 0;
+  for (let i = dayCount - 1; i >= 0; i -= 1) {
+    const state = dayStates[getDayKey(i)] || dayStates[String(i)];
+    if (state?.settled) streak += 1;
+    else if (!state?.missed) break;
+  }
+  return streak;
+}
+
+export function hasSettledToday(dayStates: Record<string, DayState>, todayKey = getDateKey()): boolean {
+  return Object.values(dayStates).some(state => state?.settled && state.settledDate === todayKey);
+}
+
+export function canCheckInDay(index: number, plan: TrainingPlan, state: LocalUserState, date = new Date()): boolean {
+  if (hasSettledToday(state.dayStates, getDateKey(date))) return false;
+  const available = getAvailableDayIndex(plan, state, date);
+  const dayState = state.dayStates[getDayKey(index)] || state.dayStates[String(index)];
+  return index === available && !dayState?.settled && !dayState?.missed;
+}
+
+export function isLockedDay(index: number, plan: TrainingPlan, state: LocalUserState, date = new Date()): boolean {
+  return index > getAvailableDayIndex(plan, state, date);
 }

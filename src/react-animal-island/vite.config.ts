@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import type { ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -9,6 +10,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), legacyDevApi()],
+  test: {
+    setupFiles: ['./src/test-setup.ts'],
+  },
 })
 
 function legacyDevApi() {

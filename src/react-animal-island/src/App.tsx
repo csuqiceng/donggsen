@@ -58,6 +58,7 @@ import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from '.
 import { Leaderboard } from './components/Leaderboard';
 import { ActivityFeed } from './components/ActivityFeed';
 import { MapResidents } from './components/MapResidents';
+import { AvatarPicker } from './components/AvatarPicker';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
 type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop';
@@ -85,6 +86,7 @@ export default function App() {
   const [detailModal, setDetailModal] = useState<{ title: string; body?: string; lines?: string[] } | null>(null);
   const [exportModal, setExportModal] = useState<{ title: string; text: string } | null>(null);
   const [toast, setToast] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0].id);
   const archiveImportRef = useRef<HTMLInputElement | null>(null);
 
   const days = useMemo(() => plan ? flattenPlanDays(plan) : [], [plan]);
@@ -122,7 +124,7 @@ export default function App() {
     try {
       const minimumLoading = new Promise(resolve => window.setTimeout(resolve, 650));
       const [loadedPlan, loadedServer] = await Promise.all([fetchPlan(), fetchServerState(), minimumLoading]);
-      const initial = createInitialState(fixed);
+      const initial = { ...createInitialState(fixed), avatar: selectedAvatar };
       const serverSelf = findSelfRecord(loadedServer.users, fixed);
       const restoredBase = serverSelf ? { ...initial, ...restoreUserFromServer(serverSelf) } : initial;
       const restored = { ...restoredBase, currentDayIndex: getAvailableDayIndex(loadedPlan, restoredBase) };
@@ -164,6 +166,10 @@ export default function App() {
           <div className="login-stamp">🏝</div>
           <Title size="large" color="app-yellow" className="login-title">动森训练岛</Title>
           <p>选择岛民，开始冒险</p>
+          <div className="login-avatar-picker">
+            <small>选一个头像</small>
+            <AvatarPicker avatars={AVATARS} selected={selectedAvatar} onSelect={setSelectedAvatar} />
+          </div>
           <div className="login-actions">
             {FIXED_USERS.map(name => (
               <button key={name} type="button" className="login-wallet-btn" disabled={loading} onClick={() => chooseUser(name)}>

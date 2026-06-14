@@ -23,6 +23,8 @@ import {
 } from './domain/archive';
 import { findSelfRecord, normalizeMailbox, restoreUserFromServer, sanitizeFixedUser } from './domain/compat';
 import {
+  calcStreak,
+  canCheckInDay,
   countMinutes,
   countSettledDays,
   createInitialState,
@@ -34,6 +36,7 @@ import {
   getDayKey,
   getDateKey,
   getTodayWeekdayIndex,
+  hasSettledToday,
   restToday,
   settleToday,
   toggleTask,
@@ -56,8 +59,10 @@ import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } 
 import { getWeeklyReviewInsights } from './domain/weekly';
 import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from './domain/settlement';
 import { getUserTitle, countChecked } from './domain/leaderboard';
-import { detectHiddenTasks, applyHiddenTaskEffects } from './domain/hidden';
+import { detectHiddenTasks, applyHiddenTaskEffects, retroactiveHiddenCheck } from './domain/hidden';
 import { getFestivalToday, applyFestivalBonus } from './domain/festival';
+import { useItem, useItemAction } from './domain/items';
+import { revealExtraBottleClue } from './domain/bottle';
 import { diffBuildStages, type BuildStage } from './domain/buildings';
 import { BuildUpdateModal } from './components/BuildUpdateModal';
 import { Leaderboard } from './components/Leaderboard';
@@ -149,7 +154,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!userState) return;
+    if (!userState || !plan) return;
     const timer = window.setInterval(async () => {
       try {
         const next = await fetchServerState();
@@ -159,12 +164,46 @@ export default function App() {
           setUserState(current => current ? { ...current, ...restoreUserFromServer(serverSelf) } : current);
           setSyncText('已更新旧数据');
         }
+        const todayKey = getDateKey();
+        const todayEntry = Object.entries(userState.dayStates).find(([, state]) => state?.settled && state.settledDate === todayKey);
+        if (!todayEntry) return;
+        const todayState = todayEntry[1];
+        const dayIdx = Number(todayEntry[0].startsWith('day_') ? todayEntry[0].slice(4) : todayEntry[0]);
+        const todayDay = flattenPlanDays(plan)[dayIdx];
+        if (!todayDay) return;
+        const adjusted = getAdjustedDay(todayDay, todayState.difficulty || userState.selectedDifficulty);
+        const fullDone = (todayState.checked || []).filter(Boolean).length >= adjusted.exercises.length;
+        const retro = retroactiveHiddenCheck({
+          todaySettled: true,
+          todayDifficulty: todayState.difficulty || userState.selectedDifficulty,
+          todayFullDone: fullDone,
+          hasPeerSettledToday: () => hasPeerSettledToday(next, userState.username),
+          hasPeerSettledTodayWithDifficulty: (difficulty, requireFull) => hasPeerSettledTodayWithDifficulty(next, userState.username, difficulty, requireFull, plan),
+          alreadyDiscovered: userState.collection.discovered,
+        });
+        if (!retro.length) return;
+        const effects = applyHiddenTaskEffects(retro);
+        const allNew = [...retro, ...effects.discoveries];
+        setUserState(current => {
+          if (!current) return current;
+          let merged = current;
+          const addDelta = (field: 'inventory' | 'warehouseContribution', delta: Record<string, number>) => {
+            const nextDelta = { ...merged[field] };
+            Object.entries(delta).forEach(([key, value]) => { nextDelta[key] = (nextDelta[key] || 0) + value; });
+            merged = { ...merged, [field]: nextDelta };
+          };
+          if (Object.keys(effects.inventoryDelta || {}).length) addDelta('inventory', effects.inventoryDelta);
+          if (Object.keys(effects.warehouseDelta || {}).length) addDelta('warehouseContribution', effects.warehouseDelta);
+          if (allNew.length) merged = { ...merged, collection: { ...merged.collection, discovered: Array.from(new Set([...merged.collection.discovered, ...allNew])) } };
+          return merged;
+        });
+        showToast('补发隐藏：' + retro.map(id => HIDDEN_QUESTS.find(q => q.id === id)?.name || id).join('、'));
       } catch {
         setSyncText('同步失败');
       }
     }, 8000);
     return () => window.clearInterval(timer);
-  }, [userState]);
+  }, [userState, plan]);
 
   if (!selectedUser || !userState || !plan || !adjustedDay || !dayState) {
     return (
@@ -373,6 +412,35 @@ export default function App() {
     });
   }
 
+  async function handleUseItem(key: string) {
+    const useResult = useItem(key, activeUserState.inventory);
+    if (!useResult) return;
+    if (useResult.action === 'reveal_bottle_clue') {
+      const reveal = revealExtraBottleClue(activeUserState.inventory.nookMilesTicket || 0, activeUserState.currentDayIndex);
+      if (!reveal.ok) { showToast(reveal.error || '里数券不足'); return; }
+      const next: LocalUserState = {
+        ...activeUserState,
+        inventory: { ...activeUserState.inventory, nookMilesTicket: Math.max(0, (activeUserState.inventory.nookMilesTicket || 0) - 1) },
+        collection: { ...activeUserState.collection, discovered: Array.from(new Set([...activeUserState.collection.discovered, reveal.discovery!])) },
+      };
+      updateState(next, '里数券已使用');
+      setDetailModal({ title: '瓶中信线索', body: reveal.clue! });
+      return;
+    }
+    if (useResult.discovery && useResult.consume) {
+      const next: LocalUserState = {
+        ...activeUserState,
+        inventory: { ...activeUserState.inventory, [useResult.consume]: Math.max(0, (activeUserState.inventory[useResult.consume] || 0) - 1) },
+        collection: { ...activeUserState.collection, discovered: Array.from(new Set([...activeUserState.collection.discovered, useResult.discovery])) },
+      };
+      updateState(next, useResult.consume === 'starFragment' ? '星星地砖已点亮' : '金色树叶已登记');
+      return;
+    }
+    if (useResult.action === 'navigate_island') {
+      setView('island');
+    }
+  }
+
   const contentByView: Record<ViewKey, ReactNode> = {
     today: (
       <TodayView
@@ -394,6 +462,10 @@ export default function App() {
           updateState(toggleTask(activeUserState, dayKey, index, activeAdjustedDay.exercises.length), '任务已更新');
         }}
         onSettle={() => {
+          if (!canCheckInDay(activeUserState.currentDayIndex, activePlan, activeUserState)) {
+            showToast(hasSettledToday(activeUserState.dayStates) ? '今天已盖章，明天再继续' : '今天只能打卡今天');
+            return;
+          }
           const next = settleWithHidden(activeUserState, activeAdjustedDay, dayKey, activePlan, server);
           setRewardModal(next.dayStates[dayKey].rewards || []);
           updateState(next, '今日已结算');
@@ -405,7 +477,7 @@ export default function App() {
       />
     ),
     island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} />,
-    bag: <BagView state={activeUserState} onDetail={setDetailModal} />,
+    bag: <BagView state={activeUserState} onDetail={setDetailModal} onUse={handleUseItem} />,
     collection: <CollectionView state={activeUserState} onDetail={setDetailModal} />,
     gift: (
       <GiftView
@@ -630,6 +702,7 @@ function TodayView(props: {
           <div className="hero-meta">
             <span>{props.day.minutes} 分钟</span>
             <span>{props.day.phase || props.day.weekTheme || '上岛训练'}</span>
+            <span>连续 {calcStreak(props.userState.dayStates, props.plan.weeks.flatMap(week => week.days).length)} 天</span>
           </div>
         </div>
         <div className="hero-animal">🐱</div>
@@ -1298,13 +1371,14 @@ function getIslandBuildingStatus(
   };
 }
 
-function BagView({ state, onDetail }: { state: LocalUserState; onDetail: (value: { title: string; body: string }) => void }) {
+function BagView({ state, onDetail, onUse }: { state: LocalUserState; onDetail: (value: { title: string; body: string }) => void; onUse: (key: string) => void }) {
   const entries = Object.entries(ITEMS);
   return (
     <section className="item-grid bag-grid">
       {entries.map(([key, item]) => {
         const source = getItemSource(key);
         const use = getItemUse(key);
+        const action = useItemAction(key, state.inventory[key] || 0);
         return (
           <Card
             key={key}
@@ -1320,6 +1394,9 @@ function BagView({ state, onDetail }: { state: LocalUserState; onDetail: (value:
             </div>
             <span className="bag-item-count">x {state.inventory[key] || 0}</span>
             <span className="bag-item-meta">{source}</span>
+            {action && (
+              <Button size="small" type={action.enabled ? 'primary' : 'default'} disabled={!action.enabled} onClick={event => { event.stopPropagation(); onUse(key); }}>{action.label}</Button>
+            )}
           </Card>
         );
       })}

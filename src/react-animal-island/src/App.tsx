@@ -59,6 +59,7 @@ import { diffBuildStages, type BuildStage } from './domain/buildings';
 import { BuildUpdateModal } from './components/BuildUpdateModal';
 import { Leaderboard } from './components/Leaderboard';
 import { AvatarPicker } from './components/AvatarPicker';
+import { CuteTip } from './components/CuteTip';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
 type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop';
@@ -181,7 +182,7 @@ export default function App() {
           </div>
         </Card>
         {loading && <LegacyLoading />}
-        {toast && <div className="toast show">{toast}</div>}
+        {toast && <CuteTip text={toast} />}
       </main>
     );
   }
@@ -491,7 +492,7 @@ export default function App() {
         <AvatarPicker avatars={AVATARS} selected={userState.avatar} onSelect={id => { const next = { ...userState, avatar: id }; setUserState(next); sync(next); }} />
       </Modal>
       <BuildUpdateModal updates={buildUpdates} onClose={() => setBuildUpdates([])} />
-      {toast && <div className="toast show">{toast}</div>}
+      {toast && <CuteTip text={toast} />}
     </main>
   );
 }

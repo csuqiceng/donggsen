@@ -419,7 +419,7 @@ export default function App() {
 
   if (view === 'collection' && activeUserState) {
     return (
-      <MuseumShell state={activeUserState} onLeave={() => setView('island')} onDetail={setDetailModal} />
+      <MuseumShell state={activeUserState} onLeave={() => setView('island')} onDetail={setDetailModal} detail={detailModal} onDetailClose={() => setDetailModal(null)} />
     );
   }
   return (
@@ -513,7 +513,7 @@ function LegacyLoading({ text = '正在加载训练岛' }: { text?: string }) {
   );
 }
 
-function MuseumShell({ state, onLeave, onDetail }: { state: LocalUserState; onLeave: () => void; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void }) {
+function MuseumShell({ state, onLeave, onDetail, detail, onDetailClose }: { state: LocalUserState; onLeave: () => void; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void; detail: { title: string; body?: string; lines?: string[] } | null; onDetailClose: () => void }) {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 1200);
@@ -524,6 +524,11 @@ function MuseumShell({ state, onLeave, onDetail }: { state: LocalUserState; onLe
     <main className="museum-shell">
       <button type="button" className="museum-leave-btn" onClick={onLeave}>← 离开博物馆</button>
       <CollectionView state={state} onDetail={onDetail} />
+      <Modal open={Boolean(detail)} title={detail?.title} typewriter={false} onClose={onDetailClose} footer={<Button type="primary" onClick={onDetailClose}>知道了</Button>}>
+        <div className="modal-lines">
+          {(detail?.lines || (detail?.body ? [detail.body] : [])).map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
+        </div>
+      </Modal>
     </main>
   );
 }

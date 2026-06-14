@@ -61,7 +61,6 @@ import { Leaderboard } from './components/Leaderboard';
 import { ActivityFeed } from './components/ActivityFeed';
 import { MapResidents } from './components/MapResidents';
 import { AvatarPicker } from './components/AvatarPicker';
-import { MessageField } from './components/MessageField';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
 type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop';
@@ -89,7 +88,7 @@ export default function App() {
   const [detailModal, setDetailModal] = useState<{ title: string; body?: string; lines?: string[] } | null>(null);
   const [exportModal, setExportModal] = useState<{ title: string; text: string } | null>(null);
   const [toast, setToast] = useState('');
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0].id);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [buildUpdates, setBuildUpdates] = useState<Array<{ id: string; name: string; from: string; to: string }>>([]);
   const serverRef = useRef<ServerState | null>(server);
   serverRef.current = server;
@@ -133,7 +132,7 @@ export default function App() {
     try {
       const minimumLoading = new Promise(resolve => window.setTimeout(resolve, 650));
       const [loadedPlan, loadedServer] = await Promise.all([fetchPlan(), fetchServerState(), minimumLoading]);
-      const initial = { ...createInitialState(fixed), avatar: selectedAvatar };
+      const initial = createInitialState(fixed);
       const serverSelf = findSelfRecord(loadedServer.users, fixed);
       const restoredBase = serverSelf ? { ...initial, ...restoreUserFromServer(serverSelf) } : initial;
       const restored = { ...restoredBase, currentDayIndex: getAvailableDayIndex(loadedPlan, restoredBase) };
@@ -175,10 +174,6 @@ export default function App() {
           <div className="login-stamp">🏝</div>
           <Title size="large" color="app-yellow" className="login-title">动森训练岛</Title>
           <p>选择岛民，开始冒险</p>
-          <div className="login-avatar-picker">
-            <small>选一个头像</small>
-            <AvatarPicker avatars={AVATARS} selected={selectedAvatar} onSelect={setSelectedAvatar} />
-          </div>
           <div className="login-actions">
             {FIXED_USERS.map(name => (
               <button key={name} type="button" className="login-wallet-btn" disabled={loading} onClick={() => chooseUser(name)}>
@@ -428,11 +423,12 @@ export default function App() {
     <main className="app-shell">
       <header className="topbar">
         <div className="profile">
-          <Avatar id={userState.avatar} />
+          <button type="button" className="profile-avatar-btn" onClick={() => setAvatarModalOpen(true)} aria-label="换头像">
+            <Avatar id={userState.avatar} />
+          </button>
           <div>
             <strong>{userState.username}</strong>
             <span>{syncText}</span>
-            <MessageField value={userState.message || ''} onChange={value => setUserState({ ...userState, message: value })} onSubmit={() => { sync(userState); }} />
           </div>
         </div>
         <div className="topbar-actions">
@@ -492,6 +488,9 @@ export default function App() {
           hidden
           onChange={event => importArchive(event.target.files?.[0])}
         />
+      </Modal>
+      <Modal open={avatarModalOpen} title="选择头像" typewriter={false} onClose={() => setAvatarModalOpen(false)} footer={<Button type="primary" onClick={() => setAvatarModalOpen(false)}>完成</Button>}>
+        <AvatarPicker avatars={AVATARS} selected={userState.avatar} onSelect={id => { const next = { ...userState, avatar: id }; setUserState(next); sync(next); }} />
       </Modal>
       <BuildUpdateModal updates={buildUpdates} onClose={() => setBuildUpdates([])} />
       {toast && <div className="toast show">{toast}</div>}

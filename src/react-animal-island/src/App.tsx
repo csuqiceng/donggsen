@@ -515,14 +515,20 @@ function LegacyLoading({ text = '正在加载训练岛' }: { text?: string }) {
 
 function MuseumShell({ state, onLeave, onDetail, detail, onDetailClose }: { state: LocalUserState; onLeave: () => void; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void; detail: { title: string; body?: string; lines?: string[] } | null; onDetailClose: () => void }) {
   const [loading, setLoading] = useState(true);
+  const [leaving, setLeaving] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 1200);
     return () => window.clearTimeout(timer);
   }, []);
-  if (loading) return <LegacyLoading text="正在走进博物馆" />;
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(onLeave, 1200);
+    return () => window.clearTimeout(timer);
+  }, [leaving]);
+  if (loading || leaving) return <LegacyLoading text={leaving ? '正在返回小岛' : '正在走进博物馆'} />;
   return (
     <main className="museum-shell">
-      <button type="button" className="museum-leave-btn" onClick={onLeave}>← 离开博物馆</button>
+      <button type="button" className="museum-leave-btn" onClick={() => setLeaving(true)}>← 离开博物馆</button>
       <CollectionView state={state} onDetail={onDetail} />
       <Modal open={Boolean(detail)} title={detail?.title} typewriter={false} onClose={onDetailClose} footer={<Button type="primary" onClick={onDetailClose}>知道了</Button>}>
         <div className="modal-lines">

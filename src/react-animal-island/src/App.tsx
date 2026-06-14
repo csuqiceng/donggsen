@@ -55,6 +55,8 @@ import {
 import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } from './domain/decor';
 import { getWeeklyReviewInsights } from './domain/weekly';
 import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from './domain/settlement';
+import { diffBuildStages, type BuildStage } from './domain/buildings';
+import { BuildUpdateModal } from './components/BuildUpdateModal';
 import { Leaderboard } from './components/Leaderboard';
 import { ActivityFeed } from './components/ActivityFeed';
 import { MapResidents } from './components/MapResidents';
@@ -88,6 +90,9 @@ export default function App() {
   const [exportModal, setExportModal] = useState<{ title: string; text: string } | null>(null);
   const [toast, setToast] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0].id);
+  const [buildUpdates, setBuildUpdates] = useState<Array<{ id: string; name: string; from: string; to: string }>>([]);
+  const serverRef = useRef<ServerState | null>(server);
+  serverRef.current = server;
   const archiveImportRef = useRef<HTMLInputElement | null>(null);
 
   const days = useMemo(() => plan ? flattenPlanDays(plan) : [], [plan]);
@@ -109,10 +114,13 @@ export default function App() {
 
   const sync = useCallback(async (nextState: LocalUserState, shared = null as Parameters<typeof pushUserState>[1]) => {
     setSyncText('同步中');
+    const before = snapshotBuildings(nextState, serverRef.current);
     const result = await pushUserState(nextState, shared);
     const merged = { ...nextState, ...result.restored };
     setUserState(merged);
     setServer(result.server);
+    const updates = diffBuildStages(before, snapshotBuildings(merged, result.server));
+    if (updates.length) setBuildUpdates(updates);
     setSyncText(result.conflict ? '已从旧数据恢复' : '已同步');
     return merged;
   }, []);
@@ -485,6 +493,7 @@ export default function App() {
           onChange={event => importArchive(event.target.files?.[0])}
         />
       </Modal>
+      <BuildUpdateModal updates={buildUpdates} onClose={() => setBuildUpdates([])} />
       {toast && <div className="toast show">{toast}</div>}
     </main>
   );
@@ -1008,6 +1017,17 @@ function getSharedWarehouse(state: LocalUserState, server: ServerState | null) {
     Object.entries(user.warehouseContribution || {}).forEach(([key, value]) => {
       out[key] = (out[key] || 0) + (Number(value) || 0);
     });
+  });
+  return out;
+}
+
+function snapshotBuildings(state: LocalUserState, server: ServerState | null): Record<string, BuildStage> {
+  const metrics = { checkins: countSettledDays(state), minutes: countMinutes(state), collection: state.collection.discovered.length };
+  const warehouse = getSharedWarehouse(state, server);
+  const out: Record<string, BuildStage> = {};
+  BUILDINGS.forEach(building => {
+    const status = getIslandBuildingStatus(building, metrics, warehouse, server);
+    out[building.id] = { name: building.name, stage: status.stage, pct: status.pct };
   });
   return out;
 }

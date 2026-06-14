@@ -4,7 +4,6 @@ import {
   Card,
   Checkbox,
   Input,
-  Loading,
   Modal,
   Title,
   Wallet,
@@ -418,6 +417,11 @@ export default function App() {
     coop: <CoopView state={activeUserState} server={server} mailbox={mailbox} plan={activePlan} onSettle={event => { sync(activeUserState, { weeklyEvent: event }).then(() => showToast('周结算公告已贴到贡献页')).catch(() => showToast('周结算同步失败')); }} />,
   };
 
+  if (view === 'collection' && activeUserState) {
+    return (
+      <MuseumShell state={activeUserState} onLeave={() => setView('island')} onDetail={setDetailModal} />
+    );
+  }
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -497,15 +501,30 @@ export default function App() {
   );
 }
 
-function LegacyLoading() {
+function LegacyLoading({ text = '正在加载训练岛' }: { text?: string }) {
   return (
-    <div className="legacy-loading-mask" role="status" aria-live="polite" aria-label="正在加载训练岛">
-      <div className="legacy-loading-animal">正在加载训练岛</div>
-      <div className="legacy-loading-text">正在加载训练岛...</div>
+    <div className="legacy-loading-mask" role="status" aria-live="polite" aria-label={text}>
+      <div className="legacy-loading-animal">{text}</div>
+      <div className="legacy-loading-text">{text}…</div>
       <div className="legacy-loading-bar">
         <div className="legacy-loading-bar-inner" />
       </div>
     </div>
+  );
+}
+
+function MuseumShell({ state, onLeave, onDetail }: { state: LocalUserState; onLeave: () => void; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void }) {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoading(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (loading) return <LegacyLoading text="正在走进博物馆" />;
+  return (
+    <main className="museum-shell">
+      <button type="button" className="museum-leave-btn" onClick={onLeave}>← 离开博物馆</button>
+      <CollectionView state={state} onDetail={onDetail} />
+    </main>
   );
 }
 
@@ -874,85 +893,109 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum }: {
       .slice(0, 1)
       .map((user, idx) => ({ name: user.displayName || user.username || '伙伴', avatar: user.avatar, x: 55 + idx * 8, y: 58, color: RESIDENT_COLORS[(idx + 1) % RESIDENT_COLORS.length] })),
   ];
+  const [mapZoom, setMapZoom] = useState(false);
+  const myTodayKey = getDayKey(state.currentDayIndex);
+  const myTodayState = state.dayStates[myTodayKey] || state.dayStates[String(state.currentDayIndex)] || {};
+  const todayDone = Boolean(myTodayState.settled && !myTodayState.rest && !myTodayState.missed);
+  const peerDoneToday = Object.values(server?.users || {}).some(user => {
+    if ((user.displayName || user.username) === state.username) return false;
+    const peerDay = user.dayStates?.[myTodayKey] || user.dayStates?.[String(state.currentDayIndex)];
+    return Boolean(peerDay?.settled && !peerDay.rest && !peerDay.missed);
+  });
+  const showCoopBubble = todayDone && peerDoneToday;
+  const renderMapBody = (isLarge: boolean) => (
+    <>
+      <span className="map-tree tree-a" />
+      <span className="map-tree tree-b" />
+      <span className="map-tree tree-c" />
+      <span className="map-rock rock-a" />
+      <span className="map-rock rock-b" />
+      <span className="map-bridge" />
+      {showCoopBubble && (
+        <div className="coop-bubble">
+          <img src={ITEMS.nookMilesTicket?.img} alt="里数券" />
+          <span>双人同日登岛 · 里数券</span>
+        </div>
+      )}
+      {!isLarge && (
+        <button type="button" className="island-map-open-btn" aria-label="放大查看岛屿" onClick={() => setMapZoom(true)}>⌕</button>
+      )}
+      <button
+        type="button"
+        className="bottle-point"
+        onClick={() => onDetail({ title: '瓶中信', lines: createBottleHintLines(state) })}
+        aria-label="瓶中信隐藏任务线索"
+      >
+        💌
+      </button>
+      {Object.values(placedDecor).map(record => {
+        const meta = DECOR_ITEMS.find(item => item.id === record.id);
+        if (!meta) return null;
+        return (
+          <button
+            key={record.id}
+            type="button"
+            className="decor-point"
+            style={{ left: `${meta.x}%`, top: `${meta.y}%` }}
+            onClick={() => onDetail({
+              title: meta.name,
+              body: `装饰说明：${meta.desc}\n放置人：${record.ownerName || '伙伴'}\n放置时间：${formatShortDate(record.placedAt)}`,
+            })}
+            aria-label={`${meta.name}，由 ${record.ownerName || '伙伴'} 放置`}
+          >
+            <span>{meta.icon}</span>
+          </button>
+        );
+      })}
+      {BUILDINGS.map(building => {
+        const status = getIslandBuildingStatus(building, metrics, warehouse, server);
+        return (
+          <button
+            key={building.id}
+            type="button"
+            className={`map-point building-${building.id} ${status.unlocked ? 'unlocked' : 'locked'} ${status.pct >= 80 && !status.unlocked ? 'almost' : ''} ${status.stageClass}`}
+            style={{ left: `${building.x}%`, top: `${building.y}%` }}
+            onClick={() => building.id === 'museum'
+              ? onViewMuseum()
+              : onDetail({
+                title: building.name,
+                lines: [
+                  building.desc,
+                  building.reward,
+                  `状态：${status.label}`,
+                  `进度：${status.value}/${status.need}`,
+                  `协作人数：${status.coopCount}/${status.coopNeed}`,
+                  `共同材料：${status.materialText}`,
+                ],
+              })}
+            aria-label={`${building.name}，${status.label}，进度 ${status.value}/${status.need}`}
+          >
+            <span className="map-point-status">{status.label}</span>
+            <span className="map-point-icon">{building.icon}</span>
+            <span className="map-point-label">{building.name}</span>
+            <span className="map-point-stage">{status.stage}</span>
+            <span className="map-point-progress"><span style={{ width: `${status.pct}%` }} /></span>
+          </button>
+        );
+      })}
+      {residents.map(resident => {
+        const residentAvatar = AVATARS.find(item => item.id === resident.avatar) || AVATARS[0];
+        return (
+          <div key={resident.name} className="map-resident" style={{ left: `${resident.x}%`, top: `${resident.y}%` }}>
+            <div className="resident-avatar" style={{ background: resident.color }}>
+              <img className="avatar-img" src={residentAvatar.img} alt={resident.name} />
+            </div>
+            <span className="resident-name">{resident.name}</span>
+          </div>
+        );
+      })}
+    </>
+  );
   return (
     <section className="view-stack">
       <section className="island-map-shell">
         <div className="island-map" aria-label="两个人的小基地地图">
-          <span className="map-tree tree-a" />
-          <span className="map-tree tree-b" />
-          <span className="map-tree tree-c" />
-          <span className="map-rock rock-a" />
-          <span className="map-rock rock-b" />
-          <span className="map-bridge" />
-          <button
-            type="button"
-            className="bottle-point"
-            onClick={() => onDetail({ title: '瓶中信', lines: createBottleHintLines(state) })}
-            aria-label="瓶中信隐藏任务线索"
-          >
-            💌
-          </button>
-          {Object.values(placedDecor).map(record => {
-            const meta = DECOR_ITEMS.find(item => item.id === record.id);
-            if (!meta) return null;
-            return (
-              <button
-                key={record.id}
-                type="button"
-                className="decor-point"
-                style={{ left: `${meta.x}%`, top: `${meta.y}%` }}
-                onClick={() => onDetail({
-                  title: meta.name,
-                  body: `装饰说明：${meta.desc}\n放置人：${record.ownerName || '伙伴'}\n放置时间：${formatShortDate(record.placedAt)}`,
-                })}
-                aria-label={`${meta.name}，由 ${record.ownerName || '伙伴'} 放置`}
-              >
-                <span>{meta.icon}</span>
-              </button>
-            );
-          })}
-          {BUILDINGS.map(building => {
-            const status = getIslandBuildingStatus(building, metrics, warehouse, server);
-            return (
-              <button
-                key={building.id}
-                type="button"
-                className={`map-point building-${building.id} ${status.unlocked ? 'unlocked' : 'locked'} ${status.pct >= 80 && !status.unlocked ? 'almost' : ''} ${status.stageClass}`}
-                style={{ left: `${building.x}%`, top: `${building.y}%` }}
-                onClick={() => building.id === 'museum'
-                  ? onViewMuseum()
-                  : onDetail({
-                    title: building.name,
-                    lines: [
-                      building.desc,
-                      building.reward,
-                      `状态：${status.label}`,
-                      `进度：${status.value}/${status.need}`,
-                      `协作人数：${status.coopCount}/${status.coopNeed}`,
-                      `共同材料：${status.materialText}`,
-                    ],
-                  })}
-                aria-label={`${building.name}，${status.label}，进度 ${status.value}/${status.need}`}
-              >
-                <span className="map-point-status">{status.label}</span>
-                <span className="map-point-icon">{building.icon}</span>
-                <span className="map-point-label">{building.name}</span>
-                <span className="map-point-stage">{status.stage}</span>
-                <span className="map-point-progress"><span style={{ width: `${status.pct}%` }} /></span>
-              </button>
-            );
-          })}
-          {residents.map(resident => {
-            const residentAvatar = AVATARS.find(item => item.id === resident.avatar) || AVATARS[0];
-            return (
-              <div key={resident.name} className="map-resident" style={{ left: `${resident.x}%`, top: `${resident.y}%` }}>
-                <div className="resident-avatar" style={{ background: resident.color }}>
-                  <img className="avatar-img" src={residentAvatar.img} alt={resident.name} />
-                </div>
-                <span className="resident-name">{resident.name}</span>
-              </div>
-            );
-          })}
+          {renderMapBody(false)}
         </div>
         <div className="warehouse-strip">
           {warehouseChips.map(([key, value]) => (
@@ -1017,6 +1060,11 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum }: {
           })}
         </div>
       </Card>
+      <Modal open={mapZoom} title="小基地地图" typewriter={false} onClose={() => setMapZoom(false)} footer={<Button type="primary" onClick={() => setMapZoom(false)}>关闭</Button>}>
+        <div className="island-map large-island-map" aria-label="放大的小基地地图">
+          {renderMapBody(true)}
+        </div>
+      </Modal>
     </section>
   );
 }
@@ -1173,15 +1221,10 @@ const collectionFilters: CollectionFilter[] = ['全部', '材料', '建筑', '�
 
 function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void }) {
   const [filter, setFilter] = useState<CollectionFilter>('全部');
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 1000);
-    return () => window.clearTimeout(timer);
-  }, []);
   const discovered = new Set(state.collection.discovered);
   const entries = createCollectionEntries().filter(entry => filter === '全部' || entry.type === filter);
   return (
-    <section className="collection-section view-stack" style={{ position: 'relative', minHeight: 'calc(100vh - 160px)' }}>
+    <section className="collection-section view-stack">
       <Card className="island-panel collection-head-card">
         <div className="section-head">
           <div>
@@ -1225,9 +1268,6 @@ function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: 
           );
         })}
       </section>
-      <div className="museum-loading-overlay">
-        <Loading active={loading} />
-      </div>
     </section>
   );
 }

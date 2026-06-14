@@ -56,12 +56,14 @@ import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } 
 import { getWeeklyReviewInsights } from './domain/weekly';
 import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from './domain/settlement';
 import { getUserTitle, countChecked } from './domain/leaderboard';
+import { detectHiddenTasks, applyHiddenTaskEffects } from './domain/hidden';
+import { getFestivalToday, applyFestivalBonus } from './domain/festival';
 import { diffBuildStages, type BuildStage } from './domain/buildings';
 import { BuildUpdateModal } from './components/BuildUpdateModal';
 import { Leaderboard } from './components/Leaderboard';
 import { AvatarPicker } from './components/AvatarPicker';
 import { CuteTip } from './components/CuteTip';
-import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
+import type { DayState, Difficulty, FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
 type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop' | 'storage';
 
@@ -386,9 +388,13 @@ export default function App() {
         setMessageText={setMessageText}
         onMessage={handleMessage}
         onDifficulty={difficulty => updateState({ ...activeUserState, selectedDifficulty: difficulty }, '难度已切换')}
-        onToggle={index => updateState(toggleTask(activeUserState, dayKey, index, activeAdjustedDay.exercises.length), '任务已更新')}
+        locked={Boolean(dayState?.settled || dayState?.rest)}
+        onToggle={index => {
+          if (dayState?.settled || dayState?.rest) return;
+          updateState(toggleTask(activeUserState, dayKey, index, activeAdjustedDay.exercises.length), '任务已更新');
+        }}
         onSettle={() => {
-          const next = settleToday(activeUserState, dayKey, activeAdjustedDay);
+          const next = settleWithHidden(activeUserState, activeAdjustedDay, dayKey, activePlan, server);
           setRewardModal(next.dayStates[dayKey].rewards || []);
           updateState(next, '今日已结算');
         }}
@@ -602,6 +608,7 @@ function TodayView(props: {
   onToggle: (index: number) => void;
   onSettle: () => void;
   onRest: () => void;
+  locked: boolean;
   archiveRows: ReturnType<typeof createArchiveRows>;
   onArchiveDay: (index: number) => void;
   onViewIsland: () => void;
@@ -686,10 +693,11 @@ function TodayView(props: {
         <div className="task-section-title">{props.day.title}</div>
         <div className="task-list">
           {props.day.exercises.map((exercise, index) => (
-            <label className="task-row" key={`${exercise[0]}-${index}`}>
+            <label className={`task-row ${props.checked[index] ? 'checked' : ''}`} key={`${exercise[0]}-${index}`}>
               <Checkbox
                 value={props.checked[index] ? ['done'] : []}
                 options={[{ label: '', value: 'done' }]}
+                disabled={props.locked}
                 onChange={() => props.onToggle(index)}
               />
               <span>{exercise[0]}</span>
@@ -700,9 +708,9 @@ function TodayView(props: {
       </Card>
 
       <div className="complete-strip">
-        <Button type="primary" size="large" block onClick={props.onSettle}>完成今天</Button>
+        <Button type="primary" size="large" block disabled={props.locked} onClick={props.onSettle}>完成今天</Button>
       </div>
-      <Button type="default" size="large" block onClick={props.onRest}>今天休息</Button>
+      <Button type="default" size="large" block disabled={props.locked} onClick={props.onRest}>今天休息</Button>
 
       <Card color="app-blue" pattern="app-blue" className="island-panel">
         <div className="section-title">训练伙伴</div>
@@ -1136,6 +1144,73 @@ function snapshotBuildings(state: LocalUserState, server: ServerState | null): R
     out[building.id] = { name: building.name, stage: status.stage, pct: status.pct };
   });
   return out;
+}
+
+function countFullDifficulty(dayStates: Record<string, DayState>, plan: TrainingPlan, difficulty: Difficulty): number {
+  const days = flattenPlanDays(plan);
+  return Object.entries(dayStates || {}).filter(([key, state]) => {
+    if (!state?.settled || state.difficulty !== difficulty) return false;
+    const idx = Number(key.startsWith('day_') ? key.slice(4) : key);
+    const day = days[idx];
+    if (!day) return false;
+    const adjusted = getAdjustedDay(day, difficulty);
+    const checked = Array.isArray(state.checked) ? state.checked.filter(Boolean).length : 0;
+    return checked >= adjusted.exercises.length;
+  }).length;
+}
+
+function hasPeerSettledToday(server: ServerState | null, username: string): boolean {
+  const today = getDateKey();
+  return Object.values(server?.users || {}).some(user => (user.displayName || user.username) !== username && Object.values(user.dayStates || {}).some(state => state?.settled && state.settledDate === today));
+}
+
+function hasPeerSettledTodayWithDifficulty(server: ServerState | null, username: string, difficulty: Difficulty, requireFull: boolean, plan: TrainingPlan): boolean {
+  const today = getDateKey();
+  const days = flattenPlanDays(plan);
+  return Object.values(server?.users || {}).some(user => {
+    if ((user.displayName || user.username) === username) return false;
+    return Object.entries(user.dayStates || {}).some(([key, state]) => {
+      if (!state?.settled || state.difficulty !== difficulty) return false;
+      if (state.settledDate ? state.settledDate !== today : false) return false;
+      if (!requireFull) return true;
+      const idx = Number(key.startsWith('day_') ? key.slice(4) : key);
+      const day = days[idx];
+      if (!day) return false;
+      const adjusted = getAdjustedDay(day, difficulty);
+      const checked = Array.isArray(state.checked) ? state.checked.filter(Boolean).length : 0;
+      return checked >= adjusted.exercises.length;
+    });
+  });
+}
+
+function settleWithHidden(state: LocalUserState, day: PlanDay, dayKey: string, plan: TrainingPlan, server: ServerState | null): LocalUserState {
+  const fullDone = (state.dayStates[dayKey]?.checked || []).filter(Boolean).length >= day.exercises.length;
+  const settled = settleToday(state, dayKey, day);
+  const hidden = detectHiddenTasks({
+    difficulty: state.selectedDifficulty,
+    day,
+    fullDone,
+    hour: new Date().getHours(),
+    countFullDifficulty: difficulty => countFullDifficulty(state.dayStates, plan, difficulty),
+    hasPeerSettledToday: () => hasPeerSettledToday(server, state.username),
+    hasPeerSettledTodayWithDifficulty: (difficulty, requireFull) => hasPeerSettledTodayWithDifficulty(server, state.username, difficulty, requireFull, plan),
+    discovered: state.collection.discovered,
+  });
+  const effects = applyHiddenTaskEffects(hidden);
+  const festival = getFestivalToday(new Date());
+  const festivalBonus = applyFestivalBonus(festival, true, state.collection.discovered);
+  let merged = settled;
+  const addDelta = (field: 'inventory' | 'warehouseContribution', delta: Record<string, number>) => {
+    const next = { ...merged[field] };
+    Object.entries(delta).forEach(([key, value]) => { next[key] = (next[key] || 0) + value; });
+    merged = { ...merged, [field]: next };
+  };
+  if (Object.keys(effects.inventoryDelta || {}).length) addDelta('inventory', effects.inventoryDelta);
+  if (Object.keys(effects.warehouseDelta || {}).length) addDelta('warehouseContribution', effects.warehouseDelta);
+  const allNew = [...hidden, ...effects.discoveries];
+  if (allNew.length) merged = { ...merged, collection: { ...merged.collection, discovered: Array.from(new Set([...merged.collection.discovered, ...allNew])) } };
+  if (festivalBonus && festival) addDelta('inventory', { [festivalBonus.reward]: 1 });
+  return merged;
 }
 
 function createWarehouseChips(warehouse: Record<string, number>) {

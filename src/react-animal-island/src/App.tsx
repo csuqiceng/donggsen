@@ -55,6 +55,7 @@ import {
 import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } from './domain/decor';
 import { getWeeklyReviewInsights } from './domain/weekly';
 import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from './domain/settlement';
+import { getUserTitle, countChecked } from './domain/leaderboard';
 import { diffBuildStages, type BuildStage } from './domain/buildings';
 import { BuildUpdateModal } from './components/BuildUpdateModal';
 import { Leaderboard } from './components/Leaderboard';
@@ -1564,13 +1565,19 @@ function formatShortDate(ts: number) {
 function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUserState; server: ServerState | null; mailbox: MailboxEntry[]; plan: TrainingPlan; onSettle: (event: { id: string; type: string; title: string; summary: string; createdAt: number }) => void }) {
   const summary = createCoopSummary(state, server, mailbox.length);
   const leaderboardParticipants = [
-    { name: state.username, settledDays: countSettledDays(state), minutes: countMinutes(state), lastActive: Date.now() },
+    { name: state.username, avatar: state.avatar, isMe: true, settledDays: countSettledDays(state), minutes: countMinutes(state), totalChecked: countChecked(state.dayStates), materials: state.warehouseContribution, title: getUserTitle({ dayStates: state.dayStates, warehouseContribution: state.warehouseContribution, discovered: state.collection.discovered, plan }), currentDay: state.currentDayIndex, lastActive: Date.now() },
     ...Object.values(server?.users || {})
       .filter(user => (user.displayName || user.username) !== state.username)
       .map(user => ({
         name: user.displayName || user.username || '伙伴',
+        avatar: user.avatar,
+        isMe: false,
         settledDays: Object.values(user.dayStates || {}).filter(day => day?.settled && !day?.rest).length,
         minutes: Object.values(user.dayStates || {}).reduce((sum, day) => sum + (day?.settled && !day?.rest ? Number(day.minutes || 0) : 0), 0),
+        totalChecked: countChecked(user.dayStates),
+        materials: user.warehouseContribution || {},
+        title: getUserTitle({ dayStates: user.dayStates || {}, warehouseContribution: user.warehouseContribution, discovered: user.collection?.discovered || [], plan }),
+        currentDay: user.currentDayIndex || 0,
         lastActive: user.lastActive || 0,
       })),
   ];
@@ -1582,6 +1589,14 @@ function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUser
       .map(user => ({ name: user.displayName || user.username || '伙伴', dayStates: user.dayStates || {}, warehouseContribution: user.warehouseContribution || {}, giftClaims: user.giftClaims || {} })),
   ];
   const activityItems: string[] = [];
+  const myTodayState = state.dayStates[getDayKey(state.currentDayIndex)] || state.dayStates[String(state.currentDayIndex)] || {};
+  const myTodayDone = Boolean(myTodayState.settled && !myTodayState.rest && !myTodayState.missed);
+  const peerDoneToday = Object.values(server?.users || {}).some(user => {
+    if ((user.displayName || user.username) === state.username) return false;
+    const peerDay = user.dayStates?.[getDayKey(state.currentDayIndex)] || user.dayStates?.[String(state.currentDayIndex)];
+    return Boolean(peerDay?.settled && !peerDay.rest && !peerDay.missed);
+  });
+  if (myTodayDone && peerDoneToday) activityItems.push('双人同日登岛，码头送来里数券');
   activityParticipants.forEach(participant => {
     if (Object.values(participant.dayStates || {}).some(day => day?.settled && day.settledDate === today)) activityItems.push(`${participant.name} 今天已登岛`);
     const materialCount = Object.values(participant.warehouseContribution || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
@@ -1589,6 +1604,11 @@ function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUser
     const giftCount = Object.values(participant.giftClaims || {}).filter(claim => claim && typeof claim === 'object' && claim.status === 'redeemed').length;
     if (giftCount > 0) activityItems.push(`${participant.name} 已兑现 ${giftCount} 张礼物券`);
   });
+  const nextTarget = BUILDINGS
+    .map(building => ({ building, status: getIslandBuildingStatus(building, { checkins: countSettledDays(state), minutes: countMinutes(state), collection: state.collection.discovered.length }, getSharedWarehouse(state, server), server) }))
+    .filter(({ building, status }) => building.need > 0 && !status.unlocked)
+    .sort((a, b) => b.status.pct - a.status.pct)[0];
+  if (nextTarget) activityItems.push(`${nextTarget.building.name} 建设进度 ${nextTarget.status.value}/${nextTarget.building.need}`);
   const weekIndex = Math.floor(state.currentDayIndex / 7);
   const yearMonth = today.slice(0, 7);
   const eventId = getWeeklyEventId(weekIndex, yearMonth);
@@ -1603,6 +1623,11 @@ function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUser
     const reviewInsights = getWeeklyReviewInsights(plan, weekIndex, state.dayStates, state.selectedDifficulty);
     onSettle(buildWeeklyEvent({ weekIndex, yearMonth, weeklyCheckins: summary.goals[0].value, sameDay: summary.goals[1].value, warehouseTotal: summary.goals[2].value, insights: reviewInsights, now: Date.now() }));
   }
+  const goalsDone = summary.goals.filter(goal => goal.value >= goal.target).length;
+  const weeklyEvents = (Array.isArray(server?.shared?.events) ? server.shared.events : Object.values(server?.shared?.events || {}))
+    .filter((event): event is { id: string; type: string; title: string; summary: string; createdAt: number } => Boolean(event && typeof event === 'object' && (event as { type?: string }).type === 'weekly'))
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 4);
   return (
     <section className="view-stack">
       <Card className="island-panel">
@@ -1611,13 +1636,13 @@ function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUser
       </Card>
       <Card className="island-panel">
         <Title size="small">活动动态</Title>
-        {activityItems.slice(0, 5).map((item, index) => (
+        {activityItems.length ? activityItems.slice(0, 5).map((item, index) => (
           <p key={index} className="activity-item">{item}</p>
-        ))}
+        )) : <p className="muted">还没有动态。</p>}
       </Card>
       <Card color="purple" pattern="purple" className="coop-section island-panel">
         <Title size="middle">本周贡献</Title>
-        <p>不是排名，是两个人一起给小岛供能</p>
+        <p>{goalsDone ? `共同目标完成 ${goalsDone}/${summary.goals.length}` : '不是排名，是两个人一起给小岛供能'}</p>
         <div className="weekly-goals">
           {summary.goals.map(goal => (
             <div className="weekly-goal" key={goal.label}>
@@ -1635,6 +1660,16 @@ function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUser
           <small>{settlementStatus.reason}</small>
           {settlementStatus.allowed && <Button type="primary" size="small" onClick={handleSettle}>生成本周结算</Button>}
         </div>
+      </Card>
+      <Card className="island-panel">
+        <Title size="small">周结算公告</Title>
+        {weeklyEvents.length ? weeklyEvents.map(event => (
+          <div className="weekly-event" key={event.id}>
+            <strong>{event.title}</strong>
+            <span>{event.summary}</span>
+            <small>{formatShortDate(event.createdAt)}</small>
+          </div>
+        )) : <p className="muted">本周结算后会出现公告</p>}
       </Card>
       <Card className="island-panel">
         <Title size="small">博物馆</Title>

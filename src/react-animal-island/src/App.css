@@ -1223,8 +1223,10 @@ button, input { font: inherit; }
 .collection-item-icon {
   display: grid;
   place-items: center;
+  justify-self: center;
   width: 32px;
   height: 32px;
+  line-height: 1;
   border-radius: 12px;
   background: rgba(255,255,255,.55);
   font-size: 22px;

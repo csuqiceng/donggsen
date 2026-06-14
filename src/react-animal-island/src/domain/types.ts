@@ -126,6 +126,7 @@ export interface LocalUserState {
   warehouseContribution: CountMap;
   collection: CollectionState;
   giftClaims: Record<string, GiftClaim | boolean>;
+  message?: string;
 }
 
 export type SharedPatch =

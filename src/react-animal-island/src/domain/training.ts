@@ -21,6 +21,7 @@ export function createInitialState(username: '哥哥' | '乖宝'): LocalUserStat
     warehouseContribution: {},
     collection: { discovered: ['resident_services_tent'], completed: [] },
     giftClaims: {},
+    message: '',
   };
 }
 

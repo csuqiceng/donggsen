@@ -59,6 +59,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { ActivityFeed } from './components/ActivityFeed';
 import { MapResidents } from './components/MapResidents';
 import { AvatarPicker } from './components/AvatarPicker';
+import { MessageField } from './components/MessageField';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
 type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop';
@@ -423,6 +424,7 @@ export default function App() {
           <div>
             <strong>{userState.username}</strong>
             <span>{syncText}</span>
+            <MessageField value={userState.message || ''} onChange={value => setUserState({ ...userState, message: value })} onSubmit={() => { sync(userState); }} />
           </div>
         </div>
         <div className="topbar-actions">

@@ -117,6 +117,7 @@ export function restoreUserFromServer(serverSelf: ServerUserRecord | null | unde
     },
     giftClaims: serverSelf.giftClaims || {},
     avatar: serverSelf.avatar || 'rosie',
+    message: serverSelf.message,
   };
 }
 
@@ -126,7 +127,7 @@ export function buildUserPayload(state: LocalUserState, shared?: SharedPatch | n
     username: state.username,
     displayName: state.username,
     avatar: state.avatar,
-    message: '',
+    message: state.message ?? '',
     dayStates: state.dayStates,
     currentDayIndex: state.currentDayIndex,
     inventory: state.inventory,

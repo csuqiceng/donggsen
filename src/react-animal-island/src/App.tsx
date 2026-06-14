@@ -33,6 +33,7 @@ import {
   getAvailableDayIndex,
   getDayKey,
   getDateKey,
+  getTodayWeekdayIndex,
   restToday,
   settleToday,
   toggleTask,
@@ -53,6 +54,7 @@ import {
 } from './domain/gifts';
 import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } from './domain/decor';
 import { getWeeklyReviewInsights } from './domain/weekly';
+import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from './domain/settlement';
 import { Leaderboard } from './components/Leaderboard';
 import { ActivityFeed } from './components/ActivityFeed';
 import { MapResidents } from './components/MapResidents';
@@ -404,7 +406,7 @@ export default function App() {
         onGiftRedeem={redeemGift}
       />
     ),
-    coop: <CoopView state={activeUserState} server={server} mailbox={mailbox} />,
+    coop: <CoopView state={activeUserState} server={server} mailbox={mailbox} plan={activePlan} onSettle={event => { sync(activeUserState, { weeklyEvent: event }).then(() => showToast('周结算公告已贴到贡献页')).catch(() => showToast('周结算同步失败')); }} />,
   };
 
   return (
@@ -1482,7 +1484,7 @@ function formatShortDate(ts: number) {
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-function CoopView({ state, server, mailbox }: { state: LocalUserState; server: ServerState | null; mailbox: MailboxEntry[] }) {
+function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUserState; server: ServerState | null; mailbox: MailboxEntry[]; plan: TrainingPlan; onSettle: (event: { id: string; type: string; title: string; summary: string; createdAt: number }) => void }) {
   const summary = createCoopSummary(state, server, mailbox.length);
   const leaderboardParticipants = [
     { name: state.username, settledDays: countSettledDays(state), minutes: countMinutes(state), lastActive: Date.now() },
@@ -1510,6 +1512,20 @@ function CoopView({ state, server, mailbox }: { state: LocalUserState; server: S
     const giftCount = Object.values(participant.giftClaims || {}).filter(claim => claim && typeof claim === 'object' && claim.status === 'redeemed').length;
     if (giftCount > 0) activityItems.push(`${participant.name} 已兑现 ${giftCount} 张礼物券`);
   });
+  const weekIndex = Math.floor(state.currentDayIndex / 7);
+  const yearMonth = today.slice(0, 7);
+  const eventId = getWeeklyEventId(weekIndex, yearMonth);
+  const sharedEvents = server?.shared?.events;
+  const alreadySettled = Array.isArray(sharedEvents)
+    ? sharedEvents.some(event => event && typeof event === 'object' && (event as { id?: string }).id === eventId)
+    : Boolean(sharedEvents && (sharedEvents as Record<string, { id?: string } >)[eventId]);
+  const sundayState = state.dayStates[getDayKey(weekIndex * 7 + 6)] || {};
+  const settlementStatus = getWeeklySettlementStatus({ todayWeekday: getTodayWeekdayIndex(), sundaySettled: !!sundayState.settled, sundayMissed: !!sundayState.missed, alreadySettled });
+  function handleSettle() {
+    if (!settlementStatus.allowed) return;
+    const reviewInsights = getWeeklyReviewInsights(plan, weekIndex, state.dayStates, state.selectedDifficulty);
+    onSettle(buildWeeklyEvent({ weekIndex, yearMonth, weeklyCheckins: summary.goals[0].value, sameDay: summary.goals[1].value, warehouseTotal: summary.goals[2].value, insights: reviewInsights, now: Date.now() }));
+  }
   return (
     <section className="view-stack">
       <Card className="island-panel">
@@ -1536,8 +1552,9 @@ function CoopView({ state, server, mailbox }: { state: LocalUserState; server: S
         </div>
         <div className="weekly-ceremony">
           <strong>周结算仪式</strong>
-          <span>{summary.readyForCeremony ? '可以生成本周公告' : '先完成今天'}</span>
-          <small>{summary.readyForCeremony ? '本周结算后会留下共享记录' : '本周结算后会出现公告'}</small>
+          <span>{settlementStatus.label}</span>
+          <small>{settlementStatus.reason}</small>
+          {settlementStatus.allowed && <Button type="primary" size="small" onClick={handleSettle}>生成本周结算</Button>}
         </div>
       </Card>
       <Card className="island-panel">

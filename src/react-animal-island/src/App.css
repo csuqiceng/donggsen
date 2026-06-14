@@ -2215,3 +2215,10 @@ button, input { font: inherit; }
   0%, 100% { transform: rotate(-10deg); }
   50% { transform: rotate(10deg); }
 }
+
+.museum-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52vh;
+}

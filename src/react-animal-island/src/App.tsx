@@ -4,6 +4,7 @@ import {
   Card,
   Checkbox,
   Input,
+  Loading,
   Modal,
   Title,
   Wallet,
@@ -68,7 +69,6 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: 'today', label: '今日' },
   { key: 'island', label: '岛屿' },
   { key: 'bag', label: '背包' },
-  { key: 'collection', label: '图鉴' },
   { key: 'gift', label: '礼物' },
   { key: 'coop', label: '贡献' },
 ];
@@ -399,7 +399,7 @@ export default function App() {
         onViewIsland={() => setView('island')}
       />
     ),
-    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} onDecorPlace={placeDecor} />,
+    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} />,
     bag: <BagView state={activeUserState} onDetail={setDetailModal} />,
     collection: <CollectionView state={activeUserState} onDetail={setDetailModal} />,
     gift: (
@@ -852,11 +852,12 @@ function formatMaterialSummary(warehouse: Record<string, number>) {
   return entries.map(([key, value]) => `${ITEMS[key]?.name || key} ${value}`).join(' · ');
 }
 
-function IslandView({ state, server, onDetail, onDecorPlace }: {
+function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum }: {
   state: LocalUserState;
   server: ServerState | null;
   onDetail: (value: { title: string; body?: string; lines?: string[] }) => void;
   onDecorPlace: (id: string) => void;
+  onViewMuseum: () => void;
 }) {
   const checkins = countSettledDays(state);
   const minutes = countMinutes(state);
@@ -917,11 +918,11 @@ function IslandView({ state, server, onDetail, onDecorPlace }: {
                 type="button"
                 className={`map-point building-${building.id} ${status.unlocked ? 'unlocked' : 'locked'} ${status.pct >= 80 && !status.unlocked ? 'almost' : ''} ${status.stageClass}`}
                 style={{ left: `${building.x}%`, top: `${building.y}%` }}
-                onClick={() => onDetail({
-                  title: building.name,
-                  lines: building.id === 'museum'
-                    ? createMuseumDetailLines(state, server, status)
-                    : [
+                onClick={() => building.id === 'museum'
+                  ? onViewMuseum()
+                  : onDetail({
+                    title: building.name,
+                    lines: [
                       building.desc,
                       building.reward,
                       `状态：${status.label}`,
@@ -929,7 +930,7 @@ function IslandView({ state, server, onDetail, onDecorPlace }: {
                       `协作人数：${status.coopCount}/${status.coopNeed}`,
                       `共同材料：${status.materialText}`,
                     ],
-                })}
+                  })}
                 aria-label={`${building.name}，${status.label}，进度 ${status.value}/${status.need}`}
               >
                 <span className="map-point-status">{status.label}</span>
@@ -1072,84 +1073,6 @@ function createBottleHintLines(state: LocalUserState) {
   return lines;
 }
 
-function createMuseumDetailLines(
-  state: LocalUserState,
-  server: ServerState | null,
-  status: ReturnType<typeof getIslandBuildingStatus>,
-) {
-  const exhibits = createMuseumExhibits(state, server);
-  const found = exhibits.filter(item => item.found).length;
-  const rooms = [
-    ['特殊物品展厅', exhibits.filter(item => item.room === 'special')],
-    ['隐藏传闻展厅', exhibits.filter(item => item.room === 'hidden')],
-    ['真实礼物展厅', exhibits.filter(item => item.room === 'gift')],
-    ['奖杯展厅', exhibits.filter(item => item.room === 'trophy')],
-  ] as const;
-  return [
-    '这里只收藏稀有物品、隐藏传闻、真实礼物和奖杯。',
-    `博物馆建设：${status.value}/${status.need} · ${status.label}`,
-    `已入馆：${found}/${exhibits.length}`,
-    ...rooms.flatMap(([name, entries]) => {
-      const done = entries.filter(item => item.found).length;
-      return [
-        `${name}：${done}/${entries.length}`,
-        ...entries.slice(0, 5).map(item => {
-          const pct = Math.min(100, Math.round((item.value / Math.max(1, item.target)) * 100));
-          return `${item.found ? '已入馆' : '未入馆'} · ${item.found ? item.name : '???'} · ${item.value}/${item.target} (${pct}%) · ${item.source}`;
-        }),
-      ];
-    }),
-  ];
-}
-
-function createMuseumExhibits(state: LocalUserState, server: ServerState | null) {
-  const discovered = new Set(state.collection.discovered);
-  const specialKeys = ['ironNugget', 'clay', 'starFragment', 'nookMilesTicket', 'goldenLeaf'];
-  const special = specialKeys.filter(key => ITEMS[key]).map(key => ({
-    id: `museum_item_${key}`,
-    room: 'special',
-    name: ITEMS[key].name,
-    found: (state.inventory[key] || 0) > 0 || discovered.has(key),
-    value: (state.inventory[key] || 0) > 0 || discovered.has(key) ? 1 : 0,
-    target: 1,
-    source: getItemSource(key),
-  }));
-  const hidden = HIDDEN_QUESTS.filter(quest => quest.tier !== '普通').map(quest => ({
-    id: `museum_hidden_${quest.id}`,
-    room: 'hidden',
-    name: quest.name,
-    found: discovered.has(quest.id),
-    value: discovered.has(quest.id) ? 1 : 0,
-    target: 1,
-    source: quest.source,
-  }));
-  const gifts = GIFT_RULES.map(rule => {
-    const progress = getGiftProgress(rule.id, state, server);
-    return {
-      id: `museum_gift_${rule.id}`,
-      room: 'gift',
-      name: rule.title,
-      found: discovered.has(`gift_${rule.id}`),
-      value: progress.value,
-      target: progress.target,
-      source: rule.target,
-    };
-  });
-  const settled = countSettledDays(state);
-  const warehouse = sumCounts(state.warehouseContribution);
-  const trophies = [
-    { id: 'first_checkin', name: '第一次登岛', value: Math.min(1, settled), target: 1, source: '完成第一次训练结算。' },
-    { id: 'steady_three', name: '三天居民', value: Math.min(3, settled), target: 3, source: '累计完成 3 天。' },
-    { id: 'resident_seven', name: '七天居民', value: Math.min(7, settled), target: 7, source: '累计完成 7 天。' },
-    { id: 'builder', name: '建设代表', value: Math.min(20, warehouse), target: 20, source: '个人仓库贡献达到 20。' },
-  ].map(item => ({
-    ...item,
-    room: 'trophy',
-    found: item.value >= item.target,
-  }));
-  return [...special, ...hidden, ...gifts, ...trophies];
-}
-
 function getIslandBuildingStatus(
   building: (typeof BUILDINGS)[number],
   metrics: { checkins: number; minutes: number; collection: number },
@@ -1247,15 +1170,27 @@ const collectionFilters: CollectionFilter[] = ['全部', '材料', '建筑', '�
 
 function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void }) {
   const [filter, setFilter] = useState<CollectionFilter>('全部');
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoading(false), 700);
+    return () => window.clearTimeout(timer);
+  }, []);
   const discovered = new Set(state.collection.discovered);
   const entries = createCollectionEntries().filter(entry => filter === '全部' || entry.type === filter);
+  if (loading) {
+    return (
+      <section className="view-stack museum-loading">
+        <Loading />
+      </section>
+    );
+  }
   return (
     <section className="collection-section view-stack">
       <Card className="island-panel collection-head-card">
         <div className="section-head">
           <div>
-            <div className="section-title">图鉴</div>
-            <p>材料、建筑和隐藏任务都会留下记录</p>
+            <div className="section-title">博物馆</div>
+            <p>材料、建筑、隐藏传闻和礼物都会在这里留下记录</p>
           </div>
         </div>
         <div className="collection-tabs">

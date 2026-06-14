@@ -32,6 +32,7 @@ import {
   getAdjustedDay,
   getAvailableDayIndex,
   getDayKey,
+  getDateKey,
   restToday,
   settleToday,
   toggleTask,
@@ -51,7 +52,10 @@ import {
   updateWishList,
 } from './domain/gifts';
 import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } from './domain/decor';
+import { getWeeklyReviewInsights } from './domain/weekly';
 import { Leaderboard } from './components/Leaderboard';
+import { ActivityFeed } from './components/ActivityFeed';
+import { MapResidents } from './components/MapResidents';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
 type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop';
@@ -515,6 +519,7 @@ function TodayView(props: {
   const baseOverview = createBaseOverview(props.userState, props.server, props.day, checkedCount);
   const hiddenStatuses = createHiddenStatuses(props.userState, props.day, checkedCount);
   const weeklyReview = createWeeklyReview(props.plan, props.userState, props.day);
+  const insights = props.day.weekIndex !== undefined ? getWeeklyReviewInsights(props.plan, props.day.weekIndex, props.userState.dayStates, props.userState.selectedDifficulty) : null;
   return (
     <section className="view-stack">
       <section className="hero-stage">
@@ -666,6 +671,13 @@ function TodayView(props: {
               ))}
             </tbody>
           </table>
+          {insights && (
+            <div className="weekly-insights">
+              <div><strong>最稳</strong> {insights.bestDay.label} · {insights.bestDay.detail}</div>
+              <div><strong>最弱</strong> {insights.weakest.label} · {insights.weakest.detail}</div>
+              <div><strong>下周建议</strong> {insights.nextAdvice.label} · {insights.nextAdvice.detail}</div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -836,6 +848,13 @@ function IslandView({ state, server, onDetail, onDecorPlace }: {
   const metrics = { checkins, minutes, collection: collectionCount };
   const warehouse = getSharedWarehouse(state, server);
   const warehouseChips = createWarehouseChips(warehouse);
+  const residents = [
+    { name: state.username, avatar: state.avatar, x: 45, y: 58 },
+    ...Object.values(server?.users || {})
+      .filter(user => (user.displayName || user.username) !== state.username)
+      .slice(0, 1)
+      .map((user, idx) => ({ name: user.displayName || user.username || '伙伴', avatar: user.avatar, x: 55 + idx * 8, y: 58 })),
+  ];
   return (
     <section className="view-stack">
       <section className="island-map-shell">
@@ -904,6 +923,7 @@ function IslandView({ state, server, onDetail, onDecorPlace }: {
               </button>
             );
           })}
+          <MapResidents residents={residents} />
         </div>
         <div className="warehouse-strip">
           {warehouseChips.map(([key, value]) => (
@@ -1475,11 +1495,30 @@ function CoopView({ state, server, mailbox }: { state: LocalUserState; server: S
         lastActive: user.lastActive || 0,
       })),
   ];
+  const today = getDateKey();
+  const activityParticipants = [
+    { name: state.username, dayStates: state.dayStates, warehouseContribution: state.warehouseContribution, giftClaims: state.giftClaims },
+    ...Object.values(server?.users || {})
+      .filter(user => (user.displayName || user.username) !== state.username)
+      .map(user => ({ name: user.displayName || user.username || '伙伴', dayStates: user.dayStates || {}, warehouseContribution: user.warehouseContribution || {}, giftClaims: user.giftClaims || {} })),
+  ];
+  const activityItems: string[] = [];
+  activityParticipants.forEach(participant => {
+    if (Object.values(participant.dayStates || {}).some(day => day?.settled && day.settledDate === today)) activityItems.push(`${participant.name} 今天已登岛`);
+    const materialCount = Object.values(participant.warehouseContribution || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+    if (materialCount > 0) activityItems.push(`${participant.name} 已贡献 ${materialCount} 份仓库材料`);
+    const giftCount = Object.values(participant.giftClaims || {}).filter(claim => claim && typeof claim === 'object' && claim.status === 'redeemed').length;
+    if (giftCount > 0) activityItems.push(`${participant.name} 已兑现 ${giftCount} 张礼物券`);
+  });
   return (
     <section className="view-stack">
       <Card className="island-panel">
         <Title size="small">排行榜</Title>
         <Leaderboard participants={leaderboardParticipants} now={Date.now()} />
+      </Card>
+      <Card className="island-panel">
+        <Title size="small">活动动态</Title>
+        <ActivityFeed items={activityItems.slice(0, 5)} />
       </Card>
       <Card color="purple" pattern="purple" className="coop-section island-panel">
         <Title size="middle">本周贡献</Title>

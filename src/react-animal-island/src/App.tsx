@@ -4,6 +4,7 @@ import {
   Card,
   Checkbox,
   Input,
+  Loading,
   Modal,
   Title,
   Wallet,
@@ -865,12 +866,13 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum }: {
   const metrics = { checkins, minutes, collection: collectionCount };
   const warehouse = getSharedWarehouse(state, server);
   const warehouseChips = createWarehouseChips(warehouse);
+  const RESIDENT_COLORS = ['#59c9a5', '#ef8354', '#ffd166', '#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e'];
   const residents = [
-    { name: state.username, avatar: state.avatar, x: 45, y: 58 },
+    { name: state.username, avatar: state.avatar, x: 45, y: 58, color: RESIDENT_COLORS[0] },
     ...Object.values(server?.users || {})
       .filter(user => (user.displayName || user.username) !== state.username)
       .slice(0, 1)
-      .map((user, idx) => ({ name: user.displayName || user.username || '伙伴', avatar: user.avatar, x: 55 + idx * 8, y: 58 })),
+      .map((user, idx) => ({ name: user.displayName || user.username || '伙伴', avatar: user.avatar, x: 55 + idx * 8, y: 58, color: RESIDENT_COLORS[(idx + 1) % RESIDENT_COLORS.length] })),
   ];
   return (
     <section className="view-stack">
@@ -944,7 +946,9 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum }: {
             const residentAvatar = AVATARS.find(item => item.id === resident.avatar) || AVATARS[0];
             return (
               <div key={resident.name} className="map-resident" style={{ left: `${resident.x}%`, top: `${resident.y}%` }}>
-                <img className="resident-avatar" src={residentAvatar.img} alt={resident.name} />
+                <div className="resident-avatar" style={{ background: resident.color }}>
+                  <img className="avatar-img" src={residentAvatar.img} alt={resident.name} />
+                </div>
                 <span className="resident-name">{resident.name}</span>
               </div>
             );
@@ -1176,18 +1180,9 @@ function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: 
   }, []);
   const discovered = new Set(state.collection.discovered);
   const entries = createCollectionEntries().filter(entry => filter === '全部' || entry.type === filter);
-  if (loading) {
-    return (
-      <section className="museum-loading">
-        <div className="museum-loading-text">正在走进博物馆…</div>
-        <div className="legacy-loading-bar">
-          <div className="legacy-loading-bar-inner" />
-        </div>
-      </section>
-    );
-  }
   return (
-    <section className="collection-section view-stack">
+    <section className="collection-section view-stack" style={{ position: 'relative', minHeight: 'calc(100vh - 160px)' }}>
+      <Loading active={loading} style={{ position: 'absolute', inset: 0 }} />
       <Card className="island-panel collection-head-card">
         <div className="section-head">
           <div>

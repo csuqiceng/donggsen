@@ -1640,6 +1640,54 @@ button, input { font: inherit; }
   cursor: pointer;
 }
 
+.map-resident {
+  position: absolute;
+  z-index: 7;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 86px;
+  pointer-events: none;
+}
+
+.resident-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 3px solid #fffdf5;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+  box-shadow: 0 4px 0 0 var(--old-shadow), 0 8px 12px rgba(61, 52, 40, .16);
+}
+
+.resident-avatar .avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  border-radius: inherit;
+  background: #fffdf5;
+}
+
+.resident-name {
+  max-width: 86px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fffdf5;
+  border: 2px solid #d8d0c3;
+  color: #4a3729;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .warehouse-strip {
   display: flex;
   flex-wrap: wrap;

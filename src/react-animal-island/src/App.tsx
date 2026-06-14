@@ -1175,14 +1175,13 @@ function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: 
   const [filter, setFilter] = useState<CollectionFilter>('全部');
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 700);
+    const timer = window.setTimeout(() => setLoading(false), 1000);
     return () => window.clearTimeout(timer);
   }, []);
   const discovered = new Set(state.collection.discovered);
   const entries = createCollectionEntries().filter(entry => filter === '全部' || entry.type === filter);
   return (
     <section className="collection-section view-stack" style={{ position: 'relative', minHeight: 'calc(100vh - 160px)' }}>
-      <Loading active={loading} style={{ position: 'absolute', inset: 0 }} />
       <Card className="island-panel collection-head-card">
         <div className="section-head">
           <div>
@@ -1226,6 +1225,9 @@ function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: 
           );
         })}
       </section>
+      <div className="museum-loading-overlay">
+        <Loading active={loading} />
+      </div>
     </section>
   );
 }

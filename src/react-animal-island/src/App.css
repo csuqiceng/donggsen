@@ -441,7 +441,7 @@ button, input { font: inherit; }
 
 .progress-meter {
   position: relative;
-  margin: 12px 22px 0;
+  margin: 12px 0 0;
   z-index: 2;
   display: flex;
   align-items: center;
@@ -2278,4 +2278,19 @@ button, input { font: inherit; }
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+.museum-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.museum-loading-overlay .animal-container-oauvb {
+  background: var(--old-surface, #fffbf5) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+.museum-loading-overlay .animal-container-oauvb .illustration {
+  max-height: 300px !important;
+  max-width: 300px !important;
 }

@@ -62,7 +62,7 @@ import { AvatarPicker } from './components/AvatarPicker';
 import { CuteTip } from './components/CuteTip';
 import type { FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
-type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop';
+type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop' | 'storage';
 
 const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: 'today', label: '今日' },
@@ -398,7 +398,7 @@ export default function App() {
         onViewIsland={() => setView('island')}
       />
     ),
-    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} />,
+    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} />,
     bag: <BagView state={activeUserState} onDetail={setDetailModal} />,
     collection: <CollectionView state={activeUserState} onDetail={setDetailModal} />,
     gift: (
@@ -415,12 +415,16 @@ export default function App() {
       />
     ),
     coop: <CoopView state={activeUserState} server={server} mailbox={mailbox} plan={activePlan} onSettle={event => { sync(activeUserState, { weeklyEvent: event }).then(() => showToast('周结算公告已贴到贡献页')).catch(() => showToast('周结算同步失败')); }} />,
+    storage: <></>,
   };
 
   if (view === 'collection' && activeUserState) {
     return (
       <MuseumShell state={activeUserState} onLeave={() => setView('island')} onDetail={setDetailModal} detail={detailModal} onDetailClose={() => setDetailModal(null)} />
     );
+  }
+  if (view === 'storage' && activeUserState) {
+    return <StorageShell state={activeUserState} server={server} onLeave={() => setView('island')} />;
   }
   return (
     <main className="app-shell">
@@ -535,6 +539,49 @@ function MuseumShell({ state, onLeave, onDetail, detail, onDetailClose }: { stat
           {(detail?.lines || (detail?.body ? [detail.body] : [])).map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
         </div>
       </Modal>
+    </main>
+  );
+}
+
+function StorageShell({ state, server, onLeave }: { state: LocalUserState; server: ServerState | null; onLeave: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoading(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(onLeave, 1200);
+    return () => window.clearTimeout(timer);
+  }, [leaving]);
+  if (loading || leaving) return <LegacyLoading text={leaving ? '正在返回小岛' : '正在打开仓库'} />;
+  const warehouse = getSharedWarehouse(state, server);
+  const entries = Object.entries(warehouse).filter(([, count]) => count > 0);
+  return (
+    <main className="museum-shell">
+      <button type="button" className="museum-leave-btn" onClick={() => setLeaving(true)}>← 离开仓库</button>
+      <section className="view-stack" style={{ width: 'min(520px, 100%)' }}>
+        <Card className="island-panel">
+          <Title size="middle">收纳仓库</Title>
+          <p className="muted">两个人一起存进来的建设材料</p>
+        </Card>
+        <Card className="island-panel">
+          {entries.length ? (
+            <section className="item-grid">
+              {entries.map(([key, count]) => (
+                <Card key={key} style={{ textAlign: 'center' }}>
+                  <div style={{ height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {ITEMS[key]?.img ? <img src={ITEMS[key].img} alt="" style={{ width: 34, height: 34 }} /> : <span>{ITEMS[key]?.emoji}</span>}
+                  </div>
+                  <strong>{ITEMS[key]?.name || key}</strong>
+                  <div style={{ color: 'var(--old-muted)', fontSize: 13 }}>x {count}</div>
+                </Card>
+              ))}
+            </section>
+          ) : <p className="muted">仓库还在等第一份材料。</p>}
+        </Card>
+      </section>
     </main>
   );
 }
@@ -869,6 +916,7 @@ function navIcon(key: ViewKey) {
     collection: '/ui-assets/nav-icons/collection.svg',
     gift: '/ui-assets/nav-icons/gift.svg',
     coop: '/ui-assets/nav-icons/contribution.svg',
+    storage: '/ui-assets/nav-icons/bag.svg',
   }[key];
 }
 
@@ -882,12 +930,13 @@ function formatMaterialSummary(warehouse: Record<string, number>) {
   return entries.map(([key, value]) => `${ITEMS[key]?.name || key} ${value}`).join(' · ');
 }
 
-function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum }: {
+function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum, onViewStorage }: {
   state: LocalUserState;
   server: ServerState | null;
   onDetail: (value: { title: string; body?: string; lines?: string[] }) => void;
   onDecorPlace: (id: string) => void;
   onViewMuseum: () => void;
+  onViewStorage: () => void;
 }) {
   const checkins = countSettledDays(state);
   const minutes = countMinutes(state);
@@ -968,6 +1017,8 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum }: {
             style={{ left: `${building.x}%`, top: `${building.y}%` }}
             onClick={() => building.id === 'museum'
               ? onViewMuseum()
+              : building.id === 'storage'
+              ? onViewStorage()
               : onDetail({
                 title: building.name,
                 lines: [

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="island">
+  <rect x="5" y="5" width="38" height="38" rx="12" fill="#fdf8df" stroke="#5b4939" stroke-width="3"/>
+  <path d="M11 31c5 5 21 6 28 0-3 8-24 10-28 0Z" fill="#63c8bd" stroke="#5b4939" stroke-width="2"/>
+  <path d="M15 29c3-9 14-13 22-4-2 7-16 10-22 4Z" fill="#79cf7b" stroke="#5b4939" stroke-width="2"/>
+  <path d="M24 28V14M24 15c-6 0-8 4-9 8 5-2 8-3 9-8Zm1 0c6 0 8 4 9 8-5-2-8-3-9-8Z" fill="#47b66b" stroke="#5b4939" stroke-width="2" stroke-linejoin="round"/>
+</svg>

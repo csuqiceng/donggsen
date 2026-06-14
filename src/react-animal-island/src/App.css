@@ -1832,7 +1832,7 @@ button, input { font: inherit; }
   bottom: 14px;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 4px;
   width: min(500px, calc(100% - 22px));
   transform: translateX(-50%);
@@ -2218,7 +2218,16 @@ button, input { font: inherit; }
 
 .museum-loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 52vh;
+  gap: 18px;
+  min-height: calc(100vh - 160px);
+  background: transparent;
+}
+.museum-loading-text {
+  color: #7a6f5a;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }

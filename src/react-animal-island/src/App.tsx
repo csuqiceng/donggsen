@@ -4,7 +4,6 @@ import {
   Card,
   Checkbox,
   Input,
-  Loading,
   Modal,
   Title,
   Wallet,
@@ -1179,8 +1178,11 @@ function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: 
   const entries = createCollectionEntries().filter(entry => filter === '全部' || entry.type === filter);
   if (loading) {
     return (
-      <section className="view-stack museum-loading">
-        <Loading />
+      <section className="museum-loading">
+        <div className="museum-loading-text">正在走进博物馆…</div>
+        <div className="legacy-loading-bar">
+          <div className="legacy-loading-bar-inner" />
+        </div>
       </section>
     );
   }

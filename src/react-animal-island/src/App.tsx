@@ -1015,11 +1015,17 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum, onVie
             type="button"
             className={`map-point building-${building.id} ${status.unlocked ? 'unlocked' : 'locked'} ${status.pct >= 80 && !status.unlocked ? 'almost' : ''} ${status.stageClass}`}
             style={{ left: `${building.x}%`, top: `${building.y}%` }}
-            onClick={() => building.id === 'museum'
-              ? onViewMuseum()
-              : building.id === 'storage'
-              ? onViewStorage()
-              : onDetail({
+            onClick={() => {
+              if (!status.unlocked) {
+                onDetail({
+                  title: building.name,
+                  lines: ['这栋建筑还没有开放。', building.reward, `当前进度：${status.value}/${status.need}`, '完成更多打卡后再来看看吧。'],
+                });
+                return;
+              }
+              if (building.id === 'museum') return onViewMuseum();
+              if (building.id === 'storage') return onViewStorage();
+              onDetail({
                 title: building.name,
                 lines: [
                   building.desc,
@@ -1029,7 +1035,8 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum, onVie
                   `协作人数：${status.coopCount}/${status.coopNeed}`,
                   `共同材料：${status.materialText}`,
                 ],
-              })}
+              });
+            }}
             aria-label={`${building.name}，${status.label}，进度 ${status.value}/${status.need}`}
           >
             <span className="map-point-status">{status.label}</span>

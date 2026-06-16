@@ -1591,6 +1591,16 @@ function renderWishGiftCards() {
   });
 }
 
+function renderOwnWishCards() {
+  return wishList.map((item, index) => `<div class="gift-card wish-gift-card own-wish-card">
+    <span class="wish-badge">心愿</span>
+    <div class="gift-top"><span class="gift-icon">🎟</span><div><strong>${escapeHtml(item)}</strong><small>我的心愿</small></div></div>
+    <p>想要的小礼物，对方可以照着准备。</p>
+    <div class="gift-bar"><span style="width:100%"></span></div>
+    <div class="gift-foot"><span>心愿 ${index + 1}/${wishList.length}</span><button class="gift-action" type="button" data-wish-remove="${index}">移除</button></div>
+  </div>`);
+}
+
 function renderGiftDock() {
   const dock = document.getElementById('giftDock');
   const peerDock = document.getElementById('giftPeerDock');
@@ -1598,6 +1608,7 @@ function renderGiftDock() {
   if (!dock || !peerDock || !history) return;
   const me = getParticipants()[0];
   dock.innerHTML = [
+    ...renderOwnWishCards(),
     ...renderWishGiftCards(),
     ...GIFT_RULES.map(rule => renderGiftCard(rule, me, true))
   ].join('');
@@ -3136,6 +3147,11 @@ document.getElementById('giftDock')?.addEventListener('click', e => {
   const wishBtn = e.target.closest('[data-wish-fulfill]');
   if (wishBtn) {
     handleWishFulfill(wishBtn.dataset.wishFulfill);
+    return;
+  }
+  const removeBtn = e.target.closest('[data-wish-remove]');
+  if (removeBtn) {
+    handleWishRemove(Number(removeBtn.dataset.wishRemove));
     return;
   }
   const requestBtn = e.target.closest('[data-gift-request]');

@@ -1,7 +1,7 @@
 const STASHABLE = ['wood', 'stone', 'shell', 'ironNugget', 'softwood', 'hardwood', 'weed'];
 
 export function useItemAction(key: string, count: number): { label: string; enabled: boolean } | null {
-  if (key === 'nookMilesTicket') return { label: '使用 1 张查看线索', enabled: count > 0 };
+  if (key === 'nookMilesTicket') return { label: count > 0 ? '使用 1 张查看线索' : '没有里数券', enabled: count > 0 };
   if (key === 'bells') return { label: '去岛屿装饰工坊', enabled: true };
   if (STASHABLE.includes(key)) return { label: '去岛屿建设', enabled: true };
   if (key === 'starFragment') return { label: '点亮星星地砖', enabled: count > 0 };

@@ -373,6 +373,8 @@ button,.route-node,.task-checkbox,.archive-toggle,.change-name{cursor:url("./ass
 .gift-card{border:3px solid #d8d0c3;border-radius:24px;background:#fffdf5;padding:14px;box-shadow:0 5px 0 0 var(--animal-shadow-3d)}
 .gift-card.locked{opacity:.68}
 .wish-gift-card{border-color:var(--animal-focus-yellow);background:linear-gradient(180deg,#fff8d8 0%,#fffdf5 100%)}
+.own-wish-card{position:relative}
+.wish-badge{position:absolute;top:10px;right:12px;z-index:1;background:var(--animal-primary-color);color:#fff;font-family:var(--animal-font-family);font-size:11px;font-weight:900;padding:3px 9px;border-radius:999px;box-shadow:0 3px 0 0 var(--animal-primary-dark)}
 .gift-top{display:flex;align-items:center;gap:10px}
 .gift-icon{width:42px;height:42px;border-radius:16px;background:var(--animal-focus-yellow);display:grid;place-items:center;font-size:24px;box-shadow:0 4px 0 0 var(--animal-focus-yellow-dark)}
 .gift-top strong{display:block;font-size:16px;color:#4a3729}

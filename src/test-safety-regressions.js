@@ -79,7 +79,7 @@ assert(/data-wish-fulfill/.test(app) && /我已实现/.test(app) && /未实现/.
 assert(/实现心愿/.test(app) && /wishFulfillment/.test(phpState), '实现心愿后应在礼物记录中留下共享变化');
 assert(/async function handleWishFulfill[\s\S]*const synced = await syncSharedPatch\(\{ wishFulfillment: fulfillment \}\)[\s\S]*if \(!synced \|\| !wishFulfillments\[fulfillmentId\]\)/.test(app), '心愿实现应等待同步确认，失败时回滚本地已实现状态');
 assert(!/wish-peer/.test(app), '上方心愿清单不应再展示任何人的心愿汇总');
-assert(/renderWishGiftCards\(\),\s*\.\.\.GIFT_RULES/.test(app) && /getWishGiftEntries/.test(app) && /Object\.entries\(wishLists\)/.test(app) && !/ownEntries/.test(app), '只有对方已有心愿应插到礼物码头最上方');
+assert(/renderOwnWishCards\(\)/.test(app) && /renderWishGiftCards\(\),\s*\.\.\.GIFT_RULES/.test(app) && /getWishGiftEntries/.test(app) && /Object\.entries\(wishLists\)/.test(app) && /data-wish-remove/.test(app) && !/ownEntries/.test(app), '自己和对方心愿都应作为心愿卡插到礼物码头');
 assert(!/还没有写心愿/.test(app) && !/对方心愿会显示在这里/.test(app), '空心愿区域不应显示占位文案');
 assert(/syncSharedPatch/.test(app), '前端应能提交 shared patch');
 assert(/const messageText = \(input\.value \|\| ''\)\.trim\(\)\.slice\(0, 40\)/.test(app) && /userMessage = ''[\s\S]*const patch = messageText \? \{ mailboxEntry:/.test(app), '贴上留言应只写入共享历史，不应继续保留为当前留言');

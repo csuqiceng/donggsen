@@ -91,7 +91,7 @@ export default function App() {
   const [messageText, setMessageText] = useState('');
   const [wishText, setWishText] = useState('');
   const [rewardModal, setRewardModal] = useState<string[] | null>(null);
-  const [detailModal, setDetailModal] = useState<{ title: string; body?: string; lines?: string[] } | null>(null);
+  const [detailModal, setDetailModal] = useState<{ title: string; body?: string; lines?: string[]; cards?: BottleCard[] } | null>(null);
   const [exportModal, setExportModal] = useState<{ title: string; text: string } | null>(null);
   const [toast, setToast] = useState('');
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
@@ -233,6 +233,7 @@ export default function App() {
   const activeUserState = userState;
   const activeAdjustedDay = adjustedDay;
   const activePlan = plan;
+  const bottleStatuses = activeAdjustedDay ? getBottleQuestStatuses(activeUserState, activeAdjustedDay, activePlan, server) : [];
 
   async function updateState(next: LocalUserState, successText: string) {
     setUserState(next);
@@ -476,7 +477,7 @@ export default function App() {
         onViewIsland={() => setView('island')}
       />
     ),
-    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} />,
+    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} bottleStatuses={bottleStatuses} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} />,
     bag: <BagView state={activeUserState} onDetail={setDetailModal} onUse={handleUseItem} />,
     collection: <CollectionView state={activeUserState} onDetail={setDetailModal} />,
     gift: (
@@ -492,7 +493,7 @@ export default function App() {
         onGiftRedeem={redeemGift}
       />
     ),
-    coop: <CoopView state={activeUserState} server={server} mailbox={mailbox} plan={activePlan} onSettle={event => { sync(activeUserState, { weeklyEvent: event }).then(() => showToast('周结算公告已贴到贡献页')).catch(() => showToast('周结算同步失败')); }} />,
+    coop: <CoopView state={activeUserState} server={server} plan={activePlan} onSettle={event => { sync(activeUserState, { weeklyEvent: event }).then(() => showToast('周结算公告已贴到贡献页')).catch(() => showToast('周结算同步失败')); }} />,
     storage: <></>,
   };
 
@@ -547,9 +548,21 @@ export default function App() {
         </div>
       </Modal>
       <Modal open={Boolean(detailModal)} title={detailModal?.title} typewriter={false} onClose={() => setDetailModal(null)} footer={<Button type="primary" onClick={() => setDetailModal(null)}>知道了</Button>}>
-        <div className="modal-lines">
-          {(detailModal?.lines || (detailModal?.body ? [detailModal.body] : [])).map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
-        </div>
+        {detailModal?.cards?.length ? (
+          <div className="bottle-clues">
+            {detailModal.cards.map(card => (
+              <div key={card.id} className={`bottle-clue ${card.status}`.trim()}>
+                <span className="bottle-clue-tier">{card.tier}</span>
+                <span className="bottle-clue-name">{card.name}</span>
+                <div className="bottle-clue-body">{card.body}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="modal-lines">
+            {(detailModal?.lines || (detailModal?.body ? [detailModal.body] : [])).map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
+          </div>
+        )}
       </Modal>
       <Modal
         open={Boolean(exportModal)}
@@ -990,10 +1003,11 @@ function formatMaterialSummary(warehouse: Record<string, number>) {
   return entries.map(([key, value]) => `${ITEMS[key]?.name || key} ${value}`).join(' · ');
 }
 
-function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum, onViewStorage }: {
+function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onViewMuseum, onViewStorage }: {
   state: LocalUserState;
   server: ServerState | null;
-  onDetail: (value: { title: string; body?: string; lines?: string[] }) => void;
+  onDetail: (value: { title: string; body?: string; lines?: string[]; cards?: BottleCard[] }) => void;
+  bottleStatuses: BottleCard[];
   onDecorPlace: (id: string) => void;
   onViewMuseum: () => void;
   onViewStorage: () => void;
@@ -1043,7 +1057,7 @@ function IslandView({ state, server, onDetail, onDecorPlace, onViewMuseum, onVie
       <button
         type="button"
         className="bottle-point"
-        onClick={() => onDetail({ title: '瓶中信', lines: createBottleHintLines(state) })}
+        onClick={() => onDetail({ title: '瓶中信', cards: bottleStatuses })}
         aria-label="瓶中信隐藏任务线索"
       >
         💌
@@ -1298,26 +1312,42 @@ function createWarehouseChips(warehouse: Record<string, number>) {
   ];
 }
 
-function createBottleHintLines(state: LocalUserState) {
-  const discovered = new Set(state.collection.discovered);
-  const inventory = state.inventory || {};
-  const lines = [
-    '隐藏线索会继续从旧图鉴和训练记录中解锁。',
-    `已发现隐藏：${HIDDEN_QUESTS.filter(item => discovered.has(item.id)).length}/${HIDDEN_QUESTS.length}`,
-    `里数券：${inventory.nookMilesTicket || 0} 张`,
-  ];
-  HIDDEN_QUESTS.forEach(quest => {
-    const found = discovered.has(quest.id);
+interface BottleCard {
+  id: string;
+  name: string;
+  tier: string;
+  status: 'found' | 'ready' | '';
+  body: string;
+}
+
+function getBottleQuestStatuses(state: LocalUserState, day: PlanDay, plan: TrainingPlan, server: ServerState | null): BottleCard[] {
+  const discovered = state.collection.discovered;
+  const dayKey = getDayKey(state.currentDayIndex);
+  const fullDone = (state.dayStates[dayKey]?.checked || []).filter(Boolean).length >= day.exercises.length;
+  const readyIds = new Set(detectHiddenTasks({
+    difficulty: state.selectedDifficulty,
+    day,
+    fullDone,
+    hour: new Date().getHours(),
+    countFullDifficulty: difficulty => countFullDifficulty(state.dayStates, plan, difficulty),
+    hasPeerSettledToday: () => hasPeerSettledToday(server, state.username),
+    hasPeerSettledTodayWithDifficulty: (difficulty, requireFull) => hasPeerSettledTodayWithDifficulty(server, state.username, difficulty, requireFull, plan),
+    discovered,
+  }));
+  const cards: BottleCard[] = HIDDEN_QUESTS.map(quest => {
+    const found = discovered.includes(quest.id);
+    const ready = !found && readyIds.has(quest.id);
     const lockedLegend = quest.tier === '传说' && !found;
-    const name = lockedLegend ? '???' : quest.name;
-    lines.push(`${found ? '已触发' : '未触发'} · ${quest.tier} · ${name}`);
-    lines.push(`线索：${lockedLegend ? '先发现更多普通和稀有传闻。' : quest.source}`);
-    lines.push(`用途：${quest.use}`);
+    const label = found ? '已触发' : ready ? '今日可试' : '未触发';
+    const clue = lockedLegend ? '先发现更多普通和稀有传闻。' : quest.source;
+    return { id: quest.id, name: lockedLegend ? '???' : quest.name, tier: quest.tier, status: found ? 'found' : ready ? 'ready' : '', body: `${label} · ${clue}` };
   });
-  if ((inventory.nookMilesTicket || 0) > 0) {
-    lines.push('额外线索：里数券可以用来查看瓶中信的额外提示，旧数据会继续记录这类探索。');
+  const festival = getFestivalToday(new Date());
+  if (festival) {
+    const found = discovered.includes(festival.id);
+    cards.push({ id: festival.id, name: festival.name, tier: '普通', status: found ? 'found' : '', body: `今日传闻 · 今天岛上有${festival.name}的传闻。` });
   }
-  return lines;
+  return cards;
 }
 
 function getIslandBuildingStatus(
@@ -1586,15 +1616,31 @@ function GiftView(props: {
           />
           <Button type="primary" onClick={props.onWishAdd}>放入</Button>
         </div>
-        <div className="wish-list">
-          {ownWishList.length ? ownWishList.map((item, index) => (
-            <div className="wish-chip" key={`${item}-${index}`}>
-              <span>{item}</span>
-              <button type="button" onClick={() => props.onWishRemove(index)}>移除</button>
-            </div>
-          )) : <p className="muted">还没有写下心愿。</p>}
-        </div>
       </Card>
+
+      {ownWishList.length > 0 && (
+        <section className="gift-grid">
+          {ownWishList.map((item, index) => (
+            <Card key={`own-wish-${index}`} className="gift-card own-wish-card">
+              <span className="wish-badge">心愿</span>
+              <div className="gift-top">
+                <span className="gift-icon">🎟</span>
+                <div>
+                  <strong>{item}</strong>
+                  <small>我的心愿</small>
+                </div>
+              </div>
+              <p>想要的小礼物，对方可以照着准备。</p>
+              <div className="gift-target">心愿 {index + 1}/{ownWishList.length}</div>
+              <div className="gift-bar"><span style={{ width: '100%' }} /></div>
+              <div className="gift-foot">
+                <span>我的心愿</span>
+                <Button type="primary" size="small" onClick={() => props.onWishRemove(index)}>移除</Button>
+              </div>
+            </Card>
+          ))}
+        </section>
+      )}
 
       {peerWishes.length > 0 && (
         <section className="gift-grid">
@@ -1692,8 +1738,8 @@ function formatShortDate(ts: number) {
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUserState; server: ServerState | null; mailbox: MailboxEntry[]; plan: TrainingPlan; onSettle: (event: { id: string; type: string; title: string; summary: string; createdAt: number }) => void }) {
-  const summary = createCoopSummary(state, server, mailbox.length);
+function CoopView({ state, server, plan, onSettle }: { state: LocalUserState; server: ServerState | null; plan: TrainingPlan; onSettle: (event: { id: string; type: string; title: string; summary: string; createdAt: number }) => void }) {
+  const summary = createCoopSummary(state, server);
   const leaderboardParticipants = [
     { name: state.username, avatar: state.avatar, isMe: true, settledDays: countSettledDays(state), minutes: countMinutes(state), totalChecked: countChecked(state.dayStates), materials: state.warehouseContribution, title: getUserTitle({ dayStates: state.dayStates, warehouseContribution: state.warehouseContribution, discovered: state.collection.discovered, plan }), currentDay: state.currentDayIndex, lastActive: Date.now() },
     ...Object.values(server?.users || {})
@@ -1801,20 +1847,11 @@ function CoopView({ state, server, mailbox, plan, onSettle }: { state: LocalUser
           </div>
         )) : <p className="muted">本周结算后会出现公告</p>}
       </Card>
-      <Card className="island-panel">
-        <Title size="small">博物馆</Title>
-        <div className="gift-target">建设进度 {summary.museum.value}/{summary.museum.need}</div>
-        <div className="gift-bar"><span style={{ width: `${summary.museum.pct}%` }} /></div>
-      </Card>
-      <Card className="island-panel">
-        <Title size="small">个人贡献</Title>
-        <TableLike rows={summary.rows} />
-      </Card>
     </section>
   );
 }
 
-function createCoopSummary(state: LocalUserState, server: ServerState | null, mailboxCount: number) {
+function createCoopSummary(state: LocalUserState, server: ServerState | null) {
   const rangeStart = Math.floor(state.currentDayIndex / 7) * 7;
   const rangeEnd = rangeStart + 6;
   const participants = [
@@ -1835,9 +1872,6 @@ function createCoopSummary(state: LocalUserState, server: ServerState | null, ma
     if (mine && peer) sameDay += 1;
   }
   const warehouseTotal = sumCounts(getSharedWarehouse(state, server));
-  const museum = BUILDINGS.find(building => building.id === 'museum');
-  const museumValue = state.collection.discovered.length;
-  const museumNeed = museum?.need || 10;
   return {
     goals: [
       { label: '本周合计登岛', value: weeklyCheckins, target: 8, reward: '服务处贴纸' },
@@ -1845,12 +1879,6 @@ function createCoopSummary(state: LocalUserState, server: ServerState | null, ma
       { label: '共同仓库材料', value: warehouseTotal, target: 20, reward: '仓库装饰' },
     ],
     readyForCeremony: weeklyCheckins >= 8 || sameDay >= 2 || warehouseTotal >= 20,
-    museum: { value: museumValue, need: museumNeed, pct: Math.min(100, Math.round((museumValue / museumNeed) * 100)) },
-    rows: participants.map(participant => [
-      participant.name,
-      `完成 ${countSettledInRange(participant.dayStates, 0, 999)} 天`,
-      `仓库贡献 ${sumCounts(participant.warehouseContribution)} · 留言 ${mailboxCount}`,
-    ]),
   };
 }
 
@@ -1892,10 +1920,3 @@ function Metric({ label, value }: { label: string; value: number }) {
   return <div className="metric"><strong>{value}</strong><span>{label}</span></div>;
 }
 
-function TableLike({ rows }: { rows: string[][] }) {
-  return (
-    <div className="table-like">
-      {rows.map(row => <div className="table-row" key={row.join('-')}>{row.map(cell => <span key={cell}>{cell}</span>)}</div>)}
-    </div>
-  );
-}

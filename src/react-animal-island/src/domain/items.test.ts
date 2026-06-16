@@ -3,7 +3,7 @@ import { getItemSource, getItemUse, useItem, useItemAction } from './items';
 
 describe('物品使用按钮', () => {
   it('里数券按数量决定可用性', () => {
-    expect(useItemAction('nookMilesTicket', 0)).toEqual({ label: '使用 1 张查看线索', enabled: false });
+    expect(useItemAction('nookMilesTicket', 0)).toEqual({ label: '没有里数券', enabled: false });
     expect(useItemAction('nookMilesTicket', 2)).toEqual({ label: '使用 1 张查看线索', enabled: true });
   });
 

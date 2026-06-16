@@ -831,6 +831,18 @@ button, input { font: inherit; }
   font-weight: 900;
 }
 
+.task-row.checked {
+  background: #f4f9ee;
+  border-color: #cfe8b8;
+}
+
+.task-row.checked span,
+.task-row.checked em {
+  color: var(--old-muted);
+  text-decoration: line-through;
+  opacity: .6;
+}
+
 .complete-strip {
   position: relative;
 }
@@ -963,6 +975,24 @@ button, input { font: inherit; }
   min-height: 154px;
 }
 
+.own-wish-card {
+  position: relative;
+}
+
+.wish-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  background: #4ca585;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  box-shadow: 0 3px 0 0 #357d63;
+}
+
 .gift-top {
   display: grid;
   grid-template-columns: 34px 1fr;
@@ -971,17 +1001,15 @@ button, input { font: inherit; }
   min-width: 0;
 }
 
-.gift-icon {
+.gift-card .gift-icon {
   display: grid;
   place-items: center;
-  justify-self: center;
   width: 34px;
   height: 34px;
-  line-height: 1;
+  font-size: 20px;
   border-radius: 12px;
   background: #fff9e9;
   border: 1.5px solid #d4c4a8;
-  font-size: 22px;
 }
 
 .gift-top strong,
@@ -1297,13 +1325,11 @@ button, input { font: inherit; }
   gap: 8px;
 }
 
-.collection-item-icon {
+.collection-card .collection-item-icon {
   display: grid;
   place-items: center;
-  justify-self: center;
   width: 34px;
   height: 34px;
-  line-height: 1;
   border-radius: 12px;
   background: #fff9e9;
   border: 1.5px solid #d4c4a8;
@@ -1408,6 +1434,8 @@ button, input { font: inherit; }
   color: #725d42;
   font-size: 13px;
   font-weight: 900;
+  white-space: nowrap;
+  flex: none;
 }
 
 .bag-item-meta {
@@ -1689,6 +1717,13 @@ button, input { font: inherit; }
   color: #9d7620;
 }
 
+.map-point .map-point-status,
+.map-point .map-point-stage,
+.map-point .map-point-label,
+.map-point .map-point-progress {
+  display: none;
+}
+
 .decor-point {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -1707,7 +1742,7 @@ button, input { font: inherit; }
 
 .bottle-point {
   position: absolute;
-  left: 48%;
+  left: 5%;
   top: 83%;
   z-index: 6;
   width: 42px;
@@ -1718,6 +1753,77 @@ button, input { font: inherit; }
   box-shadow: 0 4px 0 0 var(--old-shadow);
   font-size: 22px;
   cursor: pointer;
+}
+
+.bottle-clues {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.bottle-clue {
+  border: 3px solid #e4dac8;
+  border-radius: 18px;
+  background: #fffdf5;
+  padding: 10px 12px;
+  color: #6f665e;
+  line-height: 1.4;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 4px;
+  align-items: center;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+
+.bottle-clue-tier {
+  font-size: 10px;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #ebe4d4;
+  color: #7a5b34;
+  letter-spacing: .04em;
+  justify-self: start;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.bottle-clue-name {
+  font-size: 13px;
+  font-weight: 900;
+  color: #4a3729;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.bottle-clue-body {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  font-weight: 800;
+  color: #6f665e;
+  line-height: 1.4;
+  padding-top: 2px;
+}
+
+.bottle-clue.found {
+  border-color: var(--old-primary);
+  background: linear-gradient(180deg, #ecfbf7 0%, #d4f5ee 100%);
+}
+
+.bottle-clue.found .bottle-clue-name {
+  color: var(--old-primary-dark);
+}
+
+.bottle-clue.found .bottle-clue-tier {
+  background: var(--old-yellow);
+  color: #4a3729;
+}
+
+.bottle-clue.ready {
+  border-color: var(--old-yellow);
+  background: linear-gradient(180deg, #fff8d8 0%, #fff3b3 100%);
+  transform: translateY(-1px);
 }
 
 .map-resident {

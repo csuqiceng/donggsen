@@ -81,6 +81,8 @@ export interface SharedState {
   mailbox?: MailboxEntry[];
   events?: Record<string, unknown> | unknown[];
   decor?: Record<string, unknown>;
+  placedCrafts?: Array<{ id: string; recipeId: string; x: number; y: number; ownerKey?: string; ownerName?: string; placedAt: number }>;
+  buildingPositions?: Record<string, { x: number; y: number; ownerKey?: string; ownerName?: string; updatedAt?: number }>;
 }
 
 export interface ServerUserRecord {
@@ -98,6 +100,8 @@ export interface ServerUserRecord {
   selectedDifficulty?: Difficulty;
   selectedPlanMode?: PlanMode;
   giftClaims?: Record<string, GiftClaim | boolean>;
+  lastLoginDate?: string;
+  loginStreak?: number;
   lastActive?: number;
   updated?: number;
   syncVersion?: number;
@@ -127,11 +131,16 @@ export interface LocalUserState {
   collection: CollectionState;
   giftClaims: Record<string, GiftClaim | boolean>;
   message?: string;
+  lastLoginDate?: string;
+  loginStreak?: number;
 }
 
 export type SharedPatch =
   | { mailboxEntry: { id: string; text: string; createdAt: number } }
   | { decorItem: { id: string; placedAt: number } }
+  | { craftPlacement: { id: string; recipeId: string; x: number; y: number; placedAt: number } }
+  | { craftPosition: { id: string; x: number; y: number } }
+  | { buildingPosition: { id: string; x: number; y: number } }
   | { weeklyEvent: { id: string; type: string; title: string; summary: string; createdAt: number } }
   | { wishList: string[] }
   | { giftClaim: GiftClaim }

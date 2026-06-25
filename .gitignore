@@ -1,3 +1,5 @@
 src/data/
 *.log
 .omc/
+src/react-animal-island/scripts
+.gitignore

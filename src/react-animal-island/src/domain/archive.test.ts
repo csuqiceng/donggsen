@@ -100,8 +100,8 @@ describe('archive compatibility', () => {
     expect(text).toContain('# 动森训练岛 - Agent 训练数据');
     expect(text).toContain('Day 1 唤醒身体: ✓ 完成');
     expect(text).toContain('✓ 原地踏步 | 2 分钟 | 热身入口');
-    expect(rows[0]).toMatchObject({ index: 0, title: '唤醒身体', status: 'done', minutes: 14 });
-    expect(rows[1]).toMatchObject({ index: 1, title: '轻松建设', status: 'rest', minutes: 12 });
+    expect(rows[0]).toMatchObject({ index: 0, title: '唤醒身体', status: 'done', minutes: 12 });
+    expect(rows[1]).toMatchObject({ index: 1, title: '轻松建设', status: 'rest', minutes: 10 });
   });
 
   it('生成当天详情文本，兼容旧奖励字段', () => {

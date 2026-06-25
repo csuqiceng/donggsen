@@ -49,7 +49,9 @@ function default_state(string $room): array {
             'wishFulfillments' => new stdClass(),
             'mailbox' => [],
             'events' => [],
-            'decor' => new stdClass()
+            'decor' => new stdClass(),
+            'placedCrafts' => [],
+            'buildingPositions' => new stdClass()
         ]
     ];
 }
@@ -62,6 +64,8 @@ function ensure_shared_state(array &$state): void {
     if (!isset($state['shared']['mailbox']) || !is_array($state['shared']['mailbox'])) $state['shared']['mailbox'] = [];
     if (!isset($state['shared']['events']) || !is_array($state['shared']['events'])) $state['shared']['events'] = [];
     if (!isset($state['shared']['decor']) || !is_array($state['shared']['decor'])) $state['shared']['decor'] = [];
+    if (!isset($state['shared']['placedCrafts']) || !is_array($state['shared']['placedCrafts'])) $state['shared']['placedCrafts'] = [];
+    if (!isset($state['shared']['buildingPositions']) || !is_array($state['shared']['buildingPositions'])) $state['shared']['buildingPositions'] = [];
 }
 
 function read_state($handle, string $room): array {
@@ -228,6 +232,53 @@ function merge_shared_state(array &$state, array $sharedPatch, string $userKey, 
                 'ownerKey' => $userKey,
                 'ownerName' => $displayName,
                 'placedAt' => (int)($decor['placedAt'] ?? $now),
+                'updatedAt' => $now
+            ];
+        }
+    }
+
+    if (array_key_exists('craftPlacement', $sharedPatch) && is_array($sharedPatch['craftPlacement'])) {
+        $craft = $sharedPatch['craftPlacement'];
+        $cid = clean_id((string)($craft['id'] ?? ''));
+        if ($cid !== '') {
+            $state['shared']['placedCrafts'][] = [
+                'id' => $cid,
+                'recipeId' => clean_id((string)($craft['recipeId'] ?? '')),
+                'x' => (float)($craft['x'] ?? 0),
+                'y' => (float)($craft['y'] ?? 0),
+                'ownerKey' => $userKey,
+                'ownerName' => $displayName,
+                'placedAt' => (int)($craft['placedAt'] ?? $now)
+            ];
+        }
+    }
+
+    if (array_key_exists('craftPosition', $sharedPatch) && is_array($sharedPatch['craftPosition'])) {
+        $cp = $sharedPatch['craftPosition'];
+        $cpid = clean_id((string)($cp['id'] ?? ''));
+        if ($cpid !== '') {
+            foreach ($state['shared']['placedCrafts'] as $i => $existing) {
+                if (($existing['id'] ?? '') === $cpid) {
+                    $state['shared']['placedCrafts'][$i]['x'] = (float)($cp['x'] ?? 0);
+                    $state['shared']['placedCrafts'][$i]['y'] = (float)($cp['y'] ?? 0);
+                    $state['shared']['placedCrafts'][$i]['ownerKey'] = $userKey;
+                    $state['shared']['placedCrafts'][$i]['ownerName'] = $displayName;
+                    $state['shared']['placedCrafts'][$i]['updatedAt'] = $now;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (array_key_exists('buildingPosition', $sharedPatch) && is_array($sharedPatch['buildingPosition'])) {
+        $bp = $sharedPatch['buildingPosition'];
+        $bid = clean_id((string)($bp['id'] ?? ''));
+        if ($bid !== '') {
+            $state['shared']['buildingPositions'][$bid] = [
+                'x' => (float)($bp['x'] ?? 0),
+                'y' => (float)($bp['y'] ?? 0),
+                'ownerKey' => $userKey,
+                'ownerName' => $displayName,
                 'updatedAt' => $now
             ];
         }

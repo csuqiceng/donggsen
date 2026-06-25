@@ -73,7 +73,8 @@ export function getAvailableDayIndex(plan: TrainingPlan, state: LocalUserState, 
   });
   if (datedIndex >= 0) return clamp(datedIndex);
 
-  const currentWeekIndex = getCurrentTrainingWeekIndex(plan, state);
+  // 与旧版对齐：按真实日历周选周（漏打卡也会随时间推进），无历史时回退到进度制
+  const currentWeekIndex = getCalendarTrainingWeekIndex(plan, state.dayStates, date);
   const weekStart = getWeekStartIndex(plan, currentWeekIndex);
   const weekEnd = weekStart + (plan.weeks[currentWeekIndex]?.days.length || 1) - 1;
   return clamp(Math.min(weekStart + getTodayWeekdayIndex(date), weekEnd));
@@ -102,7 +103,12 @@ export function getAdjustedDay(day: PlanDay, difficulty: LocalUserState['selecte
   const diff = DIFFICULTIES[difficulty];
   const exercises = getDifficultyExercises(day.exercises, difficulty);
   const baseMinutes = day.minutes || day.exercises.length * 3;
-  const minutes = Math.max(3, Math.round(baseMinutes * diff.minutesFactor + diff.bonus * 2));
+  // 与旧版 app.js getDifficultyDay 对齐：standard=base，challenge=base+6，easy=round(base*0.55)
+  const minutes = difficulty === 'easy'
+    ? Math.max(3, Math.round(baseMinutes * 0.55))
+    : difficulty === 'challenge'
+      ? baseMinutes + 6
+      : baseMinutes;
   return { ...day, minutes, exercises, summary: difficulty === 'standard' ? day.summary : `${diff.label} · ${diff.hint}` };
 }
 
@@ -179,6 +185,33 @@ function getStoredDayState(states: LocalUserState['dayStates'], index: number): 
   return states[getDayKey(index)] || states[String(index)] || {};
 }
 
+// 周一为周首的日期锚点（与旧版 app.js getWeekStartDate 对齐）
+export function getWeekStartDate(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - getTodayWeekdayIndex(d));
+  return d;
+}
+
+// 取所有已处理天里最早的日期键（与旧版 getEarliestHandledDateKey 对齐）
+export function getEarliestHandledDateKey(dayStates: LocalUserState['dayStates']): string {
+  const dates = Object.values(dayStates)
+    .flatMap(state => [state?.settledDate, state?.missedDate])
+    .filter((value): value is string => Boolean(value))
+    .sort();
+  return dates[0] || '';
+}
+
+// 基于首次处理日 + 真实自然周差推算当前训练周；无历史或解析失败时回退进度制
+export function getCalendarTrainingWeekIndex(plan: TrainingPlan, dayStates: LocalUserState['dayStates'], date = new Date()): number {
+  const firstDateKey = getEarliestHandledDateKey(dayStates);
+  if (!firstDateKey) return getCurrentTrainingWeekIndex(plan, { dayStates } as LocalUserState);
+  const firstDate = new Date(`${firstDateKey}T00:00:00`);
+  if (Number.isNaN(firstDate.getTime())) return getCurrentTrainingWeekIndex(plan, { dayStates } as LocalUserState);
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const elapsedWeeks = Math.max(0, Math.floor((getWeekStartDate(date).getTime() - getWeekStartDate(firstDate).getTime()) / weekMs));
+  return Math.min(elapsedWeeks, Math.max(0, plan.weeks.length - 1));
+}
+
 function addCounts(target: Record<string, number>, delta: Record<string, number>): Record<string, number> {
   Object.entries(delta).forEach(([key, value]) => {
     target[key] = (target[key] || 0) + (Number(value) || 0);
@@ -187,7 +220,8 @@ function addCounts(target: Record<string, number>, delta: Record<string, number>
 }
 
 export function countSettledDays(state: LocalUserState): number {
-  return Object.values(state.dayStates).filter(day => day.settled && !day.rest).length;
+  // 与旧版 countSettledStates 对齐：含 rest（休息也算登岛）
+  return Object.values(state.dayStates).filter(day => day.settled).length;
 }
 
 export function countMinutes(state: LocalUserState): number {

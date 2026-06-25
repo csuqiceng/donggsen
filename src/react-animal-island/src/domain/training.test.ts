@@ -62,6 +62,21 @@ describe('训练状态', () => {
     expect(formatTodayDate(new Date('2026-06-14T12:00:00'))).toBe('2026 年 6 月 14 日 周日');
   });
 
+  it('漏打卡后按真实日历推进到下一周（非卡在进度周）', () => {
+    const plan2w: TrainingPlan = {
+      weeks: [
+        { theme: '第一周', days: Array.from({ length: 7 }, (_, index) => ({ title: `D${index + 1}`, minutes: 6, exercises: [['出现', '1 分钟', '入口']] })) },
+        { theme: '第二周', days: Array.from({ length: 7 }, (_, index) => ({ title: `D${index + 1}`, minutes: 6, exercises: [['出现', '1 分钟', '入口']] })) },
+      ],
+    };
+    const state = createInitialState('哥哥');
+    // 14 天前（周一）第 0 天结算，第一周其余天未做 → 进度制会卡在 week0
+    state.dayStates.day_0 = { settled: true, settledDate: '2026-06-01' };
+    const today = new Date('2026-06-15T12:00:00'); // 周一，与首日相隔 2 个自然周
+
+    expect(getAvailableDayIndex(plan2w, state, today)).toBe(7);
+  });
+
   it('calcStreak 从最后一天往前数连续 settled，遇到未处理天中断', () => {
     expect(calcStreak({ day_0: { settled: true }, day_1: { settled: true }, day_2: { settled: true } }, 3)).toBe(3);
     // 最后一天未处理 → 立即中断

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyHiddenTaskEffects, detectHiddenTasks, retroactiveHiddenCheck, type HiddenContext, type RetroactiveContext } from './hidden';
+import { applyHiddenTaskEffects, detectHiddenTasks, retroactiveHiddenCheck, getHiddenQuestHint, type HiddenContext, type RetroactiveContext } from './hidden';
 import type { PlanDay } from './types';
 
 function ctx(over: Partial<HiddenContext>): HiddenContext {
@@ -122,5 +122,13 @@ describe('追溯补发隐藏', () => {
 
   it('已发现的不重复补发', () => {
     expect(retroactiveHiddenCheck(rc({ todaySettled: true, hasPeerSettledToday: () => true, alreadyDiscovered: ['same_day_checkin'] }))).toEqual([]);
+  });
+
+  it('getHiddenQuestHint 按难度/复盘日给出聚合提示', () => {
+    const day = { title: 'd', exercises: [] } as PlanDay;
+    expect(getHiddenQuestHint('standard', { ...day, review: true })).toBe('周复盘日完成后，博物馆会新增一条图鉴记录。');
+    expect(getHiddenQuestHint('challenge', day)).toBe('挑战完整完成会提高稀有隐藏和真实礼物资格。');
+    expect(getHiddenQuestHint('easy', day)).toBe('轻松完整累计出现，会触发金色树叶和金色岛民证。');
+    expect(getHiddenQuestHint('standard', day)).toBe('标准完整完成最稳定，双人同日标准会解锁合作木牌。');
   });
 });

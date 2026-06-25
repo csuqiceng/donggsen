@@ -50,6 +50,16 @@ export const ITEMS: Record<string, { name: string; emoji: string; img?: string }
   bells: { name: '铃钱', emoji: '🔔', img: '/assets/acnh-icons/bells.png' },
   nookMilesTicket: { name: '里数券', emoji: '🎫', img: '/assets/acnh-icons/nookMilesTicket.png' },
   goldenLeaf: { name: '金色树叶', emoji: '🍂' },
+  furniture: { name: '家具', emoji: '🪑' },
+  house: { name: '房子', emoji: '🏠' },
+  wooden_chair: { name: '木椅', emoji: '🪑' },
+  wooden_table: { name: '木桌', emoji: '🍽️' },
+  bed: { name: '小床', emoji: '🛏️' },
+  fence: { name: '木栅栏', emoji: '🚧' },
+  flower_pot: { name: '花盆', emoji: '🪴' },
+  lamp: { name: '台灯', emoji: '💡' },
+  rug: { name: '地毯', emoji: '🟫' },
+  shelf: { name: '书架', emoji: '📚' },
 };
 
 export const REWARD_POOL = ['branch', 'wood', 'softwood', 'hardwood', 'stone', 'clay', 'weed', 'shell'];
@@ -65,20 +75,21 @@ export const TRAINING_REWARD_POOLS: Record<string, string[]> = {
 };
 
 export const BUILDINGS = [
-  { id: 'resident_services_tent', name: '服务处帐篷', icon: '⛺', need: 0, metric: 'checkins', coopNeed: 0, x: 28, y: 45, desc: '小基地的入口，记录两个人今天有没有登岛。', reward: '默认开放，负责查看今日状态。' },
-  { id: 'storage', name: '收纳仓库', icon: '📦', need: 3, metric: 'checkins', coopNeed: 1, x: 22, y: 30, desc: '把打卡得到的木材、石头和贝壳存进共同仓库。', reward: '累计打卡 3 天后开放仓库进度。' },
-  { id: 'nook_stop', name: '狸端机', icon: '🏧', need: 5, metric: 'checkins', coopNeed: 1, x: 72, y: 34, desc: '用连续出现换里数券，适合当作双人同日登岛奖励。', reward: '累计打卡 5 天后开放里数券提示。' },
-  { id: 'museum', name: '博物馆', icon: '🏛', need: 10, metric: 'collection', coopNeed: 2, x: 64, y: 65, desc: '收藏材料、建筑和隐藏任务，逐步补齐图鉴。', reward: '图鉴发现 10 项后解锁博物馆，需要两个人都贡献过。' },
-  { id: 'pier', name: '海边码头', icon: '🌊', need: 120, metric: 'minutes', coopNeed: 2, x: 80, y: 78, desc: '训练分钟数累计到一定程度后，海边会出现新的奖励点。', reward: '累计训练 120 分钟后开放码头，需要两个人都登岛过。' },
+  { id: 'resident_services_tent', name: '服务处帐篷', icon: '⛺', need: 0, metric: 'checkins', coopNeed: 0, x: 42, y: 22, desc: '小基地的入口，记录两个人今天有没有登岛。', reward: '默认开放，负责查看今日状态。' },
+  { id: 'workshop', name: '工坊', icon: '🛠', need: 0, metric: 'checkins', coopNeed: 0, x: 25, y: 55, desc: '消耗材料打造家具与房子，成品可摆放到岛上。', reward: '默认开放，主动合成家具与房子。' },
+  { id: 'storage', name: '收纳仓库', icon: '📦', need: 3, metric: 'checkins', coopNeed: 1, x: 18, y: 25, desc: '把打卡得到的木材、石头和贝壳存进共同仓库。', reward: '累计打卡 3 天后开放仓库进度。' },
+  { id: 'nook_stop', name: '狸端机', icon: '🏧', need: 5, metric: 'checkins', coopNeed: 1, x: 70, y: 28, desc: '用连续出现换里数券，适合当作双人同日登岛奖励。', reward: '累计打卡 5 天后开放里数券提示。' },
+  { id: 'museum', name: '博物馆', icon: '🏛', need: 10, metric: 'collection', coopNeed: 2, x: 52, y: 52, desc: '收藏材料、建筑和隐藏任务，逐步补齐图鉴。', reward: '图鉴发现 10 项后解锁博物馆，需要两个人都贡献过。' },
+  { id: 'pier', name: '海边码头', icon: '🌊', need: 120, metric: 'minutes', coopNeed: 2, x: 78, y: 62, desc: '训练分钟数累计到一定程度后，海边会出现新的奖励点。', reward: '累计训练 120 分钟后开放码头，需要两个人都登岛过。' },
 ];
 
 export const GIFT_RULES = [
-  { id: 'milk_tea', title: '奶茶券', icon: '🧋', target: '个人完成 3 次打卡。' },
-  { id: 'dinner_together', title: '一起吃饭券', icon: '🍲', target: '双人同日登岛 2 次。' },
-  { id: 'weekend_gift', title: '周末小礼物', icon: '🎁', target: '本周两人合计完成 8 次。' },
-  { id: 'wish_pick', title: '任选心愿一次', icon: '🌟', target: '挑战难度完整完成 3 次。' },
-  { id: 'welcome_back', title: '欢迎回岛礼', icon: '🌈', target: '休息记录后再次完成一次。' },
-  { id: 'base_decor', title: '小基地装修礼', icon: '🏡', target: '共同仓库材料达到 30。' },
+  { id: 'milk_tea', title: '奶茶券', icon: '🧋', scope: 'personal', desc: '连续出现的小奖励。', target: '个人完成 3 次打卡。' },
+  { id: 'dinner_together', title: '一起吃饭券', icon: '🍲', scope: 'coop', desc: '两个人同一天都登岛后解锁。', target: '双人同日登岛 2 次。' },
+  { id: 'weekend_gift', title: '周末小礼物', icon: '🎁', scope: 'coop', desc: '一周稳定出现的包裹。', target: '本周两人合计完成 8 次。' },
+  { id: 'wish_pick', title: '任选心愿一次', icon: '🌟', scope: 'personal', desc: '挑战状态很好时使用。', target: '挑战难度完整完成 3 次。' },
+  { id: 'welcome_back', title: '欢迎回岛礼', icon: '🌈', scope: 'personal', desc: '休息后回来也值得被看见。', target: '休息记录后再次完成一次。' },
+  { id: 'base_decor', title: '小基地装修礼', icon: '🏡', scope: 'coop', desc: '共同仓库材料换一个真实小装饰。', target: '共同仓库材料达到 30。' },
 ];
 
 export const HIDDEN_QUESTS = [

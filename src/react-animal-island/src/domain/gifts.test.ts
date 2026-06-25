@@ -104,4 +104,13 @@ describe('gift domain compatibility', () => {
     expect(GIFT_RULES.some(rule => rule.id === 'welcome_back')).toBe(true);
     expect(GIFT_RULES.some(rule => rule.id === 'base_decor')).toBe(true);
   });
+
+  it('keeps old gift rule scope and description metadata for museum/details', () => {
+    const dinner = GIFT_RULES.find(rule => rule.id === 'dinner_together');
+    const milkTea = GIFT_RULES.find(rule => rule.id === 'milk_tea');
+
+    expect(dinner).toMatchObject({ scope: 'coop', desc: '两个人同一天都登岛后解锁。' });
+    expect(milkTea).toMatchObject({ scope: 'personal', desc: '连续出现的小奖励。' });
+    expect(GIFT_RULES.every(rule => typeof rule.desc === 'string' && rule.desc.length > 0)).toBe(true);
+  });
 });

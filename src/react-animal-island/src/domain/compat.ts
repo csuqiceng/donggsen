@@ -118,6 +118,8 @@ export function restoreUserFromServer(serverSelf: ServerUserRecord | null | unde
     giftClaims: serverSelf.giftClaims || {},
     avatar: serverSelf.avatar || 'rosie',
     message: serverSelf.message,
+    lastLoginDate: serverSelf.lastLoginDate,
+    loginStreak: serverSelf.loginStreak ? Number(serverSelf.loginStreak) : undefined,
   };
 }
 
@@ -137,6 +139,8 @@ export function buildUserPayload(state: LocalUserState, shared?: SharedPatch | n
     selectedPlanMode: state.selectedPlanMode,
     giftClaims: state.giftClaims,
     syncVersion: state.syncVersion,
+    lastLoginDate: state.lastLoginDate,
+    loginStreak: state.loginStreak,
   };
   return shared ? { user, shared } : { user };
 }

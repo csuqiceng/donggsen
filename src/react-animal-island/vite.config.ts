@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite'
 import type { ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -9,7 +10,52 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), legacyDevApi()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'prompt',
+      includeAssets: ['favicon.svg'],
+      manifest: {
+        name: '动森训练岛',
+        short_name: '训练岛',
+        description: '两个人一起打卡建设的小基地',
+        start_url: './index.html',
+        display: 'standalone',
+        background_color: '#7dc395',
+        theme_color: '#59c9a5',
+        icons: [{ src: './assets/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) => request.mode === 'navigate'
+              || request.destination === 'document'
+              || request.destination === 'script'
+              || request.destination === 'style'
+              || url.pathname.endsWith('/plan.json')
+              || url.pathname.endsWith('/manifest.webmanifest'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'fitness-island-shell',
+              networkTimeoutSeconds: 3,
+            },
+          },
+          {
+            urlPattern: ({ request, url }) => request.destination === 'image'
+              || request.destination === 'font'
+              || /\.(svg|png|webp|jpg|jpeg|gif|woff|woff2)$/i.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'fitness-island-assets',
+            },
+          },
+        ],
+      },
+    }),
+    legacyDevApi(),
+  ],
   server: {
     host: true,
     allowedHosts: true,
@@ -107,7 +153,7 @@ function legacyDevApi() {
 
 function readState(file: string, room: string) {
   if (!fs.existsSync(file)) {
-    return { ok: true, version: 1, room, updatedAt: 0, users: {}, shared: { giftClaims: {}, wishLists: {}, wishFulfillments: {}, mailbox: [], events: {}, decor: {} } }
+    return { ok: true, version: 1, room, updatedAt: 0, users: {}, shared: { giftClaims: {}, wishLists: {}, wishFulfillments: {}, mailbox: [], events: {}, decor: {}, placedCrafts: [], buildingPositions: {} } }
   }
   const state = JSON.parse(fs.readFileSync(file, 'utf8'))
   state.ok = true
@@ -120,28 +166,97 @@ function readState(file: string, room: string) {
   state.shared.mailbox ||= []
   state.shared.events ||= {}
   state.shared.decor ||= {}
+  state.shared.placedCrafts ||= []
+  state.shared.buildingPositions ||= {}
   return state
 }
 
-function mergeShared(state: any, patch: any, userKey: string, displayName: string) {
+interface DevShared {
+  mailbox: Record<string, unknown>[]
+  giftClaims: Record<string, unknown>
+  wishLists: Record<string, unknown>
+  wishFulfillments: Record<string, unknown>
+  decor: Record<string, unknown>
+  events: Record<string, unknown>
+  placedCrafts: Record<string, unknown>[]
+  buildingPositions: Record<string, { x: number; y: number; ownerKey?: string; ownerName?: string; updatedAt?: number }>
+}
+interface DevState {
+  users: Record<string, unknown>
+  shared: DevShared
+  updatedAt?: number
+  [key: string]: unknown
+}
+interface DevPatch {
+  mailboxEntry?: { id?: unknown; text?: unknown; createdAt?: unknown }
+  giftClaim?: { id?: string } & Record<string, unknown>
+  wishList?: unknown
+  wishFulfillment?: { id?: unknown; item?: unknown; ownerKey?: unknown; ownerName?: unknown; fulfilledAt?: unknown }
+  decorItem?: { id?: string } & Record<string, unknown>
+  craftPlacement?: { id?: string; recipeId?: string; x?: number; y?: number; placedAt?: number }
+  craftPosition?: { id?: string; x?: number; y?: number }
+  buildingPosition?: { id?: string; x?: number; y?: number }
+  weeklyEvent?: { id?: string } & Record<string, unknown>
+}
+
+function mergeShared(state: DevState, patch: DevPatch | null, userKey: string, displayName: string) {
   if (!patch) return
+  const now = Date.now()
   if (patch.mailboxEntry?.text) {
     state.shared.mailbox.push({
       id: String(patch.mailboxEntry.id || `mail_${Date.now()}`),
       authorKey: userKey,
       authorName: displayName,
       text: String(patch.mailboxEntry.text).trim().slice(0, 80),
-      createdAt: Number(patch.mailboxEntry.createdAt || Date.now()),
+      createdAt: Number(patch.mailboxEntry.createdAt || now),
     })
     state.shared.mailbox = state.shared.mailbox.slice(-20)
   }
   if (patch.giftClaim?.id) state.shared.giftClaims[patch.giftClaim.id] = patch.giftClaim
-  if (patch.wishList) state.shared.wishLists[userKey] = { ownerKey: userKey, ownerName: displayName, items: patch.wishList, updatedAt: Date.now() }
+  if (Array.isArray(patch.wishList)) {
+    const items = Array.from(new Set(patch.wishList.map(item => cleanText(item, 40)).filter(Boolean))).slice(0, 5)
+    state.shared.wishLists[userKey] = { ownerKey: userKey, ownerName: displayName, items, updatedAt: now }
+  }
+  if (patch.wishFulfillment) {
+    const id = cleanId(patch.wishFulfillment.id)
+    const item = cleanText(patch.wishFulfillment.item, 40)
+    const ownerKey = cleanId(patch.wishFulfillment.ownerKey)
+    const ownerName = cleanText(patch.wishFulfillment.ownerName || '伙伴', 20)
+    const ownerList = (state.shared.wishLists[ownerKey] as { items?: unknown } | undefined)?.items
+    const ownerItems = Array.isArray(ownerList) ? ownerList.map(value => String(value)) : []
+    if (id && item && ownerKey && ownerKey !== userKey && !state.shared.wishFulfillments[id] && ownerItems.includes(item)) {
+      state.shared.wishFulfillments[id] = {
+        id,
+        item,
+        ownerKey,
+        ownerName,
+        fulfilledByKey: userKey,
+        fulfilledByName: displayName,
+        fulfilledAt: Number(patch.wishFulfillment.fulfilledAt || now),
+        status: 'fulfilled',
+        updatedAt: now,
+      }
+    }
+  }
   if (patch.decorItem?.id) state.shared.decor[patch.decorItem.id] = { ...patch.decorItem, ownerKey: userKey, ownerName: displayName }
+  if (patch.craftPlacement?.id) state.shared.placedCrafts.push({ ...patch.craftPlacement, ownerKey: userKey, ownerName: displayName })
+  if (patch.craftPosition?.id) {
+    const idx = state.shared.placedCrafts.findIndex((c: { id?: unknown }) => c?.id === patch.craftPosition!.id)
+    if (idx >= 0) state.shared.placedCrafts[idx] = { ...state.shared.placedCrafts[idx], x: Number(patch.craftPosition.x) || 0, y: Number(patch.craftPosition.y) || 0, ownerKey: userKey, ownerName: displayName, updatedAt: Date.now() }
+  }
+  if (patch.buildingPosition?.id) state.shared.buildingPositions[patch.buildingPosition.id] = { x: Number(patch.buildingPosition.x) || 0, y: Number(patch.buildingPosition.y) || 0, ownerKey: userKey, ownerName: displayName, updatedAt: Date.now() }
   if (patch.weeklyEvent?.id) state.shared.events[patch.weeklyEvent.id] = { ...patch.weeklyEvent, createdBy: displayName }
 }
 
-function readBody(req: any): Promise<string> {
+function cleanText(value: unknown, maxLen: number) {
+  return String(value || '').trim().replace(/\s+/gu, ' ').slice(0, maxLen)
+}
+
+function cleanId(value: unknown) {
+  return String(value || '').replace(/[^a-zA-Z0-9_.%-]/g, '').slice(0, 96)
+}
+
+function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let raw = ''
     req.on('data', (chunk: Buffer) => { raw += chunk.toString('utf8') })
@@ -150,7 +265,7 @@ function readBody(req: any): Promise<string> {
   })
 }
 
-function sendJson(res: any, payload: unknown) {
+function sendJson(res: ServerResponse, payload: unknown) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.end(JSON.stringify(payload))
 }

@@ -21,7 +21,7 @@ import {
   getArchiveActiveView,
   getDayByArchiveIndex,
 } from './domain/archive';
-import { findSelfRecord, normalizeMailbox, restoreUserFromServer, sanitizeFixedUser } from './domain/compat';
+import { findSelfRecord, restoreUserFromServer, sanitizeFixedUser } from './domain/compat';
 import {
   calcStreak,
   canCheckInDay,
@@ -58,10 +58,14 @@ import {
 import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } from './domain/decor';
 import { getWeeklyReviewInsights } from './domain/weekly';
 import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from './domain/settlement';
+import { computeLoginStreak, getLoginReward } from './domain/login';
+import { CRAFT_RECIPES, GRID_RECIPES, matchGridRecipe, craftFromGrid, placeCraft, type CraftGrid } from './domain/workshop';
 import { getUserTitle, countChecked } from './domain/leaderboard';
-import { detectHiddenTasks, applyHiddenTaskEffects, retroactiveHiddenCheck } from './domain/hidden';
+import { detectHiddenTasks, applyHiddenTaskEffects, retroactiveHiddenCheck, getHiddenQuestHint } from './domain/hidden';
+import { getMuseumExhibits, getMuseumRooms, MUSEUM_ROOMS, type MuseumContext, type MuseumRoomId } from './domain/museum';
+import { getTrophyProgress, type TrophyContext } from './domain/trophies';
 import { getFestivalToday, applyFestivalBonus } from './domain/festival';
-import { useItem, useItemAction } from './domain/items';
+import { resolveItemUse, itemUseAction } from './domain/items';
 import { revealExtraBottleClue } from './domain/bottle';
 import { diffBuildStages, type BuildStage } from './domain/buildings';
 import { BuildUpdateModal } from './components/BuildUpdateModal';
@@ -70,7 +74,7 @@ import { AvatarPicker } from './components/AvatarPicker';
 import { CuteTip } from './components/CuteTip';
 import type { DayState, Difficulty, FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
-type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop' | 'storage';
+type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop' | 'storage' | 'workshop';
 
 const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: 'today', label: '今日' },
@@ -91,13 +95,15 @@ export default function App() {
   const [messageText, setMessageText] = useState('');
   const [wishText, setWishText] = useState('');
   const [rewardModal, setRewardModal] = useState<string[] | null>(null);
+  const [loginEgg, setLoginEgg] = useState<{ streak: number; reward: string } | null>(null);
+  const [festivalEgg, setFestivalEgg] = useState<{ name: string; text: string; reward: string } | null>(null);
   const [detailModal, setDetailModal] = useState<{ title: string; body?: string; lines?: string[]; cards?: BottleCard[] } | null>(null);
   const [exportModal, setExportModal] = useState<{ title: string; text: string } | null>(null);
   const [toast, setToast] = useState('');
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [buildUpdates, setBuildUpdates] = useState<Array<{ id: string; name: string; from: string; to: string }>>([]);
   const serverRef = useRef<ServerState | null>(server);
-  serverRef.current = server;
+  useEffect(() => { serverRef.current = server; }, [server]);
   const archiveImportRef = useRef<HTMLInputElement | null>(null);
 
   const days = useMemo(() => plan ? flattenPlanDays(plan) : [], [plan]);
@@ -142,10 +148,21 @@ export default function App() {
       const serverSelf = findSelfRecord(loadedServer.users, fixed);
       const restoredBase = serverSelf ? { ...initial, ...restoreUserFromServer(serverSelf) } : initial;
       const restored = { ...restoredBase, currentDayIndex: getAvailableDayIndex(loadedPlan, restoredBase) };
+      // 每日登录彩蛋：计算连续登录天数，命中里程碑则发奖励
+      const todayKey = getDateKey();
+      const loginResult = computeLoginStreak({ lastLoginDate: restored.lastLoginDate, loginStreak: restored.loginStreak || 0, todayKey });
+      const reward = loginResult.milestone ? getLoginReward(loginResult.milestone) : null;
+      const withLogin: LocalUserState = {
+        ...restored,
+        lastLoginDate: loginResult.lastLoginDate,
+        loginStreak: loginResult.loginStreak,
+        inventory: reward ? { ...restored.inventory, [reward.item]: (restored.inventory[reward.item] || 0) + reward.amount } : restored.inventory,
+      };
       setPlan(loadedPlan);
       setServer(loadedServer);
-      setUserState(restored);
-      await sync(restored);
+      setUserState(withLogin);
+      if (reward) setLoginEgg({ streak: loginResult.milestone!, reward: reward.name });
+      await sync(withLogin);
     } catch (error) {
       showToast(error instanceof Error ? error.message : '加载失败');
     } finally {
@@ -203,7 +220,7 @@ export default function App() {
       }
     }, 8000);
     return () => window.clearInterval(timer);
-  }, [userState, plan]);
+  }, [userState, plan, showToast]);
 
   if (!selectedUser || !userState || !plan || !adjustedDay || !dayState) {
     return (
@@ -373,6 +390,27 @@ export default function App() {
     }
   }
 
+  async function handleCraftGrid(grid: CraftGrid) {
+    const result = craftFromGrid(activeUserState, grid);
+    if (!result.ok) { showToast(result.reason || '合成失败'); return; }
+    await updateState(result.state, result.recipe ? `合成完成：${result.recipe.name}` : '合成完成');
+  }
+
+  async function handlePlaceCraft(recipeId: string) {
+    const seq = (server?.shared?.placedCrafts || []).length;
+    const result = placeCraft(activeUserState, recipeId, seq, Date.now());
+    if (!result.ok) { showToast(result.reason || '摆放失败'); return; }
+    await updateStateWithShared(result.state, { craftPlacement: result.patch.craftPlacement }, '已摆放到岛上');
+  }
+
+  async function handleSaveBuildingPosition(id: string, x: number, y: number) {
+    await sync(activeUserState, { buildingPosition: { id, x, y } }).then(() => showToast('位置已保存')).catch(() => showToast('位置保存失败'));
+  }
+
+  async function handleSaveCraftPosition(id: string, x: number, y: number) {
+    await sync(activeUserState, { craftPosition: { id, x, y } }).then(() => showToast('位置已保存')).catch(() => showToast('位置保存失败'));
+  }
+
   async function updateStateWithShared(nextState: LocalUserState, shared: Parameters<typeof sync>[1], successText: string) {
     setUserState(nextState);
     try {
@@ -414,7 +452,7 @@ export default function App() {
   }
 
   async function handleUseItem(key: string) {
-    const useResult = useItem(key, activeUserState.inventory);
+    const useResult = resolveItemUse(key, activeUserState.inventory);
     if (!useResult) return;
     if (useResult.action === 'reveal_bottle_clue') {
       const reveal = revealExtraBottleClue(activeUserState.inventory.nookMilesTicket || 0, activeUserState.currentDayIndex);
@@ -469,6 +507,10 @@ export default function App() {
           }
           const next = settleWithHidden(activeUserState, activeAdjustedDay, dayKey, activePlan, server);
           setRewardModal(next.dayStates[dayKey].rewards || []);
+          // 关键日期彩蛋：结算命中节日且首次发现 → 弹彩蛋
+          const festivalToday = getFestivalToday(new Date());
+          const festivalBonus = applyFestivalBonus(festivalToday, true, activeUserState.collection.discovered);
+          if (festivalBonus && festivalToday) setFestivalEgg({ name: festivalToday.name, text: festivalToday.text, reward: festivalBonus.reward });
           updateState(next, '今日已结算');
         }}
         onRest={() => updateState(restToday(activeUserState, dayKey, activeAdjustedDay.exercises.length), '已记录休息日')}
@@ -477,9 +519,9 @@ export default function App() {
         onViewIsland={() => setView('island')}
       />
     ),
-    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} bottleStatuses={bottleStatuses} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} />,
+    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} bottleStatuses={bottleStatuses} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} onViewWorkshop={() => setView('workshop')} onSaveBuildingPosition={handleSaveBuildingPosition} onSaveCraftPosition={handleSaveCraftPosition} />,
     bag: <BagView state={activeUserState} onDetail={setDetailModal} onUse={handleUseItem} />,
-    collection: <CollectionView state={activeUserState} onDetail={setDetailModal} />,
+    collection: null, // 由 view==='collection' 早返回的 MuseumShell 接管，此处永不渲染
     gift: (
       <GiftView
         state={activeUserState}
@@ -499,11 +541,14 @@ export default function App() {
 
   if (view === 'collection' && activeUserState) {
     return (
-      <MuseumShell state={activeUserState} onLeave={() => setView('island')} onDetail={setDetailModal} detail={detailModal} onDetailClose={() => setDetailModal(null)} />
+      <MuseumShell state={activeUserState} server={server} onLeave={() => setView('island')} onDetail={setDetailModal} detail={detailModal} onDetailClose={() => setDetailModal(null)} />
     );
   }
   if (view === 'storage' && activeUserState) {
     return <StorageShell state={activeUserState} server={server} onLeave={() => setView('island')} />;
+  }
+  if (view === 'workshop' && activeUserState) {
+    return <WorkshopShell state={activeUserState} onLeave={() => setView('island')} onCraftGrid={handleCraftGrid} onPlace={handlePlaceCraft} onDetail={setDetailModal} detail={detailModal} onDetailClose={() => setDetailModal(null)} />;
   }
   return (
     <main className="app-shell">
@@ -546,6 +591,21 @@ export default function App() {
           {(rewardModal || []).map(item => <ItemPill key={item} item={item} />)}
           {!rewardModal?.length && <p>今天先守住出现，也算登岛。</p>}
         </div>
+      </Modal>
+      <Modal open={Boolean(loginEgg)} title="🎉 连续登录彩蛋" typewriter={false} onClose={() => setLoginEgg(null)} footer={<Button type="primary" onClick={() => setLoginEgg(null)}>收下</Button>}>
+        {loginEgg && (
+          <div className="reward-list">
+            <p>连续登录 <strong>{loginEgg.streak}</strong> 天！获得 {loginEgg.reward}。</p>
+          </div>
+        )}
+      </Modal>
+      <Modal open={Boolean(festivalEgg)} title={`🎁 ${festivalEgg?.name || ''}`} typewriter={false} onClose={() => setFestivalEgg(null)} footer={<Button type="primary" onClick={() => setFestivalEgg(null)}>收下</Button>}>
+        {festivalEgg && (
+          <div className="reward-list">
+            <p>{festivalEgg.text}</p>
+            <p><ItemPill item={festivalEgg.reward} /></p>
+          </div>
+        )}
       </Modal>
       <Modal open={Boolean(detailModal)} title={detailModal?.title} typewriter={false} onClose={() => setDetailModal(null)} footer={<Button type="primary" onClick={() => setDetailModal(null)}>知道了</Button>}>
         {detailModal?.cards?.length ? (
@@ -608,9 +668,10 @@ function LegacyLoading({ text = '正在加载训练岛' }: { text?: string }) {
   );
 }
 
-function MuseumShell({ state, onLeave, onDetail, detail, onDetailClose }: { state: LocalUserState; onLeave: () => void; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void; detail: { title: string; body?: string; lines?: string[] } | null; onDetailClose: () => void }) {
+function MuseumShell({ state, server, onLeave, onDetail, detail, onDetailClose }: { state: LocalUserState; server: ServerState | null; onLeave: () => void; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void; detail: { title: string; body?: string; lines?: string[] } | null; onDetailClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [leaving, setLeaving] = useState(false);
+  const [activeRoom, setActiveRoom] = useState<MuseumRoomId | 'all'>('all');
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 1200);
     return () => window.clearTimeout(timer);
@@ -619,12 +680,248 @@ function MuseumShell({ state, onLeave, onDetail, detail, onDetailClose }: { stat
     if (!leaving) return;
     const timer = window.setTimeout(onLeave, 1200);
     return () => window.clearTimeout(timer);
+    // 故意只依赖 leaving：onLeave 每次 render 是新函数，加入会导致离开定时器反复重置
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving]);
+
+  // 奖杯进度上下文（与 trophies.ts TrophyContext 对齐）
+  const trophyCtx: TrophyContext = {
+    settledDays: countSettledDays(state),
+    warehouseTotal: sumCounts(getSharedWarehouse(state, server)),
+    discovered: state.collection.discovered,
+    starFragment: state.inventory.starFragment || 0,
+    wishPickProgress: Object.values(state.dayStates).filter(day => day.difficulty === 'challenge' && day.done).length,
+    hasRedeemedGift: Object.values(state.giftClaims).some(claim => typeof claim === 'object' && claim.status === 'redeemed'),
+  };
+  const museumCtx: MuseumContext = {
+    inventory: state.inventory,
+    discovered: state.collection.discovered,
+    giftProgress: (ruleId: string) => getGiftProgress(ruleId, state, server),
+    trophyProgress: (id: string) => getTrophyProgress(id, trophyCtx),
+  };
+  const rooms = getMuseumRooms(museumCtx);
+  const exhibits = getMuseumExhibits(museumCtx);
+  const visible = activeRoom === 'all' ? exhibits : exhibits.filter(exhibit => exhibit.room === activeRoom);
+  const doneCount = exhibits.filter(exhibit => exhibit.found).length;
+  const total = exhibits.length || 1;
+  const roomName = activeRoom === 'all' ? '全部馆藏' : MUSEUM_ROOMS.find(room => room.id === activeRoom)?.name || '馆藏';
+
   if (loading || leaving) return <LegacyLoading text={leaving ? '正在返回小岛' : '正在走进博物馆'} />;
   return (
     <main className="museum-shell">
       <button type="button" className="museum-leave-btn" onClick={() => setLeaving(true)}>← 离开博物馆</button>
-      <CollectionView state={state} onDetail={onDetail} />
+      <Card className="island-panel museum-head-card">
+        <div className="section-head">
+          <div>
+            <div className="section-title">博物馆</div>
+            <p className="museum-sub">这里只收藏稀有物品、隐藏传闻、真实礼物和奖杯。</p>
+          </div>
+          <span className="museum-total">已入馆 <strong>{doneCount}</strong> / {exhibits.length}</span>
+        </div>
+        <div className="museum-room-grid">
+          <button type="button" className={`museum-room ${activeRoom === 'all' ? 'active' : ''}`} onClick={() => setActiveRoom('all')}>
+            <span className="museum-room-icon">🏛</span>
+            <span className="museum-room-name">全部馆藏</span>
+            <span className="museum-room-count">{doneCount}/{exhibits.length}</span>
+            <span className="museum-room-bar"><span style={{ width: `${Math.round((doneCount / total) * 100)}%` }} /></span>
+          </button>
+          {rooms.map(room => (
+            <button key={room.id} type="button" className={`museum-room ${activeRoom === room.id ? 'active' : ''}`} onClick={() => setActiveRoom(room.id)}>
+              <span className="museum-room-icon">{room.icon}</span>
+              <span className="museum-room-name">{room.name}</span>
+              <span className="museum-room-count">{room.found}/{room.total}</span>
+              <span className="museum-room-bar"><span style={{ width: `${room.pct}%` }} /></span>
+            </button>
+          ))}
+        </div>
+      </Card>
+      <section className="item-grid collection-grid museum-cabinet">
+        {visible.map(exhibit => {
+          const found = exhibit.found;
+          const showProgress = exhibit.progressTarget > 1;
+          const exhibitRoomName = MUSEUM_ROOMS.find(room => room.id === exhibit.room)?.name || roomName;
+          return (
+            <Card
+              key={exhibit.id}
+              className={`collection-card ${found ? 'is-discovered' : 'is-locked'}`}
+              onClick={() => onDetail({
+                title: found ? exhibit.name : '未入馆',
+                lines: [
+                  `展厅：${MUSEUM_ROOMS.find(room => room.id === exhibit.room)?.name || ''}`,
+                  `来源：${exhibit.source}`,
+                  `用途：${exhibit.use}`,
+                  showProgress ? `进度：${exhibit.progressValue} / ${exhibit.progressTarget}` : found ? '已入馆' : '尚未达成',
+                ],
+              })}
+            >
+              <div className="collection-item-main">
+                <span className="collection-item-name">
+                  {found ? exhibit.name : '???'}
+                  <small>{exhibitRoomName}</small>
+                </span>
+              </div>
+              <span className="collection-item-status">
+                {showProgress ? `${exhibit.progressValue}/${exhibit.progressTarget}` : found ? '已入馆' : '未入馆'}
+              </span>
+            </Card>
+          );
+        })}
+      </section>
+      <Modal open={Boolean(detail)} title={detail?.title} typewriter={false} onClose={onDetailClose} footer={<Button type="primary" onClick={onDetailClose}>知道了</Button>}>
+        <div className="modal-lines">
+          {(detail?.lines || (detail?.body ? [detail.body] : [])).map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
+        </div>
+      </Modal>
+    </main>
+  );
+}
+
+const RAW_MATERIALS = ['wood', 'softwood', 'hardwood', 'stone', 'weed', 'clay', 'shell', 'ironNugget'];
+
+function WorkshopShell({ state, onLeave, onCraftGrid, onPlace, onDetail, detail, onDetailClose }: {
+  state: LocalUserState;
+  onLeave: () => void;
+  onCraftGrid: (grid: CraftGrid) => void;
+  onPlace: (recipeId: string) => void;
+  onDetail: (value: { title: string; body?: string; lines?: string[] }) => void;
+  detail: { title: string; body?: string; lines?: string[] } | null;
+  onDetailClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [leaving, setLeaving] = useState(false);
+  const [grid, setGrid] = useState<CraftGrid>(Array(9).fill(null));
+  const [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoading(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(onLeave, 1200);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaving]);
+  if (loading || leaving) return <LegacyLoading text={leaving ? '正在返回小岛' : '正在走进工坊'} />;
+
+  const placedCounts: Record<string, number> = {};
+  grid.forEach(key => { if (key) placedCounts[key] = (placedCounts[key] || 0) + 1; });
+  const available = (mat: string) => (state.inventory[mat] || 0) - (placedCounts[mat] || 0);
+  const matched = matchGridRecipe(grid);
+  // 可放入格子的材料：原材料 + 已拥有的家具产物
+  const ownedProducts = GRID_RECIPES.filter(r => (state.inventory[r.id] || 0) > 0).map(r => r.id);
+  const placeable = [
+    ...RAW_MATERIALS.filter(mat => (state.inventory[mat] || 0) > 0),
+    ...ownedProducts,
+  ];
+
+  function clickCell(index: number) {
+    setGrid(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = null; // 清空已填格子
+      } else {
+        const placed: Record<string, number> = {};
+        next.forEach(key => { if (key) placed[key] = (placed[key] || 0) + 1; });
+        const left = (state.inventory[selected!] || 0) - (placed[selected!] || 0);
+        if (selected && left > 0) next[index] = selected; // 放入选中材料
+      }
+      return next;
+    });
+  }
+
+  return (
+    <main className="museum-shell">
+      <button type="button" className="museum-leave-btn" onClick={() => setLeaving(true)}>← 离开工坊</button>
+      <Card className="island-panel museum-head-card">
+        <div className="section-head">
+          <div>
+            <div className="section-title">工坊 · 合成台</div>
+            <p className="museum-sub">把材料放进 3×3 格子，组合出不同家具或房子。点材料选中，点格子放入，再点格子清空。</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="island-panel">
+        <div className="craft-materials">
+          {placeable.map(mat => (
+            <button
+              key={mat}
+              type="button"
+              className={`craft-mat ${selected === mat ? 'active' : ''}`}
+              onClick={() => setSelected(selected === mat ? null : mat)}
+            >
+              <span className="craft-mat-icon">{ITEMS[mat]?.img ? <img src={ITEMS[mat].img} alt="" /> : ITEMS[mat]?.emoji}</span>
+              {ITEMS[mat]?.name || mat} <small>{available(mat)}</small>
+            </button>
+          ))}
+          {placeable.length === 0 && <p className="muted">先去打卡收集材料。</p>}
+        </div>
+      </Card>
+
+      <Card className="island-panel">
+        <div className="craft-stage">
+          <div className="craft-grid">
+            {grid.map((cell, index) => (
+              <button
+                key={index}
+                type="button"
+                className={`craft-cell ${cell ? 'filled' : ''} ${selected && !cell ? 'selectable' : ''}`}
+                onClick={() => clickCell(index)}
+              >
+                {cell ? (ITEMS[cell]?.img ? <img src={ITEMS[cell].img} alt="" /> : ITEMS[cell]?.emoji || cell) : ''}
+              </button>
+            ))}
+          </div>
+          <div className="craft-output">
+            <div className={`craft-output-slot ${matched ? 'ready' : ''}`}>
+              {matched ? `${matched.icon} ${matched.name}` : '（未匹配配方）'}
+            </div>
+            <Button type="primary" disabled={!matched} onClick={() => { if (matched) { onCraftGrid(grid); setGrid(Array(9).fill(null)); } }}>合成</Button>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="island-panel">
+        <Title size="small">已打造</Title>
+        <section className="item-grid collection-grid museum-cabinet">
+          {GRID_RECIPES.filter(r => (state.inventory[r.id] || 0) > 0).map(recipe => (
+            <Card key={recipe.id} className="collection-card is-discovered" onClick={() => onDetail({ title: recipe.name, lines: [recipe.desc, `类别：${recipe.category === 'house' ? '房子' : '家具'}`] })}>
+              <div className="collection-item-main">
+                <span className="collection-item-name">{recipe.icon} {recipe.name}<small>{recipe.category === 'house' ? '房子' : '家具'}</small></span>
+              </div>
+              <span className="collection-item-status">拥有 {state.inventory[recipe.id] || 0}</span>
+              {recipe.category === 'house' && <Button type="default" size="small" onClick={() => onPlace(recipe.id)}>摆到岛上</Button>}
+            </Card>
+          ))}
+          {!GRID_RECIPES.some(r => (state.inventory[r.id] || 0) > 0) && <p className="muted">还没打造出任何东西。</p>}
+        </section>
+      </Card>
+
+      <Card className="island-panel">
+        <Title size="small">配方图鉴</Title>
+        <p className="muted" style={{ marginBottom: 10 }}>把下列材料组合放进 3×3 格子即可合成（与摆放位置无关）。</p>
+        <section className="recipe-list">
+          {GRID_RECIPES.map(recipe => {
+            const owned = state.inventory[recipe.id] || 0;
+            const canMake = Object.entries(recipe.ingredients).every(([key, need]) => (state.inventory[key] || 0) >= need);
+            return (
+              <div key={recipe.id} className={`recipe-row ${canMake ? '' : 'locked'}`}>
+                <span className="recipe-output">{recipe.icon} {recipe.name}</span>
+                <span className="recipe-ingredients">
+                  {Object.entries(recipe.ingredients).map(([key, need]) => (
+                    <span key={key} className="recipe-ing">
+                      {ITEMS[key]?.img ? <img src={ITEMS[key].img} alt="" /> : ITEMS[key]?.emoji}
+                      <small>{ITEMS[key]?.name || key} {state.inventory[key] || 0}/{need}</small>
+                    </span>
+                  ))}
+                </span>
+                <span className="recipe-tag">{recipe.category === 'house' ? '房子' : '家具'}{owned > 0 ? ` · 已有 ${owned}` : ''}</span>
+              </div>
+            );
+          })}
+        </section>
+      </Card>
+
       <Modal open={Boolean(detail)} title={detail?.title} typewriter={false} onClose={onDetailClose} footer={<Button type="primary" onClick={onDetailClose}>知道了</Button>}>
         <div className="modal-lines">
           {(detail?.lines || (detail?.body ? [detail.body] : [])).map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
@@ -645,6 +942,8 @@ function StorageShell({ state, server, onLeave }: { state: LocalUserState; serve
     if (!leaving) return;
     const timer = window.setTimeout(onLeave, 1200);
     return () => window.clearTimeout(timer);
+    // 故意只依赖 leaving：onLeave 每次 render 是新函数，加入会导致离开定时器反复重置
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving]);
   if (loading || leaving) return <LegacyLoading text={leaving ? '正在返回小岛' : '正在打开仓库'} />;
   const warehouse = getSharedWarehouse(state, server);
@@ -766,6 +1065,7 @@ function TodayView(props: {
           ))}
         </div>
         <div className="hidden-status-list">
+          <p className="hidden-hint">{getHiddenQuestHint(props.userState.selectedDifficulty, props.day)}</p>
           {hiddenStatuses.map(item => (
             <div key={item.id} className={`hidden-status ${item.status}`}>
               <span>{item.name}</span>
@@ -1003,7 +1303,7 @@ function formatMaterialSummary(warehouse: Record<string, number>) {
   return entries.map(([key, value]) => `${ITEMS[key]?.name || key} ${value}`).join(' · ');
 }
 
-function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onViewMuseum, onViewStorage }: {
+function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onViewMuseum, onViewStorage, onViewWorkshop, onSaveBuildingPosition, onSaveCraftPosition }: {
   state: LocalUserState;
   server: ServerState | null;
   onDetail: (value: { title: string; body?: string; lines?: string[]; cards?: BottleCard[] }) => void;
@@ -1011,11 +1311,68 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
   onDecorPlace: (id: string) => void;
   onViewMuseum: () => void;
   onViewStorage: () => void;
+  onViewWorkshop: () => void;
+  onSaveBuildingPosition: (id: string, x: number, y: number) => void;
+  onSaveCraftPosition: (id: string, x: number, y: number) => void;
 }) {
   const checkins = countSettledDays(state);
   const minutes = countMinutes(state);
   const collectionCount = state.collection.discovered.length;
   const placedDecor = normalizeDecor(server?.shared?.decor);
+  const buildingPositions = server?.shared?.buildingPositions || {};
+  // 长按拖动建筑/房子
+  const [dragging, setDragging] = useState<{ kind: 'building' | 'craft'; id: string; x: number; y: number } | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const justDragged = useRef(false);
+  const buildingPos = (id: string, dx: number, dy: number) => {
+    if (dragging?.id === id) return { x: dragging.x, y: dragging.y };
+    const saved = buildingPositions[id];
+    return saved ? { x: saved.x, y: saved.y } : { x: dx, y: dy };
+  };
+  const craftPos = (craftId: string, dx: number, dy: number) => {
+    if (dragging?.id === craftId) return { x: dragging.x, y: dragging.y };
+    return { x: dx, y: dy };
+  };
+  const pointerToPct = (target: HTMLElement, clientX: number, clientY: number) => {
+    const map = target.closest('.island-map') as HTMLElement | null;
+    if (!map) return null;
+    const rect = map.getBoundingClientRect();
+    return {
+      x: Math.max(2, Math.min(96, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(2, Math.min(94, ((clientY - rect.top) / rect.height) * 100)),
+    };
+  };
+  const onMapItemPointerDown = (kind: 'building' | 'craft', id: string, e: React.PointerEvent<HTMLButtonElement>) => {
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    const cx = e.clientX, cy = e.clientY, target = e.currentTarget;
+    pressTimer.current = window.setTimeout(() => {
+      const p = pointerToPct(target, cx, cy);
+      if (p) setDragging({ kind, id, x: p.x, y: p.y });
+    }, 350);
+  };
+  // 容器级：拖动跟踪 + 松手保存（不依赖 pointer capture）
+  const onMapPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging) {
+      if (pressStart.current && pressTimer.current) {
+        const d = Math.hypot(e.clientX - pressStart.current.x, e.clientY - pressStart.current.y);
+        if (d > 8) { window.clearTimeout(pressTimer.current); pressTimer.current = null; }
+      }
+      return;
+    }
+    const p = pointerToPct(e.currentTarget, e.clientX, e.clientY);
+    if (p) setDragging({ ...dragging, x: p.x, y: p.y });
+  };
+  const onMapPointerUp = () => {
+    if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; }
+    if (dragging) {
+      justDragged.current = true;
+      if (dragging.kind === 'building') onSaveBuildingPosition(dragging.id, dragging.x, dragging.y);
+      else onSaveCraftPosition(dragging.id, dragging.x, dragging.y);
+      setDragging(null);
+    }
+    pressStart.current = null;
+  };
   const metrics = { checkins, minutes, collection: collectionCount };
   const warehouse = getSharedWarehouse(state, server);
   const warehouseChips = createWarehouseChips(warehouse);
@@ -1087,9 +1444,11 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
           <button
             key={building.id}
             type="button"
-            className={`map-point building-${building.id} ${status.unlocked ? 'unlocked' : 'locked'} ${status.pct >= 80 && !status.unlocked ? 'almost' : ''} ${status.stageClass}`}
-            style={{ left: `${building.x}%`, top: `${building.y}%` }}
+            className={`map-point building-${building.id} ${status.unlocked ? 'unlocked' : 'locked'} ${status.pct >= 80 && !status.unlocked ? 'almost' : ''} ${status.stageClass} ${dragging?.id === building.id ? 'dragging' : ''}`}
+            style={{ left: `${buildingPos(building.id, building.x, building.y).x}%`, top: `${buildingPos(building.id, building.x, building.y).y}%` }}
+            onPointerDown={e => onMapItemPointerDown('building', building.id, e)}
             onClick={() => {
+              if (justDragged.current) { justDragged.current = false; return; }
               if (!status.unlocked) {
                 onDetail({
                   title: building.name,
@@ -1099,6 +1458,7 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
               }
               if (building.id === 'museum') return onViewMuseum();
               if (building.id === 'storage') return onViewStorage();
+              if (building.id === 'workshop') return onViewWorkshop();
               onDetail({
                 title: building.name,
                 lines: [
@@ -1121,6 +1481,33 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
           </button>
         );
       })}
+      {(server?.shared?.placedCrafts || []).filter(craft => {
+        const recipe = GRID_RECIPES.find(item => item.id === craft.recipeId);
+        return recipe?.category === 'house';
+      }).map(craft => {
+        const recipe = GRID_RECIPES.find(item => item.id === craft.recipeId);
+        if (!recipe) return null;
+        return (
+          <button
+            key={craft.id}
+            type="button"
+            className={`map-point placed-craft ${dragging?.id === craft.id ? 'dragging' : ''}`}
+            style={{ left: `${craftPos(craft.id, craft.x, craft.y).x}%`, top: `${craftPos(craft.id, craft.x, craft.y).y}%` }}
+            onPointerDown={e => onMapItemPointerDown('craft', craft.id, e)}
+            onClick={() => {
+              if (justDragged.current) { justDragged.current = false; return; }
+              onDetail({
+              title: recipe.name,
+              lines: [recipe.desc, '🚧 房间内景（伪 3D）开发中，敬请期待。'],
+            });
+            }}
+            aria-label={recipe.name}
+          >
+            <span className="map-point-icon">{recipe.icon}</span>
+            <span className="map-point-label">{recipe.name}</span>
+          </button>
+        );
+      })}
       {residents.map(resident => {
         const residentAvatar = AVATARS.find(item => item.id === resident.avatar) || AVATARS[0];
         return (
@@ -1137,7 +1524,7 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
   return (
     <section className="view-stack">
       <section className="island-map-shell">
-        <div className="island-map" aria-label="两个人的小基地地图">
+        <div className="island-map" aria-label="两个人的小基地地图" onPointerMove={onMapPointerMove} onPointerUp={onMapPointerUp}>
           {renderMapBody(false)}
         </div>
         <div className="warehouse-strip">
@@ -1150,10 +1537,6 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
         <Metric label="完成打卡" value={checkins} />
         <Metric label="训练分钟" value={minutes} />
         <Metric label="图鉴发现" value={collectionCount} />
-      </Card>
-      <Card>
-        <Title size="small">共享动态</Title>
-        <MessageList entries={normalizeMailbox(server?.shared?.mailbox || [])} />
       </Card>
       <Card className="island-panel">
         <div className="section-head compact">
@@ -1204,7 +1587,7 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
         </div>
       </Card>
       <Modal open={mapZoom} title="小基地地图" typewriter={false} onClose={() => setMapZoom(false)} footer={<Button type="primary" onClick={() => setMapZoom(false)}>关闭</Button>}>
-        <div className="island-map large-island-map" aria-label="放大的小基地地图">
+        <div className="island-map large-island-map" aria-label="放大的小基地地图" onPointerMove={onMapPointerMove} onPointerUp={onMapPointerUp}>
           {renderMapBody(true)}
         </div>
       </Modal>
@@ -1408,7 +1791,7 @@ function BagView({ state, onDetail, onUse }: { state: LocalUserState; onDetail: 
       {entries.map(([key, item]) => {
         const source = getItemSource(key);
         const use = getItemUse(key);
-        const action = useItemAction(key, state.inventory[key] || 0);
+        const action = itemUseAction(key, state.inventory[key] || 0);
         return (
           <Card
             key={key}
@@ -1432,124 +1815,6 @@ function BagView({ state, onDetail, onUse }: { state: LocalUserState; onDetail: 
       })}
     </section>
   );
-}
-
-type CollectionFilter = '全部' | '材料' | '建筑' | '隐藏' | '礼物';
-
-interface CollectionEntry {
-  id: string;
-  name: string;
-  icon: string;
-  img?: string;
-  type: Exclude<CollectionFilter, '全部'>;
-  meta: string;
-  source: string;
-  use: string;
-}
-
-const collectionFilters: CollectionFilter[] = ['全部', '材料', '建筑', '隐藏', '礼物'];
-
-function CollectionView({ state, onDetail }: { state: LocalUserState; onDetail: (value: { title: string; body?: string; lines?: string[] }) => void }) {
-  const [filter, setFilter] = useState<CollectionFilter>('全部');
-  const discovered = new Set(state.collection.discovered);
-  const entries = createCollectionEntries().filter(entry => filter === '全部' || entry.type === filter);
-  return (
-    <section className="collection-section view-stack">
-      <Card className="island-panel collection-head-card">
-        <div className="section-head">
-          <div>
-            <div className="section-title">博物馆</div>
-            <p>材料、建筑、隐藏传闻和礼物都会在这里留下记录</p>
-          </div>
-        </div>
-        <div className="collection-tabs">
-          {collectionFilters.map(item => (
-            <button key={item} type="button" className={`collection-tab ${filter === item ? 'active' : ''}`} onClick={() => setFilter(item)}>
-              {item}
-            </button>
-          ))}
-        </div>
-      </Card>
-      <section className="item-grid collection-grid">
-        {entries.map(entry => {
-          const found = discovered.has(entry.id);
-          return (
-            <Card
-              key={entry.id}
-              className={`collection-card ${found ? 'is-discovered' : 'is-locked'}`}
-              onClick={() => onDetail({
-                title: found ? entry.name : '未发现项目',
-                lines: [
-                  `类型：${entry.type}`,
-                  `来源：${entry.source}`,
-                  `用途：${entry.use}`,
-                ],
-              })}
-            >
-              <div className="collection-item-main">
-                <span className="collection-item-icon">{found && entry.img ? <img src={entry.img} alt="" /> : found ? entry.icon : '？'}</span>
-                <span className="collection-item-name">
-                  {found ? entry.name : '???'}
-                  <small>{found ? entry.meta : entry.type}</small>
-                </span>
-              </div>
-              <span className="collection-item-status">{found ? '已发现' : '未发现'}</span>
-            </Card>
-          );
-        })}
-      </section>
-    </section>
-  );
-}
-
-function createCollectionEntries(): CollectionEntry[] {
-  const itemEntries = Object.entries(ITEMS).map(([id, item]) => ({
-    id,
-    name: item.name,
-    icon: item.emoji,
-    img: item.img,
-    type: '材料' as const,
-    meta: '材料',
-    source: getItemSource(id),
-    use: getItemUse(id),
-  }));
-  const buildingEntries = BUILDINGS.map(building => ({
-    id: building.id,
-    name: building.name,
-    icon: building.icon,
-    type: '建筑' as const,
-    meta: '建筑',
-    source: building.desc,
-    use: building.reward,
-  }));
-  const decorEntries = DECOR_ITEMS.map(item => ({
-    id: `decor_${item.id}`,
-    name: item.name,
-    icon: item.icon,
-    type: '建筑' as const,
-    meta: '装饰',
-    source: item.desc,
-    use: `放置成本：${Object.entries(item.cost).map(([key, value]) => `${ITEMS[key]?.name || key} ${value}`).join(' · ')}`,
-  }));
-  const giftEntries = GIFT_RULES.map(rule => ({
-    id: `gift_${rule.id}`,
-    name: rule.title,
-    icon: rule.icon,
-    type: '礼物' as const,
-    meta: '真实礼物',
-    source: rule.target,
-    use: '训练成果可以变成真实的小礼物。',
-  }));
-  const hiddenEntries = HIDDEN_QUESTS.map(quest => ({
-    id: quest.id,
-    name: quest.name,
-    icon: quest.icon,
-    type: '隐藏' as const,
-    meta: `隐藏任务 · ${quest.tier}`,
-    source: quest.source,
-    use: quest.use,
-  }));
-  return [...itemEntries, ...buildingEntries, ...decorEntries, ...giftEntries, ...hiddenEntries];
 }
 
 function getItemSource(key: string) {
@@ -1678,10 +1943,11 @@ function GiftView(props: {
                 <span className="gift-icon">{rule.icon}</span>
                 <div>
                   <strong>{rule.title}</strong>
-                  <small>{rule.id === 'dinner_together' || rule.id === 'weekend_gift' || rule.id === 'base_decor' ? '双人奖励' : '个人奖励'}</small>
+                  <small>{rule.scope === 'coop' ? '双人奖励' : '个人奖励'}</small>
                 </div>
               </div>
-              <p>{rule.target}</p>
+              <p>{rule.desc}</p>
+              <div className="gift-target">{rule.target}</div>
               <div className="gift-target">{unlocked ? '可以申请兑换' : '继续训练解锁'}</div>
               <div className="gift-bar"><span style={{ width: `${pct}%` }} /></div>
               <div className="gift-foot">
@@ -1739,9 +2005,10 @@ function formatShortDate(ts: number) {
 }
 
 function CoopView({ state, server, plan, onSettle }: { state: LocalUserState; server: ServerState | null; plan: TrainingPlan; onSettle: (event: { id: string; type: string; title: string; summary: string; createdAt: number }) => void }) {
+  const [now] = useState(() => Date.now());
   const summary = createCoopSummary(state, server);
   const leaderboardParticipants = [
-    { name: state.username, avatar: state.avatar, isMe: true, settledDays: countSettledDays(state), minutes: countMinutes(state), totalChecked: countChecked(state.dayStates), materials: state.warehouseContribution, title: getUserTitle({ dayStates: state.dayStates, warehouseContribution: state.warehouseContribution, discovered: state.collection.discovered, plan }), currentDay: state.currentDayIndex, lastActive: Date.now() },
+    { name: state.username, avatar: state.avatar, isMe: true, settledDays: countSettledDays(state), minutes: countMinutes(state), totalChecked: countChecked(state.dayStates), materials: state.warehouseContribution, title: getUserTitle({ dayStates: state.dayStates, warehouseContribution: state.warehouseContribution, discovered: state.collection.discovered, plan }), currentDay: state.currentDayIndex, lastActive: now },
     ...Object.values(server?.users || {})
       .filter(user => (user.displayName || user.username) !== state.username)
       .map(user => ({
@@ -1797,7 +2064,8 @@ function CoopView({ state, server, plan, onSettle }: { state: LocalUserState; se
   function handleSettle() {
     if (!settlementStatus.allowed) return;
     const reviewInsights = getWeeklyReviewInsights(plan, weekIndex, state.dayStates, state.selectedDifficulty);
-    onSettle(buildWeeklyEvent({ weekIndex, yearMonth, weeklyCheckins: summary.goals[0].value, sameDay: summary.goals[1].value, warehouseTotal: summary.goals[2].value, insights: reviewInsights, now: Date.now() }));
+    const weeklyMinutes = countMinutesInRange(state.dayStates, weekIndex * 7, weekIndex * 7 + 6);
+    onSettle(buildWeeklyEvent({ weekIndex, yearMonth, weeklyCheckins: summary.goals[0].value, sameDay: summary.goals[1].value, warehouseTotal: summary.goals[2].value, weeklyMinutes, insights: reviewInsights, now }));
   }
   const goalsDone = summary.goals.filter(goal => goal.value >= goal.target).length;
   const weeklyEvents = (Array.isArray(server?.shared?.events) ? server.shared.events : Object.values(server?.shared?.events || {}))
@@ -1808,7 +2076,7 @@ function CoopView({ state, server, plan, onSettle }: { state: LocalUserState; se
     <section className="view-stack">
       <Card className="island-panel">
         <Title size="small">排行榜</Title>
-        <Leaderboard participants={leaderboardParticipants} now={Date.now()} />
+        <Leaderboard participants={leaderboardParticipants} now={now} />
       </Card>
       <Card className="island-panel">
         <Title size="small">活动动态</Title>
@@ -1891,6 +2159,15 @@ function countSettledInRange(states: LocalUserState['dayStates'], start: number,
   return count;
 }
 
+function countMinutesInRange(states: LocalUserState['dayStates'], start: number, end: number) {
+  let minutes = 0;
+  for (let index = start; index <= end; index += 1) {
+    const dayState = states[getDayKey(index)] || states[String(index)];
+    if (dayState?.settled && !dayState.rest) minutes += Number(dayState.minutes || 0);
+  }
+  return minutes;
+}
+
 function Avatar({ id }: { id: string }) {
   const avatar = AVATARS.find(item => item.id === id) || AVATARS[0];
   return <img className="avatar" src={avatar.img} alt={avatar.name} />;
@@ -1919,4 +2196,3 @@ function MessageList({ entries }: { entries: MailboxEntry[] }) {
 function Metric({ label, value }: { label: string; value: number }) {
   return <div className="metric"><strong>{value}</strong><span>{label}</span></div>;
 }
-

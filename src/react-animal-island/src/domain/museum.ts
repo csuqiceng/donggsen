@@ -68,7 +68,7 @@ export function getMuseumExhibits(ctx: MuseumContext): MuseumExhibit[] {
       room: 'gift' as const,
       name: rule.title,
       source: rule.target,
-      use: '训练成果可以变成真实的小礼物。',
+      use: rule.desc,
       found: ctx.discovered.includes(`gift_${rule.id}`),
       progressValue: progress.value,
       progressTarget: progress.target,
@@ -89,7 +89,30 @@ export function getMuseumExhibits(ctx: MuseumContext): MuseumExhibit[] {
     };
   });
 
-  return [...special, ...hidden, ...gifts, ...trophies];
+  // 与旧版 app.js:2455-2460 对齐：铃钱袋 / 金叶奖杯登记 / 4 个节日条目（曾存在于图鉴）
+  const extraDefs: Array<{ id: string; room: MuseumRoomId; name: string; icon?: string; source: string; use: string }> = [
+    { id: 'bells_bag', room: 'special', name: '铃钱袋', source: '挑战难度完整完成。', use: '获得额外铃钱。' },
+    { id: 'trophy_golden_leaf', room: 'trophy', name: '金叶奖杯登记', source: '在背包中使用金色树叶。', use: '登记到博物馆奖杯记录。' },
+    { id: 'festival_new_year', room: 'hidden', name: '新年烟花', source: '新年当天打卡。', use: '节日限定记录。' },
+    { id: 'festival_valentine', room: 'hidden', name: '心意巧克力', source: '情人节当天打卡。', use: '节日限定记录。' },
+    { id: 'festival_halloween', room: 'hidden', name: '南瓜灯', source: '万圣夜当天打卡。', use: '节日限定记录。' },
+    { id: 'festival_toy_day', room: 'hidden', name: '玩具日包裹', source: '玩具日当天打卡。', use: '节日限定记录。' },
+  ];
+  const extra = extraDefs.map(def => {
+    const found = ctx.discovered.includes(def.id);
+    return {
+      id: `museum_extra_${def.id}`,
+      room: def.room,
+      name: def.name,
+      source: def.source,
+      use: def.use,
+      found,
+      progressValue: found ? 1 : 0,
+      progressTarget: 1,
+    };
+  });
+
+  return [...special, ...hidden, ...gifts, ...trophies, ...extra];
 }
 
 export function getMuseumRooms(ctx: MuseumContext) {

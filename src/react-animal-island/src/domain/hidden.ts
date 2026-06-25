@@ -70,3 +70,11 @@ export function retroactiveHiddenCheck(ctx: RetroactiveContext): string[] {
   if (ctx.todayDifficulty === 'challenge' && ctx.todayFullDone && ctx.hasPeerSettledTodayWithDifficulty('challenge', true)) candidates.push('secret_pier_parcel');
   return [...new Set(candidates)].filter(id => !ctx.alreadyDiscovered.includes(id));
 }
+
+// 当日隐藏任务聚合提示文案（与旧版 app.js getHiddenQuestHint 对齐）
+export function getHiddenQuestHint(difficulty: Difficulty, day: PlanDay): string {
+  if (day.review) return '周复盘日完成后，博物馆会新增一条图鉴记录。';
+  if (difficulty === 'challenge') return '挑战完整完成会提高稀有隐藏和真实礼物资格。';
+  if (difficulty === 'easy') return '轻松完整累计出现，会触发金色树叶和金色岛民证。';
+  return '标准完整完成最稳定，双人同日标准会解锁合作木牌。';
+}

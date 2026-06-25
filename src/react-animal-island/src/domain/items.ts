@@ -1,6 +1,6 @@
 const STASHABLE = ['wood', 'stone', 'shell', 'ironNugget', 'softwood', 'hardwood', 'weed'];
 
-export function useItemAction(key: string, count: number): { label: string; enabled: boolean } | null {
+export function itemUseAction(key: string, count: number): { label: string; enabled: boolean } | null {
   if (key === 'nookMilesTicket') return { label: count > 0 ? '使用 1 张查看线索' : '没有里数券', enabled: count > 0 };
   if (key === 'bells') return { label: '去岛屿装饰工坊', enabled: true };
   if (STASHABLE.includes(key)) return { label: '去岛屿建设', enabled: true };
@@ -15,7 +15,7 @@ export interface ItemUseResult {
   action?: 'reveal_bottle_clue' | 'navigate_island';
 }
 
-export function useItem(key: string, inventory: Record<string, number>): ItemUseResult | null {
+export function resolveItemUse(key: string, inventory: Record<string, number>): ItemUseResult | null {
   const count = (key && inventory[key]) || 0;
   if (key === 'nookMilesTicket') return { action: 'reveal_bottle_clue' };
   if (key === 'starFragment') return count > 0 ? { discovery: 'decor_star_tile', consume: 'starFragment' } : null;

@@ -28,6 +28,7 @@ export function buildWeeklyEvent(opts: {
   weeklyCheckins: number;
   sameDay: number;
   warehouseTotal: number;
+  weeklyMinutes: number;
   insights: WeeklyInsights;
   now: number;
 }) {
@@ -35,7 +36,7 @@ export function buildWeeklyEvent(opts: {
     id: getWeeklyEventId(opts.weekIndex, opts.yearMonth),
     type: 'weekly',
     title: `第 ${opts.weekIndex + 1} 周结算`,
-    summary: `本周合计登岛 ${opts.weeklyCheckins} 次，同日 ${opts.sameDay} 次，仓库 ${opts.warehouseTotal} 份。最稳：${opts.insights.bestDay.label}；最弱：${opts.insights.weakest.label}；建议：${opts.insights.nextAdvice.label}`,
+    summary: `本周合计登岛 ${opts.weeklyCheckins} 次，同日 ${opts.sameDay} 次，仓库 ${opts.warehouseTotal} 份，本周运动 ${opts.weeklyMinutes} 分钟。最稳：${opts.insights.bestDay.label}；最弱：${opts.insights.weakest.label}；建议：${opts.insights.nextAdvice.label}`,
     createdAt: opts.now,
   };
 }

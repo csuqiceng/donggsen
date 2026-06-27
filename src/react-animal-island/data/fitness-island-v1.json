@@ -2,7 +2,7 @@
   "ok": true,
   "version": 1,
   "room": "fitness-island-v1",
-  "updatedAt": 1782567941382,
+  "updatedAt": 1782568231085,
   "users": {
     "name_fec17638af4ba8bc8b8f46b4": {
       "clientId": "client-1782486548967-48cbe9dbe752a8",
@@ -621,7 +621,7 @@
       "updated": 1782486548972
     },
     "name_6cf70b7c4fa3c4b4627dc026": {
-      "clientId": "eacc7c9b-de6e-492d-ae4f-895e5216ddde",
+      "clientId": "c4ed07d4-f1ea-4cf0-929c-300f9f38f251",
       "username": "哥哥",
       "displayName": "哥哥",
       "avatar": "alfonso",
@@ -1228,7 +1228,7 @@
           "updatedAt": 1781016069937
         }
       },
-      "syncVersion": 10007,
+      "syncVersion": 10008,
       "lastLoginDate": "2026-06-27",
       "loginStreak": 4,
       "roomFurniture": [
@@ -1240,8 +1240,8 @@
         }
       ],
       "userKey": "name_6cf70b7c4fa3c4b4627dc026",
-      "lastActive": 1782567941382,
-      "updated": 1782567941382
+      "lastActive": 1782568231085,
+      "updated": 1782568231085
     }
   },
   "shared": {

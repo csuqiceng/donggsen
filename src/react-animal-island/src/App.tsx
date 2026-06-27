@@ -88,6 +88,8 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: 'coop', label: '贡献' },
 ];
 
+const SESSION_USER_KEY = 'fitness_island_user';
+
 export default function App() {
   const [selectedUser, setSelectedUser] = useState<FixedUserName | null>(null);
   const [userState, setUserState] = useState<LocalUserState | null>(null);
@@ -127,6 +129,17 @@ export default function App() {
     window.setTimeout(() => setToast(''), 1800);
   }, []);
 
+  // 刷新后从 sessionStorage 恢复上次选择的用户，避免重复登录
+  useEffect(() => {
+    const saved = window.sessionStorage.getItem(SESSION_USER_KEY);
+    if (saved) {
+      const fixed = sanitizeFixedUser(saved);
+      if (fixed) chooseUser(fixed);
+    }
+    // 只在挂载时执行一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const sync = useCallback(async (nextState: LocalUserState, shared = null as Parameters<typeof pushUserState>[1]) => {
     setSyncText('同步中');
     const before = snapshotBuildings(nextState, serverRef.current);
@@ -145,6 +158,7 @@ export default function App() {
     if (!fixed) return;
     setLoading(true);
     setSelectedUser(fixed);
+    window.sessionStorage.setItem(SESSION_USER_KEY, fixed);
     try {
       const minimumLoading = new Promise(resolve => window.setTimeout(resolve, 650));
       const [loadedPlan, loadedServer] = await Promise.all([fetchPlan(), fetchServerState(), minimumLoading]);
@@ -583,7 +597,7 @@ export default function App() {
         </div>
         <div className="topbar-actions">
           <Button size="small" type="primary" onClick={openTrainingExport}>导出</Button>
-          <Button size="small" type="default" onClick={() => { setSelectedUser(null); setUserState(null); }}>切换</Button>
+          <Button size="small" type="default" onClick={() => { window.sessionStorage.removeItem(SESSION_USER_KEY); setSelectedUser(null); setUserState(null); }}>切换</Button>
         </div>
       </header>
 
@@ -1202,8 +1216,59 @@ function RoomShell({ state, onLeave, onPlace, onRemove }: {
         <div className="room-stage-wrap" ref={wrapRef}>
           <div className="room-stage" style={{ width: baseW, height: baseH, transform: `scale(${scale})`, transformOrigin: 'top left', backgroundImage: 'url(/assets/room_assets/01_room_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
           <div className="room-ambient" />
+
+          {/* 串灯 — 横跨后墙顶部 */}
           <img className="room-wall-deco room-string-lights" src="/assets/room_assets/09_star_string_lights.webp" alt="" draggable={false} />
+
+          {/* 装饰画 */}
           <img className="room-wall-deco room-painting" src="/assets/room_assets/10_framed_painting.webp" alt="" draggable={false} />
+
+          {/* 挂钟 — SVG 手绘圆形木框时钟 */}
+          <svg className="room-wall-deco room-clock" aria-hidden="true" viewBox="0 0 52 52" width="52" height="52">
+            <circle cx="26" cy="26" r="23" fill="#f5e6cc" stroke="#a0683a" strokeWidth="3" />
+            <circle cx="26" cy="26" r="20" fill="none" stroke="#c89a62" strokeWidth="1" />
+            {[0,1,2,3,4,5,6,7,8,9,10,11].map(i => {
+              const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+              const r1 = i % 3 === 0 ? 15 : 17;
+              const r2 = 20;
+              return <line key={i} x1={26 + r1 * Math.cos(a)} y1={26 + r1 * Math.sin(a)} x2={26 + r2 * Math.cos(a)} y2={26 + r2 * Math.sin(a)} stroke="#8b5c30" strokeWidth={i % 3 === 0 ? 2 : 1} strokeLinecap="round" />;
+            })}
+            {/* 时针 10:10 */}
+            <line x1="26" y1="26" x2="19" y2="14" stroke="#6b3f1c" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="26" y1="26" x2="36" y2="15" stroke="#6b3f1c" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="26" cy="26" r="2.5" fill="#a0683a" />
+          </svg>
+
+          {/* 风铃 — SVG 手绘三角形铃铛 */}
+          <svg className="room-wall-deco room-windbell" aria-hidden="true" viewBox="0 0 36 68" width="36" height="68">
+            <line x1="18" y1="2" x2="18" y2="10" stroke="#b8a070" strokeWidth="1.5" />
+            <ellipse cx="18" cy="8" rx="6" ry="2" fill="#d4b882" />
+            {/* 三个铃铛 */}
+            {[8, 18, 28].map((x, i) => (
+              <g key={i} transform={`translate(${x - 18}, ${i * 4})`}>
+                <path d="M14 14 Q18 6 22 14 L22 22 Q18 25 14 22 Z" fill="#ffe9a0" stroke="#c9a84a" strokeWidth="1" />
+                <circle cx="18" cy="22" r="2" fill="#c9a84a" />
+                <line x1="18" y1="24" x2="18" y2="30" stroke="#b8a070" strokeWidth="1" />
+                <polygon points="15,30 21,30 18,35" fill="#ffd166" />
+              </g>
+            ))}
+          </svg>
+
+          {/* 第二段小串灯 — 左墙角 */}
+          <svg className="room-wall-deco room-string-lights-2" aria-hidden="true" viewBox="0 0 120 32" width="120" height="32">
+            <path d="M4 8 Q20 14 36 10 Q52 6 68 12 Q84 18 100 14 L116 10" fill="none" stroke="#c9a06a" strokeWidth="1" />
+            {[10,26,42,58,74,90,106].map((x, i) => {
+              const colors = ['#ffd166','#ff9e7a','#a8d8a8','#88ccee','#ffd166','#ff9e7a','#a8d8a8'];
+              const y = 10 + (i % 2 === 0 ? 8 : 12);
+              return (
+                <g key={i}>
+                  <line x1={x} y1={y - 5} x2={x} y2={y} stroke="#c9a06a" strokeWidth="0.8" />
+                  <ellipse cx={x} cy={y + 3} rx="4" ry="5" fill={colors[i]} opacity="0.9" />
+                </g>
+              );
+            })}
+          </svg>
+
           {items.map(item => (
             <button
               key={item.uid}

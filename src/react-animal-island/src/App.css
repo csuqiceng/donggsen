@@ -2749,6 +2749,33 @@ button, input { font: inherit; }
   filter: drop-shadow(3px 5px 4px rgba(60, 38, 20, 0.38));
 }
 
+/* 挂钟 — 右墙偏上，略微倾斜跟随等距透视 */
+.room-clock {
+  top: 52px; right: 108px;
+  transform: skewY(-9deg);
+  filter: drop-shadow(2px 4px 3px rgba(60, 38, 20, 0.30));
+}
+
+/* 风铃 — 左墙角悬挂 */
+.room-windbell {
+  top: 38px; left: 78px;
+  transform: skewY(9deg);
+  filter: drop-shadow(1px 4px 4px rgba(90, 60, 20, 0.22));
+  animation: room-windbell-sway 3.6s ease-in-out infinite;
+}
+
+@keyframes room-windbell-sway {
+  0%, 100% { transform: skewY(9deg) rotate(-3deg); }
+  50%       { transform: skewY(9deg) rotate(3deg); }
+}
+
+/* 第二段小串灯 — 左墙上部 */
+.room-string-lights-2 {
+  top: 30px; left: 44px;
+  transform: skewY(9deg);
+  filter: drop-shadow(0 0 4px rgba(255, 210, 100, 0.40)) saturate(1.1);
+}
+
 .room-light-overlay {
   position: absolute;
   inset: 0;

@@ -2,7 +2,7 @@
   "ok": true,
   "version": 1,
   "room": "fitness-island-v1",
-  "updatedAt": 1782528480582,
+  "updatedAt": 1782568631729,
   "users": {
     "name_fec17638af4ba8bc8b8f46b4": {
       "clientId": "client-1782486548967-48cbe9dbe752a8",
@@ -621,13 +621,13 @@
       "updated": 1782486548972
     },
     "name_6cf70b7c4fa3c4b4627dc026": {
-      "clientId": "07381974-c308-4811-b38e-1503479d0159",
+      "clientId": "9c48cf67-c89e-425a-b14e-3a2e563b01a4",
       "username": "哥哥",
       "displayName": "哥哥",
       "avatar": "alfonso",
       "message": "mua mua",
-      "dayStates": [
-        {
+      "dayStates": {
+        "0": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -641,7 +641,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "1": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -655,7 +655,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "2": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -669,7 +669,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "3": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -683,7 +683,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "4": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -697,7 +697,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "5": {
           "checked": [
             0,
             1,
@@ -721,7 +721,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "6": {
           "checked": [
             1,
             0
@@ -744,7 +744,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "7": {
           "checked": [
             0
           ],
@@ -760,7 +760,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "8": {
           "checked": [
             0,
             1,
@@ -786,7 +786,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "9": {
           "checked": [
             0,
             1,
@@ -808,7 +808,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "10": {
           "checked": [
             0,
             1,
@@ -833,7 +833,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "11": {
           "checked": [
             0
           ],
@@ -849,7 +849,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "12": {
           "checked": [
             0,
             1,
@@ -875,7 +875,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "13": {
           "checked": [
             0,
             1
@@ -896,7 +896,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "14": {
           "checked": [
             0,
             1,
@@ -919,7 +919,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "15": {
           "checked": [
             0,
             1,
@@ -937,7 +937,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "16": {
           "checked": [
             0,
             1,
@@ -961,7 +961,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "17": {
           "checked": [
             0
           ],
@@ -977,7 +977,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "18": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -991,7 +991,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "19": {
           "checked": [
             0
           ],
@@ -1007,7 +1007,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "20": {
           "checked": [
             0
           ],
@@ -1023,7 +1023,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "21": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1037,7 +1037,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "22": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1051,7 +1051,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "23": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1065,7 +1065,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "24": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1079,7 +1079,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "25": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1093,7 +1093,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "26": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1107,7 +1107,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "27": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1121,7 +1121,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "28": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1135,7 +1135,7 @@
           "missedAt": null,
           "missedDate": null
         },
-        {
+        "29": {
           "checked": [],
           "settled": false,
           "missed": false,
@@ -1148,8 +1148,16 @@
           "settledDate": null,
           "missedAt": null,
           "missedDate": null
+        },
+        "day_26": {
+          "checked": [
+            false,
+            false,
+            false
+          ],
+          "rest": false
         }
-      ],
+      },
       "currentDayIndex": 26,
       "inventory": {
         "wood": 9,
@@ -1160,14 +1168,14 @@
         "clay": 5,
         "shell": 5,
         "ironNugget": 5,
-        "wooden_table": 3,
-        "wooden_chair": 3,
+        "wooden_table": 2,
+        "wooden_chair": 2,
         "bells": 50,
         "bed": 2,
         "shelf": 3,
-        "lamp": 3,
+        "lamp": 2,
         "rug": 3,
-        "flower_pot": 3,
+        "flower_pot": 2,
         "fence": 2
       },
       "warehouseContribution": {
@@ -1228,7 +1236,7 @@
           "updatedAt": 1781016069937
         }
       },
-      "syncVersion": 10006,
+      "syncVersion": 10019,
       "lastLoginDate": "2026-06-27",
       "loginStreak": 4,
       "roomFurniture": [
@@ -1237,11 +1245,35 @@
           "recipeId": "bed",
           "tx": 0,
           "ty": 2
+        },
+        {
+          "uid": "rf_1782568243566_3_4",
+          "recipeId": "wooden_chair",
+          "tx": 3,
+          "ty": 4
+        },
+        {
+          "uid": "rf_1782568244616_4_3",
+          "recipeId": "wooden_table",
+          "tx": 4,
+          "ty": 3
+        },
+        {
+          "uid": "rf_1782568245233_1_3",
+          "recipeId": "flower_pot",
+          "tx": 1,
+          "ty": 3
+        },
+        {
+          "uid": "rf_1782568246239_5_0",
+          "recipeId": "lamp",
+          "tx": 5,
+          "ty": 0
         }
       ],
       "userKey": "name_6cf70b7c4fa3c4b4627dc026",
-      "lastActive": 1782528480582,
-      "updated": 1782528480582
+      "lastActive": 1782568631729,
+      "updated": 1782568631729
     }
   },
   "shared": {

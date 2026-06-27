@@ -88,6 +88,8 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: 'coop', label: '贡献' },
 ];
 
+const SESSION_USER_KEY = 'fitness_island_user';
+
 export default function App() {
   const [selectedUser, setSelectedUser] = useState<FixedUserName | null>(null);
   const [userState, setUserState] = useState<LocalUserState | null>(null);
@@ -106,9 +108,10 @@ export default function App() {
   const [toast, setToast] = useState('');
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [buildUpdates, setBuildUpdates] = useState<Array<{ id: string; name: string; from: string; to: string }>>([]);
-  const serverRef = useRef<ServerState | null>(server);
+  const serverRef = useRef<ServerState | null>(null);
   useEffect(() => { serverRef.current = server; }, [server]);
   const archiveImportRef = useRef<HTMLInputElement | null>(null);
+  const chooseUserRef = useRef<(name: string) => void>(() => {});
 
   const days = useMemo(() => plan ? flattenPlanDays(plan) : [], [plan]);
   const currentDay = userState ? days[Math.min(userState.currentDayIndex, Math.max(0, days.length - 1))] : null;
@@ -127,6 +130,16 @@ export default function App() {
     window.setTimeout(() => setToast(''), 1800);
   }, []);
 
+  // 刷新后从 sessionStorage 恢复上次选择的用户，避免重复登录
+  // 使用 chooseUserRef 避免 exhaustive-deps lint 警告，同时保证只挂载时执行一次
+  useEffect(() => {
+    const saved = window.sessionStorage.getItem(SESSION_USER_KEY);
+    if (saved) {
+      const fixed = sanitizeFixedUser(saved);
+      if (fixed) chooseUserRef.current(fixed);
+    }
+  }, []);
+
   const sync = useCallback(async (nextState: LocalUserState, shared = null as Parameters<typeof pushUserState>[1]) => {
     setSyncText('同步中');
     const before = snapshotBuildings(nextState, serverRef.current);
@@ -143,8 +156,10 @@ export default function App() {
   async function chooseUser(name: string) {
     const fixed = sanitizeFixedUser(name);
     if (!fixed) return;
+    chooseUserRef.current = chooseUser;
     setLoading(true);
     setSelectedUser(fixed);
+    window.sessionStorage.setItem(SESSION_USER_KEY, fixed);
     try {
       const minimumLoading = new Promise(resolve => window.setTimeout(resolve, 650));
       const [loadedPlan, loadedServer] = await Promise.all([fetchPlan(), fetchServerState(), minimumLoading]);
@@ -583,7 +598,7 @@ export default function App() {
         </div>
         <div className="topbar-actions">
           <Button size="small" type="primary" onClick={openTrainingExport}>导出</Button>
-          <Button size="small" type="default" onClick={() => { setSelectedUser(null); setUserState(null); }}>切换</Button>
+          <Button size="small" type="default" onClick={() => { window.sessionStorage.removeItem(SESSION_USER_KEY); setSelectedUser(null); setUserState(null); }}>切换</Button>
         </div>
       </header>
 
@@ -672,6 +687,40 @@ export default function App() {
       <BuildUpdateModal updates={buildUpdates} onClose={() => setBuildUpdates([])} />
       {toast && <CuteTip text={toast} />}
     </main>
+  );
+}
+
+function RingProgress({ completion, checkedCount, total }: { completion: number; checkedCount: number; total: number }) {
+  const R = 46;
+  const STROKE = 8;
+  const CIRCUMFERENCE = 2 * Math.PI * R;
+  const offset = CIRCUMFERENCE * (1 - completion / 100);
+  const done = checkedCount >= total && total > 0;
+  return (
+    <div className="ring-progress-wrap" role="progressbar" aria-valuenow={completion} aria-valuemin={0} aria-valuemax={100} aria-label={`完成进度 ${checkedCount}/${total}`}>
+      <svg className="ring-progress-svg" width={112} height={112} viewBox="0 0 112 112">
+        {/* 背景轨道 */}
+        <circle cx="56" cy="56" r={R} fill="none" stroke="#e8e2d8" strokeWidth={STROKE} />
+        {/* 进度弧（从顶部开始，顺时针）*/}
+        <circle
+          cx="56"
+          cy="56"
+          r={R}
+          fill="none"
+          stroke={done ? '#f0c040' : '#18c7bb'}
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          strokeDasharray={CIRCUMFERENCE}
+          strokeDashoffset={offset}
+          className="ring-arc"
+          style={{ '--ring-offset': offset } as React.CSSProperties}
+        />
+      </svg>
+      <div className="ring-progress-label">
+        <span className="ring-count">{checkedCount}<small>/{total}</small></span>
+        {done && <span className="ring-done-star">★</span>}
+      </div>
+    </div>
   );
 }
 
@@ -922,17 +971,33 @@ function WorkshopShell({ state, onLeave, onCraftGrid, onPlace, onDetail, detail,
         <section className="recipe-list">
           {GRID_RECIPES.map(recipe => {
             const owned = state.inventory[recipe.id] || 0;
-            const canMake = Object.entries(recipe.ingredients).every(([key, need]) => (state.inventory[key] || 0) >= need);
+            const ingEntries = Object.entries(recipe.ingredients);
+            const canMake = ingEntries.every(([key, need]) => (state.inventory[key] || 0) >= need);
+            const shortCount = ingEntries.filter(([key, need]) => (state.inventory[key] || 0) < need).length;
             return (
-              <div key={recipe.id} className={`recipe-row ${canMake ? '' : 'locked'}`}>
-                <span className="recipe-output">{recipe.icon} {recipe.name}</span>
+              <div key={recipe.id} className={`recipe-row ${canMake ? 'recipe-row-ready' : 'locked'}`}>
+                <span className="recipe-output">
+                  {recipe.icon} {recipe.name}
+                  {!canMake && shortCount > 0 && (
+                    <span className="recipe-short-badge">差 {shortCount} 种</span>
+                  )}
+                </span>
                 <span className="recipe-ingredients">
-                  {Object.entries(recipe.ingredients).map(([key, need]) => (
-                    <span key={key} className="recipe-ing">
-                      {ITEMS[key]?.img ? <img src={ITEMS[key].img} alt="" /> : ITEMS[key]?.emoji}
-                      <small>{ITEMS[key]?.name || key} {state.inventory[key] || 0}/{need}</small>
-                    </span>
-                  ))}
+                  {ingEntries.map(([key, need]) => {
+                    const have = state.inventory[key] || 0;
+                    const ok = have >= need;
+                    const diff = need - have;
+                    return (
+                      <span key={key} className={`recipe-ing ${ok ? 'recipe-ing-ok' : 'recipe-ing-short'}`}>
+                        {ITEMS[key]?.img ? <img src={ITEMS[key].img} alt="" /> : ITEMS[key]?.emoji}
+                        <small>{ITEMS[key]?.name || key}</small>
+                        <small className="recipe-ing-count">
+                          {have}/{need}
+                          {!ok && <span className="recipe-ing-diff">−{diff}</span>}
+                        </small>
+                      </span>
+                    );
+                  })}
                 </span>
                 <span className="recipe-tag">{recipe.category === 'house' ? '房子' : '家具'}{owned > 0 ? ` · 已有 ${owned}` : ''}</span>
               </div>
@@ -1202,8 +1267,59 @@ function RoomShell({ state, onLeave, onPlace, onRemove }: {
         <div className="room-stage-wrap" ref={wrapRef}>
           <div className="room-stage" style={{ width: baseW, height: baseH, transform: `scale(${scale})`, transformOrigin: 'top left', backgroundImage: 'url(/assets/room_assets/01_room_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
           <div className="room-ambient" />
+
+          {/* 串灯 — 横跨后墙顶部 */}
           <img className="room-wall-deco room-string-lights" src="/assets/room_assets/09_star_string_lights.webp" alt="" draggable={false} />
+
+          {/* 装饰画 */}
           <img className="room-wall-deco room-painting" src="/assets/room_assets/10_framed_painting.webp" alt="" draggable={false} />
+
+          {/* 挂钟 — SVG 手绘圆形木框时钟 */}
+          <svg className="room-wall-deco room-clock" aria-hidden="true" viewBox="0 0 52 52" width="52" height="52">
+            <circle cx="26" cy="26" r="23" fill="#f5e6cc" stroke="#a0683a" strokeWidth="3" />
+            <circle cx="26" cy="26" r="20" fill="none" stroke="#c89a62" strokeWidth="1" />
+            {[0,1,2,3,4,5,6,7,8,9,10,11].map(i => {
+              const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+              const r1 = i % 3 === 0 ? 15 : 17;
+              const r2 = 20;
+              return <line key={i} x1={26 + r1 * Math.cos(a)} y1={26 + r1 * Math.sin(a)} x2={26 + r2 * Math.cos(a)} y2={26 + r2 * Math.sin(a)} stroke="#8b5c30" strokeWidth={i % 3 === 0 ? 2 : 1} strokeLinecap="round" />;
+            })}
+            {/* 时针 10:10 */}
+            <line x1="26" y1="26" x2="19" y2="14" stroke="#6b3f1c" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="26" y1="26" x2="36" y2="15" stroke="#6b3f1c" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="26" cy="26" r="2.5" fill="#a0683a" />
+          </svg>
+
+          {/* 风铃 — SVG 手绘三角形铃铛 */}
+          <svg className="room-wall-deco room-windbell" aria-hidden="true" viewBox="0 0 36 68" width="36" height="68">
+            <line x1="18" y1="2" x2="18" y2="10" stroke="#b8a070" strokeWidth="1.5" />
+            <ellipse cx="18" cy="8" rx="6" ry="2" fill="#d4b882" />
+            {/* 三个铃铛 */}
+            {[8, 18, 28].map((x, i) => (
+              <g key={i} transform={`translate(${x - 18}, ${i * 4})`}>
+                <path d="M14 14 Q18 6 22 14 L22 22 Q18 25 14 22 Z" fill="#ffe9a0" stroke="#c9a84a" strokeWidth="1" />
+                <circle cx="18" cy="22" r="2" fill="#c9a84a" />
+                <line x1="18" y1="24" x2="18" y2="30" stroke="#b8a070" strokeWidth="1" />
+                <polygon points="15,30 21,30 18,35" fill="#ffd166" />
+              </g>
+            ))}
+          </svg>
+
+          {/* 第二段小串灯 — 左墙角 */}
+          <svg className="room-wall-deco room-string-lights-2" aria-hidden="true" viewBox="0 0 120 32" width="120" height="32">
+            <path d="M4 8 Q20 14 36 10 Q52 6 68 12 Q84 18 100 14 L116 10" fill="none" stroke="#c9a06a" strokeWidth="1" />
+            {[10,26,42,58,74,90,106].map((x, i) => {
+              const colors = ['#ffd166','#ff9e7a','#a8d8a8','#88ccee','#ffd166','#ff9e7a','#a8d8a8'];
+              const y = 10 + (i % 2 === 0 ? 8 : 12);
+              return (
+                <g key={i}>
+                  <line x1={x} y1={y - 5} x2={x} y2={y} stroke="#c9a06a" strokeWidth="0.8" />
+                  <ellipse cx={x} cy={y + 3} rx="4" ry="5" fill={colors[i]} opacity="0.9" />
+                </g>
+              );
+            })}
+          </svg>
+
           {items.map(item => (
             <button
               key={item.uid}
@@ -1252,29 +1368,109 @@ function StorageShell({ state, server, onLeave }: { state: LocalUserState; serve
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving]);
   if (loading || leaving) return <LegacyLoading text={leaving ? '正在返回小岛' : '正在打开仓库'} />;
+
   const warehouse = getSharedWarehouse(state, server);
-  const entries = Object.entries(warehouse).filter(([, count]) => count > 0);
+  const allEntries = Object.entries(warehouse).filter(([, count]) => count > 0);
+  const totalItems = allEntries.reduce((s, [, n]) => s + n, 0);
+
+  // 收集所有参与者的贡献记录（自己 + server 里的其他人）
+  const participants: Array<{ name: string; contrib: Record<string, number> }> = [
+    { name: state.username, contrib: state.warehouseContribution || {} },
+  ];
+  if (server?.users) {
+    Object.values(server.users).forEach(user => {
+      const name = (user.displayName || user.username || '');
+      if (name !== state.username && sanitizeFixedUser(name)) {
+        participants.push({ name, contrib: user.warehouseContribution || {} });
+      }
+    });
+  }
+
   return (
     <main className="museum-shell">
       <button type="button" className="museum-leave-btn" onClick={() => setLeaving(true)}>← 离开仓库</button>
       <section className="view-stack" style={{ width: 'min(520px, 100%)' }}>
-        <Card className="island-panel">
-          <Title size="middle">收纳仓库</Title>
-          <p className="muted">两个人一起存进来的建设材料</p>
+
+        {/* 顶部摘要 */}
+        <Card color="app-teal" pattern="app-teal" className="island-panel storage-header-card">
+          <div className="section-head">
+            <div>
+              <Title size="middle">收纳仓库</Title>
+              <p>两人一起存进来的建设材料</p>
+            </div>
+            <span className="storage-total-badge">{totalItems} 件</span>
+          </div>
+          {/* 各人贡献占比 */}
+          {participants.length > 0 && totalItems > 0 && (
+            <div className="storage-contrib-bar">
+              {participants.map((p, idx) => {
+                const pTotal = Object.values(p.contrib).reduce((s, n) => s + (Number(n) || 0), 0);
+                const pct = totalItems > 0 ? Math.round((pTotal / totalItems) * 100) : 0;
+                return (
+                  <div
+                    key={p.name}
+                    className={`storage-contrib-seg storage-contrib-seg-${idx}`}
+                    style={{ width: `${pct}%` }}
+                    title={`${p.name}: ${pTotal} 件 (${pct}%)`}
+                  />
+                );
+              })}
+            </div>
+          )}
+          <div className="storage-contrib-legend">
+            {participants.map((p, idx) => {
+              const pTotal = Object.values(p.contrib).reduce((s, n) => s + (Number(n) || 0), 0);
+              return (
+                <span key={p.name} className={`storage-legend-item storage-legend-${idx}`}>
+                  <span className="storage-legend-dot" />
+                  {p.name} · {pTotal} 件
+                </span>
+              );
+            })}
+          </div>
         </Card>
+
+        {/* 逐材料明细 */}
         <Card className="island-panel">
-          {entries.length ? (
-            <section className="item-grid">
-              {entries.map(([key, count]) => (
-                <Card key={key} style={{ textAlign: 'center' }}>
-                  <div style={{ height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {ITEMS[key]?.img ? <img src={ITEMS[key].img} alt="" style={{ width: 34, height: 34 }} /> : <span>{ITEMS[key]?.emoji}</span>}
+          {allEntries.length ? (
+            <div className="storage-item-list">
+              {allEntries.map(([key, total]) => {
+                const item = ITEMS[key];
+                return (
+                  <div key={key} className="storage-item-row">
+                    <span className="storage-item-icon">
+                      {item?.img ? <img src={item.img} alt="" /> : <span>{item?.emoji}</span>}
+                    </span>
+                    <div className="storage-item-body">
+                      <span className="storage-item-name">{item?.name || key}</span>
+                      <div className="storage-item-bar-wrap">
+                        {participants.map((p, idx) => {
+                          const pCount = p.contrib[key] || 0;
+                          const pct = total > 0 ? Math.round((pCount / total) * 100) : 0;
+                          if (pCount === 0) return null;
+                          return (
+                            <div
+                              key={p.name}
+                              className={`storage-item-seg storage-contrib-seg-${idx}`}
+                              style={{ width: `${pct}%` }}
+                              title={`${p.name}: ${pCount}`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="storage-item-breakdown">
+                        {participants.map(p => {
+                          const n = p.contrib[key] || 0;
+                          if (n === 0) return null;
+                          return <span key={p.name} className="storage-breakdown-chip">{p.name} {n}</span>;
+                        })}
+                      </div>
+                    </div>
+                    <span className="storage-item-total">x {total}</span>
                   </div>
-                  <strong>{ITEMS[key]?.name || key}</strong>
-                  <div style={{ color: 'var(--old-muted)', fontSize: 13 }}>x {count}</div>
-                </Card>
-              ))}
-            </section>
+                );
+              })}
+            </div>
           ) : <p className="muted">仓库还在等第一份材料。</p>}
         </Card>
       </section>
@@ -1325,10 +1521,7 @@ function TodayView(props: {
         </div>
         <div className="hero-animal">🐱</div>
       </section>
-      <div className="progress-meter">
-        <div className="progress-bar"><div className="progress-fill" style={{ width: `${props.completion}%` }} /></div>
-        <div className="progress-count">{checkedCount}/{props.day.exercises.length}</div>
-      </div>
+      <RingProgress completion={props.completion} checkedCount={checkedCount} total={props.day.exercises.length} />
 
       <Card color="app-yellow" pattern="app-yellow" className="difficulty-card island-panel">
         <div className="section-head">
@@ -2162,35 +2355,87 @@ function getIslandBuildingStatus(
   };
 }
 
+type BagTab = 'all' | 'material' | 'furniture' | 'rare';
+
+const BAG_TABS: Array<{ key: BagTab; label: string }> = [
+  { key: 'all',       label: '全部' },
+  { key: 'material',  label: '材料' },
+  { key: 'furniture', label: '家具' },
+  { key: 'rare',      label: '稀有' },
+];
+
+const BAG_FURNITURE_KEYS = new Set(GRID_RECIPES.map(r => r.id));
+const BAG_RARE_KEYS = new Set(['starFragment', 'bells', 'nookMilesTicket', 'goldenLeaf']);
+const BAG_MATERIAL_KEYS = new Set(Object.keys(ITEMS).filter(k => !BAG_FURNITURE_KEYS.has(k) && !BAG_RARE_KEYS.has(k)));
+
+function getBagCategory(key: string): BagTab {
+  if (BAG_FURNITURE_KEYS.has(key)) return 'furniture';
+  if (BAG_RARE_KEYS.has(key)) return 'rare';
+  return 'material';
+}
+
 function BagView({ state, onDetail, onUse }: { state: LocalUserState; onDetail: (value: { title: string; body: string }) => void; onUse: (key: string) => void }) {
-  const entries = Object.entries(ITEMS);
+  const [tab, setTab] = useState<BagTab>('all');
+  const allEntries = Object.entries(ITEMS);
+  const filtered = tab === 'all' ? allEntries : allEntries.filter(([key]) => getBagCategory(key) === tab);
+
   return (
-    <section className="item-grid bag-grid">
-      {entries.map(([key, item]) => {
-        const source = getItemSource(key);
-        const use = getItemUse(key);
-        const action = itemUseAction(key, state.inventory[key] || 0);
-        return (
-          <Card
-            key={key}
-            className="item-card"
-            onClick={() => onDetail({
-              title: item.name,
-              body: `背包 ${state.inventory[key] || 0} 个，共同仓库贡献 ${state.warehouseContribution[key] || 0} 个。\n来源：${source}\n用途：${use}`,
-            })}
-          >
-            <div className="bag-item-main">
-              <span className="bag-item-icon">{item.img ? <img src={item.img} alt="" /> : item.emoji}</span>
-              <span className="bag-item-name">{item.name}</span>
-            </div>
-            <span className="bag-item-count">x {state.inventory[key] || 0}</span>
-            <span className="bag-item-meta">{source}</span>
-            {action && (
-              <Button size="small" type={action.enabled ? 'primary' : 'default'} disabled={!action.enabled} onClick={event => { event.stopPropagation(); onUse(key); }}>{action.label}</Button>
-            )}
-          </Card>
-        );
-      })}
+    <section className="bag-shell">
+      {/* Tab 过滤栏 */}
+      <div className="bag-tabs" role="tablist">
+        {BAG_TABS.map(t => {
+          let badge = 0;
+          if (t.key === 'all') {
+            badge = Object.values(state.inventory).reduce((s, n) => s + (n > 0 ? 1 : 0), 0);
+          } else {
+            const keys = t.key === 'material' ? [...BAG_MATERIAL_KEYS] : t.key === 'furniture' ? [...BAG_FURNITURE_KEYS] : [...BAG_RARE_KEYS];
+            badge = keys.filter(k => (state.inventory[k] || 0) > 0).length;
+          }
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`bag-tab ${tab === t.key ? 'active' : ''}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+              {badge > 0 && <span className="bag-tab-badge">{badge}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <section className="item-grid bag-grid">
+        {filtered.map(([key, item]) => {
+          const source = getItemSource(key);
+          const use = getItemUse(key);
+          const action = itemUseAction(key, state.inventory[key] || 0);
+          const count = state.inventory[key] || 0;
+          return (
+            <Card
+              key={key}
+              className={`item-card ${count === 0 ? 'bag-item-empty' : ''}`}
+              onClick={() => onDetail({
+                title: item.name,
+                body: `背包 ${count} 个，共同仓库贡献 ${state.warehouseContribution[key] || 0} 个。\n来源：${source}\n用途：${use}`,
+              })}
+            >
+              <div className="bag-item-main">
+                <span className="bag-item-icon">{item.img ? <img src={item.img} alt="" /> : item.emoji}</span>
+                <span className="bag-item-name">{item.name}</span>
+              </div>
+              <span className="bag-item-count">{count > 0 ? `x ${count}` : '—'}</span>
+              <span className="bag-item-meta">{source}</span>
+              {action && (
+                <Button size="small" type={action.enabled ? 'primary' : 'default'} disabled={!action.enabled} onClick={event => { event.stopPropagation(); onUse(key); }}>{action.label}</Button>
+              )}
+            </Card>
+          );
+        })}
+        {filtered.length === 0 && <p className="muted" style={{ padding: '12px 0' }}>该分类暂无物品。</p>}
+      </section>
     </section>
   );
 }

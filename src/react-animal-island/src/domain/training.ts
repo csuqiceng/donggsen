@@ -143,7 +143,8 @@ export function settleToday(source: LocalUserState, dayKey: string, day: PlanDay
         difficulty: source.selectedDifficulty,
         planMode: source.selectedPlanMode,
         rewards,
-        minutes: day.minutes,
+        // day 是已经经过 getAdjustedDay 的版本，minutes 已按难度调整；若仍为 undefined 则用运动数估算
+        minutes: day.minutes ?? (day.exercises.length * MINUTES_PER_EXERCISE_FALLBACK),
       },
     },
   };
@@ -224,8 +225,18 @@ export function countSettledDays(state: LocalUserState): number {
   return Object.values(state.dayStates).filter(day => day.settled).length;
 }
 
+// 旧存档可能没有存 minutes 字段，用 exercises 数量 × 3 分钟估算兜底
+const MINUTES_PER_EXERCISE_FALLBACK = 3;
+
 export function countMinutes(state: LocalUserState): number {
-  return Object.values(state.dayStates).reduce((sum, day) => sum + (day.settled && !day.rest ? Number(day.minutes || 0) : 0), 0);
+  return Object.values(state.dayStates).reduce((sum, day) => {
+    if (!day.settled || day.rest) return sum;
+    const stored = Number(day.minutes);
+    if (stored > 0) return sum + stored;
+    // 兜底：按 checked 的任务数估算（旧存档没有 minutes 字段）
+    const checkedCount = Array.isArray(day.checked) ? day.checked.filter(Boolean).length : 0;
+    return sum + checkedCount * MINUTES_PER_EXERCISE_FALLBACK;
+  }, 0);
 }
 
 export function calcStreak(dayStates: Record<string, DayState>, dayCount: number): number {

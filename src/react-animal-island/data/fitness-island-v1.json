@@ -2,7 +2,7 @@
   "ok": true,
   "version": 1,
   "room": "fitness-island-v1",
-  "updatedAt": 1782568231085,
+  "updatedAt": 1782568248911,
   "users": {
     "name_fec17638af4ba8bc8b8f46b4": {
       "clientId": "client-1782486548967-48cbe9dbe752a8",
@@ -1160,14 +1160,14 @@
         "clay": 5,
         "shell": 5,
         "ironNugget": 5,
-        "wooden_table": 3,
-        "wooden_chair": 3,
+        "wooden_table": 2,
+        "wooden_chair": 2,
         "bells": 50,
         "bed": 2,
         "shelf": 3,
-        "lamp": 3,
+        "lamp": 2,
         "rug": 3,
-        "flower_pot": 3,
+        "flower_pot": 2,
         "fence": 2
       },
       "warehouseContribution": {
@@ -1228,7 +1228,7 @@
           "updatedAt": 1781016069937
         }
       },
-      "syncVersion": 10008,
+      "syncVersion": 10014,
       "lastLoginDate": "2026-06-27",
       "loginStreak": 4,
       "roomFurniture": [
@@ -1237,11 +1237,35 @@
           "recipeId": "bed",
           "tx": 0,
           "ty": 2
+        },
+        {
+          "uid": "rf_1782568243566_3_4",
+          "recipeId": "wooden_chair",
+          "tx": 3,
+          "ty": 4
+        },
+        {
+          "uid": "rf_1782568244616_4_3",
+          "recipeId": "wooden_table",
+          "tx": 4,
+          "ty": 3
+        },
+        {
+          "uid": "rf_1782568245233_1_3",
+          "recipeId": "flower_pot",
+          "tx": 1,
+          "ty": 3
+        },
+        {
+          "uid": "rf_1782568246239_5_0",
+          "recipeId": "lamp",
+          "tx": 5,
+          "ty": 0
         }
       ],
       "userKey": "name_6cf70b7c4fa3c4b4627dc026",
-      "lastActive": 1782568231085,
-      "updated": 1782568231085
+      "lastActive": 1782568248911,
+      "updated": 1782568248911
     }
   },
   "shared": {

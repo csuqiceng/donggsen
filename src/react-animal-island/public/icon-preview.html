@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>岛屿图标预览 — acnh-icons</title>
+<style>
+  body { margin:0; background:#f4f1ea; color:#2d3436; font-family: system-ui,"Noto Sans SC",sans-serif; padding:24px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:#8a857d; font-size:13px; margin-bottom:22px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px; }
+  .card { background:#fffdf5; border:2px solid #e2dac9; border-radius:16px; padding:14px; display:flex; flex-direction:column; align-items:center; gap:8px; box-shadow:0 4px 0 #e8e0cf; }
+  .stage { width:96px; height:96px; display:grid; place-items:center; border-radius:18px; background:#fff; border:3px solid #e2dac9; }
+  .stage img { width:72px; height:72px; object-fit:contain; image-rendering:auto; }
+  .emoji { font-size:40px; line-height:1; }
+  .name { font-weight:800; font-size:14px; }
+  .meta { font-size:11px; color:#94908a; text-align:center; line-height:1.4; }
+  .tag { font-size:10px; padding:2px 8px; border-radius:999px; font-weight:800; }
+  .ok { background:#e8fbf3; color:#1a9e7e; }
+  .meh { background:#fff4d6; color:#c98a1a; }
+  .row { display:flex; gap:6px; align-items:center; }
+  .arrow { color:#bbb; font-size:16px; }
+  legend { margin:18px 0 12px; font-size:13px; color:#8a857d; }
+</style>
+</head>
+<body>
+<h1>岛屿图标预览</h1>
+<div class="sub">左：现在用的 emoji · 右：Fandom 拉到的动森图标（/assets/acnh-icons/）· 标签：✓可用 / ⚠需替换</div>
+<div class="grid" id="g"></div>
+<script>
+const ICONS = [
+  ['tent','⛺','服务处帐篷','Nook商店帐篷','ok'],
+  ['workbench','🛠','工坊','迷你DIY工作台','ok'],
+  ['storage','📦','收纳仓库','纸箱','ok'],
+  ['museum_icon','🏛','博物馆','博物馆图标','ok'],
+  ['shell_lamp','🐚','贝壳灯','夏贝壳','ok'],
+  ['star_tile','⭐','星星地砖','大星碎片','ok'],
+  ['camp_chair','🪑','露营椅','折叠椅','ok'],
+  ['house','🏡','小房子','沙地小屋(95KB)','ok'],
+  ['flower','🌼','花丛告示牌','蓝花抱熊','meh'],
+  ['pier','🌊','海边码头','营火','meh'],
+  ['nook_stop','🏧','狸端机','银行金库墙','meh'],
+  ['bottle','💌','瓶中信','玻璃瓶眼镜','meh'],
+];
+const g = document.getElementById('g');
+for (const [id, emoji, name, meta, tag] of ICONS) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `
+    <div class="row">
+      <span class="emoji">${emoji}</span>
+      <span class="arrow">→</span>
+      <div class="stage"><img src="/assets/acnh-icons/${id}.png" alt="${id}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'缺',className:'emoji'}))"></div>
+    </div>
+    <div class="name">${name}</div>
+    <div class="meta">${meta}</div>
+    <span class="tag ${tag}">${tag==='ok'?'✓ 可用':'⚠ 需替换'}</span>
+  `;
+  g.appendChild(el);
+}
+</script>
+</body>
+</html>

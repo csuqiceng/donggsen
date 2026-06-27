@@ -102,6 +102,7 @@ export interface ServerUserRecord {
   giftClaims?: Record<string, GiftClaim | boolean>;
   lastLoginDate?: string;
   loginStreak?: number;
+  roomFurniture?: Array<{ uid: string; recipeId: string; tx: number; ty: number }>;
   lastActive?: number;
   updated?: number;
   syncVersion?: number;
@@ -133,6 +134,7 @@ export interface LocalUserState {
   message?: string;
   lastLoginDate?: string;
   loginStreak?: number;
+  roomFurniture?: Array<{ uid: string; recipeId: string; tx: number; ty: number }>;
 }
 
 export type SharedPatch =

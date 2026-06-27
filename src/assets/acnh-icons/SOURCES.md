@@ -25,6 +25,16 @@ bells.png           File:NH-large bag of bells-icon.png
 nookMilesTicket.png File:NH-Icon-Nook Miles Ticket.png
 museum.png          File:NH-fossil-icon.png
 storage.png         File:NH-furniture-icon.png
+
+# Furniture sprites (webp, via Fandom MediaWiki API search+imageinfo):
+# wooden_chair.webp  File:Modern wooden chair custom diamond.png
+# wooden_table.webp  File:NH-Furniture-Wooden table (Dark wood-blue).png
+# bed.webp           File:NH-Furniture-Ironwood bed (old) (brown).png
+# fence.webp         File:NH-Simple wooden fence.png
+# flower_pot.webp    File:Potted Plant NL.png
+# lamp.webp          File:NH-Furniture-Table lamp (black).png
+# rug.webp           File:NH-Rugs-Football rug.png
+# shelf.webp         File:NH-Furniture-Wooden bookshelf (White).png
 ```
 
 Nintendo official site used for visual reference only:

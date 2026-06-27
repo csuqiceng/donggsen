@@ -120,6 +120,7 @@ export function restoreUserFromServer(serverSelf: ServerUserRecord | null | unde
     message: serverSelf.message,
     lastLoginDate: serverSelf.lastLoginDate,
     loginStreak: serverSelf.loginStreak ? Number(serverSelf.loginStreak) : undefined,
+    roomFurniture: Array.isArray(serverSelf.roomFurniture) ? serverSelf.roomFurniture.filter(f => f && typeof f === 'object') : [],
   };
 }
 
@@ -141,6 +142,7 @@ export function buildUserPayload(state: LocalUserState, shared?: SharedPatch | n
     syncVersion: state.syncVersion,
     lastLoginDate: state.lastLoginDate,
     loginStreak: state.loginStreak,
+    roomFurniture: state.roomFurniture,
   };
   return shared ? { user, shared } : { user };
 }

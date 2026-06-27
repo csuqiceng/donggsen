@@ -52,14 +52,14 @@ export const ITEMS: Record<string, { name: string; emoji: string; img?: string }
   goldenLeaf: { name: '金色树叶', emoji: '🍂' },
   furniture: { name: '家具', emoji: '🪑' },
   house: { name: '房子', emoji: '🏠' },
-  wooden_chair: { name: '木椅', emoji: '🪑' },
-  wooden_table: { name: '木桌', emoji: '🍽️' },
-  bed: { name: '小床', emoji: '🛏️' },
-  fence: { name: '木栅栏', emoji: '🚧' },
-  flower_pot: { name: '花盆', emoji: '🪴' },
-  lamp: { name: '台灯', emoji: '💡' },
-  rug: { name: '地毯', emoji: '🟫' },
-  shelf: { name: '书架', emoji: '📚' },
+  wooden_chair: { name: '木椅', emoji: '🪑', img: '/assets/acnh-icons/wooden_chair.webp' },
+  wooden_table: { name: '木桌', emoji: '🍽️', img: '/assets/acnh-icons/wooden_table.webp' },
+  bed: { name: '小床', emoji: '🛏️', img: '/assets/acnh-icons/bed.webp' },
+  fence: { name: '木栅栏', emoji: '🚧', img: '/assets/acnh-icons/fence.webp' },
+  flower_pot: { name: '花盆', emoji: '🪴', img: '/assets/acnh-icons/flower_pot.webp' },
+  lamp: { name: '台灯', emoji: '💡', img: '/assets/acnh-icons/lamp.webp' },
+  rug: { name: '地毯', emoji: '🟫', img: '/assets/acnh-icons/rug.webp' },
+  shelf: { name: '书架', emoji: '📚', img: '/assets/acnh-icons/shelf.webp' },
 };
 
 export const REWARD_POOL = ['branch', 'wood', 'softwood', 'hardwood', 'stone', 'clay', 'weed', 'shell'];

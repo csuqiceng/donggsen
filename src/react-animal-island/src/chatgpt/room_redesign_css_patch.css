@@ -1,0 +1,162 @@
+.room-shell .island-panel {
+  background: linear-gradient(180deg, #fff9ed, #f3e3c7);
+  border: 1px solid rgba(139, 91, 45, 0.14);
+  box-shadow:
+    0 14px 32px rgba(105, 72, 42, 0.16),
+    inset 0 0 24px rgba(255, 255, 255, 0.55);
+}
+
+.room-shell .room-stage {
+  position: relative;
+  margin: 14px auto;
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 249, 224, 0.92), rgba(242, 218, 181, 0.72) 42%, rgba(208, 164, 112, 0.42) 100%),
+    linear-gradient(180deg, #fff3da, #e5c296);
+  box-shadow:
+    inset 0 0 34px rgba(118, 80, 42, 0.18),
+    0 12px 26px rgba(99, 69, 39, 0.14);
+}
+
+.room-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.room-tile {
+  position: absolute;
+  z-index: 4;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+  transform: rotateZ(45deg) scale(1, 0.5);
+  transform-origin: center;
+}
+
+.room-tile.placeable {
+  cursor: pointer;
+}
+
+.room-tile.placeable:hover {
+  background: rgba(133, 190, 104, 0.46);
+  outline: 2px solid rgba(95, 150, 76, 0.36);
+  border-radius: 10px;
+}
+
+.room-sprite {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: auto;
+}
+
+.room-furniture {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    filter 0.16s ease;
+}
+
+.room-furniture:hover {
+  transform: translate(-50%, -100%) translateY(-4px);
+  filter: brightness(1.04) saturate(1.05);
+}
+
+.room-furniture-svg {
+  display: block;
+  overflow: visible;
+  filter:
+    drop-shadow(0 5px 4px rgba(83, 56, 33, 0.22))
+    saturate(1.03);
+}
+
+.room-shadow {
+  width: 42px;
+  height: 11px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(76, 48, 28, 0.26), rgba(76, 48, 28, 0) 72%);
+  pointer-events: none;
+}
+
+.room-character {
+  pointer-events: none;
+}
+
+.room-character-img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 3px rgba(82, 54, 34, 0.25));
+}
+
+.room-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 4px 0;
+}
+
+.room-palette-item {
+  min-width: 104px;
+  border: 1px solid rgba(132, 91, 52, 0.18);
+  border-radius: 18px;
+  padding: 8px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 236, 0.96), rgba(239, 215, 180, 0.92));
+  color: #6d4d32;
+  box-shadow:
+    0 5px 12px rgba(119, 84, 47, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.room-palette-item:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 16px rgba(119, 84, 47, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.room-palette-item.selected {
+  border-color: rgba(104, 161, 77, 0.72);
+  box-shadow:
+    0 0 0 3px rgba(132, 196, 98, 0.25),
+    0 8px 18px rgba(104, 161, 77, 0.18);
+  background:
+    linear-gradient(180deg, #f7ffe8, #e1f2c2);
+}
+
+.room-palette-preview {
+  height: 46px;
+  display: grid;
+  place-items: end center;
+}
+
+.room-palette-item span:not(.room-palette-preview) {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.room-palette-item small {
+  color: #9b7655;
+}

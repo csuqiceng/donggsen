@@ -1,0 +1,1456 @@
+{
+  "ok": true,
+  "version": 1,
+  "room": "fitness-island-v1",
+  "updatedAt": 1782528480582,
+  "users": {
+    "name_fec17638af4ba8bc8b8f46b4": {
+      "clientId": "client-1782486548967-48cbe9dbe752a8",
+      "username": "乖宝",
+      "displayName": "乖宝",
+      "avatar": "rosie",
+      "message": "非常喜欢这个网站！",
+      "dayStates": [
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "challenge",
+          "planMode": "standard",
+          "score": 12,
+          "rewards": [
+            "clay",
+            "starFragment",
+            "nookMilesTicket"
+          ],
+          "hiddenTasks": [
+            "bells_bag",
+            "same_day_checkin"
+          ],
+          "settledAt": 1780741469358,
+          "settledDate": "2026-06-06",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "challenge",
+          "planMode": "standard",
+          "score": 6,
+          "rewards": [
+            "nookMilesTicket",
+            "wood",
+            "hardwood",
+            "stone"
+          ],
+          "hiddenTasks": [
+            "night_star",
+            "museum_entry",
+            "observatory_permit"
+          ],
+          "settledAt": 1780837088599,
+          "settledDate": "2026-06-07",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            3
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 8,
+          "rewards": [
+            "wood",
+            "stone",
+            "clay"
+          ],
+          "hiddenTasks": [
+            "coop_wood_sign"
+          ],
+          "settledAt": 1781012073318,
+          "settledDate": "2026-06-09",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": 1781098643721,
+          "settledDate": "2026-06-10",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 8,
+          "rewards": [
+            "shell",
+            "clay",
+            "wood"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781186778287,
+          "settledDate": "2026-06-11",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 8,
+          "rewards": [
+            "shell",
+            "softwood",
+            "hardwood"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781271189147,
+          "settledDate": "2026-06-12",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "challenge",
+          "planMode": "standard",
+          "score": 9,
+          "rewards": [
+            "bells",
+            "nookMilesTicket",
+            "wood",
+            "hardwood"
+          ],
+          "hiddenTasks": [
+            "challenge_islander",
+            "secret_pier_parcel"
+          ],
+          "settledAt": 1781355500753,
+          "settledDate": "2026-06-13",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "challenge",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": 1781444718439,
+          "settledDate": "2026-06-14",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 10,
+          "rewards": [
+            "hardwood",
+            "softwood",
+            "shell"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781528512844,
+          "settledDate": "2026-06-15",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 10,
+          "rewards": [
+            "softwood",
+            "hardwood",
+            "shell"
+          ],
+          "hiddenTasks": [
+            "steady_builder"
+          ],
+          "settledAt": 1781615803347,
+          "settledDate": "2026-06-16",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 10,
+          "rewards": [
+            "shell",
+            "clay",
+            "wood"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781704289578,
+          "settledDate": "2026-06-17",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "challenge",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            2,
+            1,
+            0,
+            3,
+            4
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 10,
+          "rewards": [
+            "shell",
+            "wood",
+            "stone"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1782304137887,
+          "settledDate": "2026-06-24",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        }
+      ],
+      "currentDayIndex": 25,
+      "inventory": {
+        "wood": 6,
+        "softwood": 3,
+        "hardwood": 5,
+        "stone": 1,
+        "clay": 4,
+        "shell": 4,
+        "starFragment": 1,
+        "bells": 11000,
+        "nookMilesTicket": 3
+      },
+      "warehouseContribution": {
+        "wood": 9,
+        "shell": 6,
+        "stone": 3
+      },
+      "collection": {
+        "discovered": [
+          "resident_services_tent",
+          "storage",
+          "nook_stop",
+          "museum",
+          "clay",
+          "starFragment",
+          "nookMilesTicket",
+          "bells_bag",
+          "challenge",
+          "same_day_checkin",
+          "decor_star_tile",
+          "wood",
+          "hardwood",
+          "stone",
+          "night_star",
+          "museum_entry",
+          "observatory_permit",
+          "decor_flower_sign",
+          "coop_wood_sign",
+          "standard",
+          "softwood",
+          "shell",
+          "pier",
+          "decor_shell_lamp",
+          "bottle_extra_clue",
+          "gift_wish_pick",
+          "gift_weekend_gift",
+          "bells",
+          "challenge_islander",
+          "secret_pier_parcel",
+          "steady_builder"
+        ],
+        "completed": []
+      },
+      "selectedDifficulty": "challenge",
+      "selectedPlanMode": "standard",
+      "giftClaims": [],
+      "syncVersion": 183,
+      "lastLoginDate": "2026-06-26",
+      "loginStreak": 1,
+      "roomFurniture": [],
+      "userKey": "name_fec17638af4ba8bc8b8f46b4",
+      "lastActive": 1782486548972,
+      "updated": 1782486548972
+    },
+    "name_6cf70b7c4fa3c4b4627dc026": {
+      "clientId": "07381974-c308-4811-b38e-1503479d0159",
+      "username": "哥哥",
+      "displayName": "哥哥",
+      "avatar": "alfonso",
+      "message": "mua mua",
+      "dayStates": [
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 8,
+          "rewards": [
+            "wood",
+            "softwood"
+          ],
+          "hiddenTasks": [
+            "same_day_checkin"
+          ],
+          "settledAt": 1780742625941,
+          "settledDate": "2026-06-06",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            1,
+            0
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 4,
+          "rewards": [
+            "shell",
+            "wood",
+            "softwood"
+          ],
+          "hiddenTasks": [
+            "museum_entry"
+          ],
+          "settledAt": 1780819695239,
+          "settledDate": "2026-06-07",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 8,
+          "rewards": [
+            "wood",
+            "stone",
+            "clay"
+          ],
+          "hiddenTasks": [
+            "night_star",
+            "coop_wood_sign"
+          ],
+          "settledAt": 1780935511493,
+          "settledDate": "2026-06-09",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 4,
+          "rewards": [
+            "clay",
+            "softwood"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781099547908,
+          "settledDate": "2026-06-10",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 8,
+          "rewards": [
+            "shell",
+            "clay",
+            "wood"
+          ],
+          "hiddenTasks": [
+            "steady_builder"
+          ],
+          "settledAt": 1781192482026,
+          "settledDate": "2026-06-11",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "challenge",
+          "planMode": "standard",
+          "score": 9,
+          "rewards": [
+            "bells",
+            "nookMilesTicket",
+            "wood",
+            "hardwood"
+          ],
+          "hiddenTasks": [
+            "bells_bag",
+            "secret_pier_parcel"
+          ],
+          "settledAt": 1781355454076,
+          "settledDate": "2026-06-13",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 4,
+          "rewards": [
+            "wood",
+            "softwood",
+            "hardwood"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781449464406,
+          "settledDate": "2026-06-14",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "challenge",
+          "planMode": "standard",
+          "score": 12,
+          "rewards": [
+            "bells",
+            "nookMilesTicket",
+            "wood"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781535377364,
+          "settledDate": "2026-06-15",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "settled": true,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 10,
+          "rewards": [
+            "shell",
+            "clay",
+            "wood"
+          ],
+          "hiddenTasks": [],
+          "settledAt": 1781710870454,
+          "settledDate": "2026-06-17",
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [
+            0
+          ],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        },
+        {
+          "checked": [],
+          "settled": false,
+          "missed": false,
+          "difficulty": "standard",
+          "planMode": "standard",
+          "score": 0,
+          "rewards": [],
+          "hiddenTasks": [],
+          "settledAt": null,
+          "settledDate": null,
+          "missedAt": null,
+          "missedDate": null
+        }
+      ],
+      "currentDayIndex": 26,
+      "inventory": {
+        "wood": 9,
+        "softwood": 6,
+        "hardwood": 9,
+        "stone": 18,
+        "weed": 9,
+        "clay": 5,
+        "shell": 5,
+        "ironNugget": 5,
+        "wooden_table": 3,
+        "wooden_chair": 3,
+        "bells": 50,
+        "bed": 2,
+        "shelf": 3,
+        "lamp": 3,
+        "rug": 3,
+        "flower_pot": 3,
+        "fence": 2
+      },
+      "warehouseContribution": {
+        "wood": 11,
+        "shell": 5,
+        "stone": 18,
+        "softwood": 6,
+        "hardwood": 9,
+        "ironNugget": 5,
+        "clay": 5,
+        "weed": 9
+      },
+      "collection": {
+        "discovered": [
+          "resident_services_tent",
+          "storage",
+          "nook_stop",
+          "museum",
+          "wood",
+          "softwood",
+          "same_day_checkin",
+          "standard",
+          "bottle_extra_clue",
+          "shell",
+          "museum_entry",
+          "decor_camp_chair",
+          "stone",
+          "clay",
+          "night_star",
+          "decor_flower_sign",
+          "coop_wood_sign",
+          "gift_milk_tea",
+          "steady_builder",
+          "pier",
+          "bells",
+          "nookMilesTicket",
+          "hardwood",
+          "bells_bag",
+          "challenge",
+          "gift_weekend_gift",
+          "secret_pier_parcel",
+          "decor_star_tile"
+        ],
+        "completed": []
+      },
+      "selectedDifficulty": "challenge",
+      "selectedPlanMode": "standard",
+      "giftClaims": {
+        "milk_tea": {
+          "id": "milk_tea",
+          "ruleId": "milk_tea",
+          "ownerKey": "",
+          "ownerName": "",
+          "status": "requested",
+          "requestedAt": 1781016069937,
+          "redeemedAt": 0,
+          "redeemedBy": "",
+          "updatedAt": 1781016069937
+        }
+      },
+      "syncVersion": 10006,
+      "lastLoginDate": "2026-06-27",
+      "loginStreak": 4,
+      "roomFurniture": [
+        {
+          "uid": "rf_1782486434753_0_2",
+          "recipeId": "bed",
+          "tx": 0,
+          "ty": 2
+        }
+      ],
+      "userKey": "name_6cf70b7c4fa3c4b4627dc026",
+      "lastActive": 1782528480582,
+      "updated": 1782528480582
+    }
+  },
+  "shared": {
+    "giftClaims": {
+      "milk_tea__name_6cf70b7c4fa3c4b4627dc026": {
+        "id": "milk_tea__name_6cf70b7c4fa3c4b4627dc026",
+        "ruleId": "milk_tea",
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "status": "requested",
+        "requestedAt": 1781016069937,
+        "redeemedAt": 0,
+        "redeemedBy": "",
+        "updatedAt": 1781016069000
+      }
+    },
+    "wishLists": {
+      "name_fec17638af4ba8bc8b8f46b4": {
+        "ownerKey": "name_fec17638af4ba8bc8b8f46b4",
+        "ownerName": "乖宝",
+        "items": [
+          "一个项链"
+        ],
+        "updatedAt": 1780935857000
+      },
+      "name_6cf70b7c4fa3c4b4627dc026": {
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "items": [
+          "大大的亲亲"
+        ],
+        "updatedAt": 1780935944000
+      }
+    },
+    "mailbox": [
+      {
+        "id": "mail_1780813380931_643447",
+        "authorKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "authorName": "哥哥",
+        "text": "想你呀",
+        "createdAt": 1780813380931
+      },
+      {
+        "id": "mail_1780896615343_fa9a97",
+        "authorKey": "name_fec17638af4ba8bc8b8f46b4",
+        "authorName": "乖宝",
+        "text": "mua！",
+        "createdAt": 1780896615343
+      },
+      {
+        "id": "mail_1780904802782_ce5e2c",
+        "authorKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "authorName": "哥哥",
+        "text": "mua mua",
+        "createdAt": 1780904802782
+      },
+      {
+        "id": "mail_1781186834439_cadea9",
+        "authorKey": "name_fec17638af4ba8bc8b8f46b4",
+        "authorName": "乖宝",
+        "text": "非常喜欢这个网站！",
+        "createdAt": 1781186834439
+      }
+    ],
+    "events": {
+      "weekly_0_2026-06": {
+        "id": "weekly_0_2026-06",
+        "type": "weekly",
+        "title": "第 1 周结算",
+        "summary": "本周合计登岛 4 次，同日 2 次，仓库 5 份。最稳：周六 · 一周快到了；最弱：热身入口；建议：下周保持标准难度，优先稳定完成",
+        "createdBy": "哥哥",
+        "createdAt": 1780838871635
+      },
+      "weekly_1_2026-06": {
+        "id": "weekly_1_2026-06",
+        "type": "weekly",
+        "title": "第 2 周结算",
+        "summary": "本周合计登岛 9 次，同日 3 次，仓库 20 份。最稳：周二 · 上身 + 核心；最弱：收尾放松；建议：下周保持标准难度，优先稳定完成",
+        "createdBy": "哥哥",
+        "createdAt": 1781449481190
+      }
+    },
+    "decor": {
+      "star_tile": {
+        "id": "star_tile",
+        "ownerKey": "name_fec17638af4ba8bc8b8f46b4",
+        "ownerName": "乖宝",
+        "placedAt": 1780837231107,
+        "updatedAt": 1780837229000
+      },
+      "camp_chair": {
+        "id": "camp_chair",
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "placedAt": 1780837266679,
+        "updatedAt": 1780837266000
+      },
+      "shell_lamp": {
+        "id": "shell_lamp",
+        "ownerKey": "name_fec17638af4ba8bc8b8f46b4",
+        "ownerName": "乖宝",
+        "placedAt": 1781271204123,
+        "updatedAt": 1781271202000
+      },
+      "flower_sign": {
+        "id": "flower_sign",
+        "placedAt": 1782313940791,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥"
+      }
+    },
+    "wishFulfillments": {
+      "wish_13dgwbj_18y2sco": {
+        "id": "wish_13dgwbj_18y2sco",
+        "item": "一个项链",
+        "ownerKey": "name_fec17638af4ba8bc8b8f46b4",
+        "ownerName": "乖宝",
+        "fulfilledByKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "fulfilledByName": "哥哥",
+        "fulfilledAt": 1782224957563,
+        "status": "fulfilled",
+        "updatedAt": 1782224957000
+      },
+      "wish_qnedb2_1f0se2p": {
+        "id": "wish_qnedb2_1f0se2p",
+        "item": "大大的亲亲",
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "fulfilledByKey": "name_fec17638af4ba8bc8b8f46b4",
+        "fulfilledByName": "乖宝",
+        "fulfilledAt": 1782304150941,
+        "status": "fulfilled",
+        "updatedAt": 1782304151000
+      }
+    },
+    "placedCrafts": [
+      {
+        "id": "craft_1782312231254_0",
+        "recipeId": "furniture",
+        "x": 35,
+        "y": 58,
+        "placedAt": 1782312231254,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥"
+      },
+      {
+        "id": "craft_1782312232478_1",
+        "recipeId": "house",
+        "x": 25.71138211382114,
+        "y": 61.627906976744185,
+        "placedAt": 1782312232478,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782397907928
+      },
+      {
+        "id": "craft_1782314886715_2",
+        "recipeId": "house",
+        "x": 21.029668411867362,
+        "y": 81.53846153846153,
+        "placedAt": 1782314886715,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782399202041
+      }
+    ],
+    "buildingPositions": {
+      "workshop": {
+        "x": 65.95528455284553,
+        "y": 88.13953488372093,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782397924760
+      },
+      "resident_services_tent": {
+        "x": 14.746945898778357,
+        "y": 47.521367521367516,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782399217659
+      },
+      "pier": {
+        "x": 83.94308943089432,
+        "y": 33.02325581395349,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782315893154
+      },
+      "museum": {
+        "x": 79.0650406504065,
+        "y": 45.58139534883721,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782315887877
+      },
+      "nook_stop": {
+        "x": 53.35365853658537,
+        "y": 25.813953488372093,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782397904573
+      },
+      "storage": {
+        "x": 11.169284467713785,
+        "y": 21.45299145299145,
+        "ownerKey": "name_6cf70b7c4fa3c4b4627dc026",
+        "ownerName": "哥哥",
+        "updatedAt": 1782399212762
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+/* 小游戏公共框架（填满手机屏幕区域） */
+.pg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px 24px;
+  background: linear-gradient(180deg, #fffdf5, #f3ecdd);
+  color: #2d3436;
+}
+.pg-head { width: 100%; display: flex; justify-content: space-between; align-items: center; font-weight: 800; }
+.pg-title { font-size: 18px; color: #725c4e; }
+.pg-score { font-size: 14px; color: #fff; background: #08b69f; padding: 4px 12px; border-radius: 999px; }
+.pg-sub { font-size: 13px; color: #94908a; font-weight: 700; text-align: center; }
+.pg-btn {
+  padding: 9px 20px; border: 2px solid #08b69f; border-radius: 999px;
+  background: #fff; color: #08b69f; font-weight: 800; cursor: pointer;
+  box-shadow: 0 3px 0 #b7ebe0; transition: transform .12s ease;
+}
+.pg-btn:hover { transform: translateY(-1px); }
+.pg-btn:active { transform: translateY(1px); }
+.pg-big { font-size: 40px; font-weight: 900; color: #725c4e; }
+
+/* SnapGame 抓拍 */
+.pg-snap-grid { display: grid; grid-template-columns: repeat(3, 92px); grid-template-rows: repeat(3, 92px); gap: 8px; }
+.pg-snap-cell { border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 2px #ece3d2; font-size: 40px; display: grid; place-items: center; }
+.pg-snap-cell.has { background: #fff8e7; cursor: pointer; }
+
+/* TapRush 狂点 */
+.pg-tap-btn { width: 160px; height: 160px; border-radius: 50%; border: none; background: #ff8a5b; color: #fff; font-size: 22px; font-weight: 900; cursor: pointer; box-shadow: 0 8px 0 #d9683a; transition: transform .05s ease; }
+.pg-tap-btn:active { transform: translateY(6px); box-shadow: 0 2px 0 #d9683a; }
+.pg-tap-btn:disabled { background: #c9bfae; box-shadow: 0 8px 0 #b3a994; cursor: default; }
+
+/* SlidingPuzzle 数字拼图 */
+.pg-puzzle { display: grid; grid-template-columns: repeat(3, 80px); grid-template-rows: repeat(3, 80px); gap: 6px; }
+.pg-puzzle-tile { border: none; border-radius: 12px; background: #fff; box-shadow: 0 4px 0 #e2dac9; font-size: 30px; font-weight: 900; color: #725c4e; cursor: pointer; }
+.pg-puzzle-tile.blank { background: transparent; box-shadow: none; cursor: default; }
+
+/* TimingBar 卡准星 */
+.pg-bar-wrap { width: 100%; max-width: 320px; }
+.pg-bar { position: relative; height: 40px; border-radius: 999px; background: #e9e0cc; overflow: hidden; }
+.pg-bar-zone { position: absolute; top: 0; bottom: 0; left: 42%; width: 16%; background: #08b69f; opacity: .35; }
+.pg-bar-mark { position: absolute; top: 0; bottom: 0; width: 6px; background: #fc736d; border-radius: 3px; }
+
+/* HigherLower 猜价格 */
+.pg-price { font-size: 48px; font-weight: 900; color: #725c4e; }
+.pg-hl-row { display: flex; gap: 12px; }
+
+/* SimonSays 记忆色块 */
+.pg-simon { display: grid; grid-template-columns: repeat(2, 110px); grid-template-rows: repeat(2, 110px); gap: 10px; }
+.pg-simon-pad { border: none; border-radius: 18px; cursor: pointer; opacity: .55; transition: opacity .1s ease; }
+.pg-simon-pad.lit { opacity: 1; }
+
+/* TicTacToe 井字棋 */
+.pg-ttt { display: grid; grid-template-columns: repeat(3, 78px); grid-template-rows: repeat(3, 78px); gap: 6px; }
+.pg-ttt-cell { border: none; border-radius: 12px; background: #fff; box-shadow: 0 4px 0 #e2dac9; font-size: 34px; font-weight: 900; cursor: pointer; }
+.pg-ttt-cell:disabled { cursor: default; }
+.pg-ttt-x { color: #fc736d; }
+.pg-ttt-o { color: #42a5f5; }
+
+/* EmojiMatch 表情速配 */
+.pg-emoji-target { font-size: 56px; }
+.pg-emoji-opts { display: grid; grid-template-columns: repeat(2, 96px); gap: 10px; }
+.pg-emoji-opt { border: none; border-radius: 16px; background: #fff; box-shadow: 0 4px 0 #e2dac9; font-size: 36px; height: 76px; cursor: pointer; }
+
+/* 通用排行榜 */
+.pg-lb-title { font-size: 13px; font-weight: 900; color: #725c4e; margin-top: 4px; }
+.pg-lb {
+  list-style: none; margin: 0; padding: 0; width: 100%; max-width: 280px;
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 168px; overflow-y: auto;
+}
+.pg-lb li {
+  display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px; background: #fff;
+  box-shadow: 0 2px 0 #ece3d2; font-weight: 800; font-size: 13px;
+}
+.pg-lb li.me { background: #dffaf3; box-shadow: 0 2px 0 #b7ebe0; outline: 2px solid #08b69f; }
+.pg-lb-no { color: #b09a7a; font-weight: 900; }
+.pg-lb li.me .pg-lb-no { color: #08b69f; }
+.pg-lb-name { color: #5d4037; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-lb-score { color: #725c4e; }
+.pg-lb-empty { font-size: 13px; color: #94908a; font-weight: 700; }

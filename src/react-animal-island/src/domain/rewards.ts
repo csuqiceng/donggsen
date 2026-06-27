@@ -66,7 +66,7 @@ export function computeMaterialCount(difficulty: Difficulty, fullDone: boolean):
 
 export function warehouseCounts(rewards: string[]): Record<string, number> {
   const out: Record<string, number> = {};
-  const stashable = ['wood', 'shell', 'stone', 'ironNugget'];
+  const stashable = ['wood', 'softwood', 'hardwood', 'stone', 'ironNugget', 'clay', 'weed', 'branch', 'shell', 'starFragment'];
   rewards.forEach(reward => {
     if (stashable.includes(reward)) out[reward] = (out[reward] || 0) + 1;
   });

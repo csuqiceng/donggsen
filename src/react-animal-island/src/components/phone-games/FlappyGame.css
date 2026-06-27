@@ -1,0 +1,48 @@
+/* 动森小鸟 Flappy */
+.pg-flappy {
+  position: relative;
+  width: 320px;
+  height: 360px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #bfefff 0%, #d8f3ff 55%, #cfeabd 55%, #b9d99a 100%);
+  box-shadow: inset 0 0 0 3px #e2dac9, 0 4px 0 #e2dac9;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.pg-flappy-pipe {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pg-flappy-pipe > div {
+  background: linear-gradient(90deg, #5fa338, #7cb342 30%, #9ccc65 50%, #7cb342 70%, #5fa338);
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.08);
+}
+.pg-flappy-bird {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  font-size: 22px;
+  line-height: 26px;
+  text-align: center;
+  transform-origin: center;
+  filter: drop-shadow(0 2px 1px rgba(0,0,0,.2));
+}
+.pg-flappy-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  font-weight: 800;
+  color: #725c4e;
+  background: rgba(255,253,245,.55);
+  backdrop-filter: blur(1px);
+}

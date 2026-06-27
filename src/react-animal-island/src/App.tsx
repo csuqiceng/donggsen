@@ -10,6 +10,9 @@ import {
 } from 'animal-island-ui';
 import type { ReactNode } from 'react';
 import 'animal-island-ui/style';
+import { NookPhone } from './components/NookPhone';
+import type { NookApp } from './components/NookPhone';
+import { GAMES } from './components/phone-games';
 import './App.css';
 import { AVATARS, BUILDINGS, DECOR_ITEMS, DIFFICULTIES, FIXED_USERS, GIFT_RULES, HIDDEN_QUESTS, ITEMS, PLAN_MODES } from './domain/config';
 import { fetchPlan, fetchServerState, getSharedMailbox, pushUserState } from './domain/api';
@@ -59,7 +62,8 @@ import { createDecorPlacement, formatDecorCost, isDecorPlaced, normalizeDecor } 
 import { getWeeklyReviewInsights } from './domain/weekly';
 import { buildWeeklyEvent, getWeeklyEventId, getWeeklySettlementStatus } from './domain/settlement';
 import { computeLoginStreak, getLoginReward } from './domain/login';
-import { CRAFT_RECIPES, GRID_RECIPES, matchGridRecipe, craftFromGrid, placeCraft, type CraftGrid } from './domain/workshop';
+import { GRID_RECIPES, matchGridRecipe, craftFromGrid, placeCraft, type CraftGrid } from './domain/workshop';
+import { placeRoomFurniture, removeRoomFurniture } from './domain/room';
 import { getUserTitle, countChecked } from './domain/leaderboard';
 import { detectHiddenTasks, applyHiddenTaskEffects, retroactiveHiddenCheck, getHiddenQuestHint } from './domain/hidden';
 import { getMuseumExhibits, getMuseumRooms, MUSEUM_ROOMS, type MuseumContext, type MuseumRoomId } from './domain/museum';
@@ -74,7 +78,7 @@ import { AvatarPicker } from './components/AvatarPicker';
 import { CuteTip } from './components/CuteTip';
 import type { DayState, Difficulty, FixedUserName, LocalUserState, MailboxEntry, PlanDay, ServerState, TrainingPlan } from './domain/types';
 
-type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop' | 'storage' | 'workshop';
+type ViewKey = 'today' | 'island' | 'bag' | 'collection' | 'gift' | 'coop' | 'storage' | 'workshop' | 'room';
 
 const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: 'today', label: '今日' },
@@ -403,6 +407,16 @@ export default function App() {
     await updateStateWithShared(result.state, { craftPlacement: result.patch.craftPlacement }, '已摆放到岛上');
   }
 
+  async function handlePlaceRoomFurniture(recipeId: string, tx: number, ty: number) {
+    const result = placeRoomFurniture(activeUserState, recipeId, tx, ty);
+    if (!result.ok) { showToast(result.reason || '摆放失败'); return; }
+    await updateState(result.state, '家具已放入房间');
+  }
+
+  async function handleRemoveRoomFurniture(uid: string) {
+    await updateState(removeRoomFurniture(activeUserState, uid), '家具已收回');
+  }
+
   async function handleSaveBuildingPosition(id: string, x: number, y: number) {
     await sync(activeUserState, { buildingPosition: { id, x, y } }).then(() => showToast('位置已保存')).catch(() => showToast('位置保存失败'));
   }
@@ -519,7 +533,7 @@ export default function App() {
         onViewIsland={() => setView('island')}
       />
     ),
-    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} bottleStatuses={bottleStatuses} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} onViewWorkshop={() => setView('workshop')} onSaveBuildingPosition={handleSaveBuildingPosition} onSaveCraftPosition={handleSaveCraftPosition} />,
+    island: <IslandView state={activeUserState} server={server} onDetail={setDetailModal} bottleStatuses={bottleStatuses} onDecorPlace={placeDecor} onViewMuseum={() => setView('collection')} onViewStorage={() => setView('storage')} onViewWorkshop={() => setView('workshop')} onViewRoom={() => setView('room')} onSaveBuildingPosition={handleSaveBuildingPosition} onSaveCraftPosition={handleSaveCraftPosition} />,
     bag: <BagView state={activeUserState} onDetail={setDetailModal} onUse={handleUseItem} />,
     collection: null, // 由 view==='collection' 早返回的 MuseumShell 接管，此处永不渲染
     gift: (
@@ -537,6 +551,8 @@ export default function App() {
     ),
     coop: <CoopView state={activeUserState} server={server} plan={activePlan} onSettle={event => { sync(activeUserState, { weeklyEvent: event }).then(() => showToast('周结算公告已贴到贡献页')).catch(() => showToast('周结算同步失败')); }} />,
     storage: <></>,
+    workshop: null,
+    room: null,
   };
 
   if (view === 'collection' && activeUserState) {
@@ -549,6 +565,9 @@ export default function App() {
   }
   if (view === 'workshop' && activeUserState) {
     return <WorkshopShell state={activeUserState} onLeave={() => setView('island')} onCraftGrid={handleCraftGrid} onPlace={handlePlaceCraft} onDetail={setDetailModal} detail={detailModal} onDetailClose={() => setDetailModal(null)} />;
+  }
+  if (view === 'room' && activeUserState) {
+    return <RoomShell state={activeUserState} onLeave={() => setView('island')} onPlace={handlePlaceRoomFurniture} onRemove={handleRemoveRoomFurniture} />;
   }
   return (
     <main className="app-shell">
@@ -931,6 +950,293 @@ function WorkshopShell({ state, onLeave, onCraftGrid, onPlace, onDetail, detail,
   );
 }
 
+function RoomShell({ state, onLeave, onPlace, onRemove }: {
+  state: LocalUserState;
+  onLeave: () => void;
+  onPlace: (recipeId: string, tx: number, ty: number) => void;
+  onRemove: (uid: string) => void;
+}) {
+  // 房间用 room_assets/01 整图打底；家具固定布局（固定网格位+固定尺寸），无人物、无自由摆放
+  const TILE_W = 80;
+  const TILE_H = 40;
+  const baseW = 600;
+  const baseH = 450;
+  const originX = 300;
+  const baseY = 195;
+
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setScale(el.clientWidth / 600);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  const centerC = (tx: number, ty: number) => ({
+    x: originX + (tx - ty) * TILE_W / 2,
+    y: baseY + (tx + ty) * TILE_H / 2,
+  });
+
+  // 固定布局（参照 房间.png）：方位 + 差异化大小；地毯置底层 z
+  const FURNITURE_LAYOUT: Record<string, { tx: number; ty: number; w: number; z?: number; flip?: boolean; ground?: boolean; dy?: number }> = {
+    bed:           { tx: 0, ty: 2, w: 152, flip: true },   // 左侧单人床·贴左墙（翻转使背面靠墙）
+    shelf:         { tx: 3, ty: 0, w: 116, dy: -40 },        // 后墙中部（缩小·往后贴墙）
+    rug:           { tx: 2, ty: 2, w: 236, z: 2, ground: true }, // 中央大型圆地毯（平贴地面·底层）
+    wooden_table:  { tx: 4, ty: 3, w: 88 },                // 右中小茶几
+    lamp:          { tx: 5, ty: 0, w: 34, dy: -40 },         // 后墙右端（缩小·往后贴墙）
+    flower_pot:    { tx: 1, ty: 3, w: 46 },                // 地上小植物
+    wooden_chair:  { tx: 3, ty: 4, w: 52 },                // 地上坐垫
+  };
+
+  const renderFurnitureSvg = (recipeId: string, small = false) => {
+    const scale = small ? 0.72 : 1;
+    const ink = '#6e4226';
+    const wrap = (children: ReactNode, w = 88, h = 84) => (
+      <svg className="room-furniture-svg" width={w * scale} height={h * scale} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+        {children}
+      </svg>
+    );
+
+    switch (recipeId) {
+      case 'bed':
+        return wrap(
+          <>
+            <ellipse cx="44" cy="77" rx="38" ry="8" fill="rgba(60,38,20,.22)" />
+            <path d="M47 60 L79 41 L79 56 L47 75 Z" fill="#7a4a2e" />
+            <path d="M14 42 L47 60 L47 75 L14 57 Z" fill="#9a6240" />
+            <path d="M14 42 L45 24 L79 41 L47 60 Z" fill="#b57d4e" />
+            <path d="M14 42 L45 24 L79 41 L47 60 L14 42" fill="none" stroke={ink} strokeWidth="1" strokeLinejoin="round" />
+            <path d="M47 60 L47 75" stroke={ink} strokeWidth="1" />
+            <path d="M45 24 L45 13 L51 10 L51 21 Z" fill="#8f5638" stroke={ink} strokeWidth="1" strokeLinejoin="round" />
+            <path d="M46 13 L50 11" stroke="#c89370" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M18 49 L47 32 L76 46 L47 63 Z" fill="#d95f52" stroke="#b8443a" strokeWidth="1" strokeLinejoin="round" />
+            <path d="M26 45 L54 59 M34 41 L62 55 M42 37 L70 51" stroke="#fff0df" strokeWidth="1.4" opacity=".8" />
+            <path d="M21 40 L45 27 L60 34 L37 48 Z" fill="#fffaf2" stroke="#e6d6bc" strokeWidth="1" strokeLinejoin="round" />
+            <path d="M24 41 L44 30" stroke="#fff" strokeWidth="2" opacity=".55" strokeLinecap="round" />
+          </>,
+          90, 86,
+        );
+
+      case 'shelf':
+        return wrap(
+          <>
+            <ellipse cx="45" cy="77" rx="33" ry="7" fill="rgba(60,38,20,.22)" />
+            <path d="M43 46 L77 28 L77 58 L43 75 Z" fill="#7c4d2e" />
+            <path d="M16 28 L43 46 L43 75 L16 56 Z" fill="#9a6240" />
+            <path d="M16 28 L50 11 L77 28 L43 46 Z" fill="#b9824f" />
+            <path d="M16 28 L50 11 L77 28 L43 46 L16 28" fill="none" stroke={ink} strokeWidth="1" strokeLinejoin="round" />
+            <path d="M22 36 L44 47 M22 46 L44 57 M22 56 L44 67" stroke="#5e3820" strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M48 44 L72 32 M48 54 L72 42 M48 64 L72 52" stroke="#5e3820" strokeWidth="1.4" strokeLinecap="round" />
+            {[
+              { x: 25, y: 30, c: '#f4d46a' }, { x: 30, y: 32, c: '#77b7dc' }, { x: 35, y: 29, c: '#d95f52' },
+            ].map((b, i) => (
+              <rect key={`l${i}`} x={b.x} y={b.y} width="4.5" height="14" rx="1" fill={b.c} stroke="rgba(0,0,0,.15)" strokeWidth="0.5" transform={`rotate(28 ${b.x + 2} ${b.y + 7})`} />
+            ))}
+            {[
+              { x: 53, y: 36, c: '#e88f3e' }, { x: 58, y: 34, c: '#6cb66d' }, { x: 63, y: 37, c: '#c9a06a' },
+            ].map((b, i) => (
+              <rect key={`r${i}`} x={b.x} y={b.y} width="4.5" height="14" rx="1" fill={b.c} stroke="rgba(0,0,0,.15)" strokeWidth="0.5" transform={`rotate(28 ${b.x + 2} ${b.y + 7})`} />
+            ))}
+            <path d="M20 28 L50 13" stroke="#fff" strokeWidth="2" opacity=".3" strokeLinecap="round" />
+          </>,
+          90, 86,
+        );
+
+      case 'wooden_table':
+        return wrap(
+          <>
+            <ellipse cx="44" cy="70" rx="32" ry="8" fill="rgba(60,38,20,.22)" />
+            <ellipse cx="44" cy="33" rx="27" ry="11" fill="#e3ad74" stroke={ink} strokeWidth="1" />
+            <ellipse cx="44" cy="31" rx="22" ry="8" fill="none" stroke="#c98a52" strokeWidth="0.8" opacity=".6" />
+            <path d="M17 34 L17 44 M71 34 L71 44" stroke="#7a4a2e" strokeWidth="3" strokeLinecap="round" />
+            <path d="M28 41 L28 60 M60 41 L60 60" stroke="#6e4226" strokeWidth="4.5" strokeLinecap="round" />
+            <ellipse cx="44" cy="28" rx="6" ry="3" fill="#fff2cc" stroke="#d9b97e" strokeWidth="0.8" />
+            <circle cx="44" cy="20" r="4" fill="#e85d8f" />
+            <circle cx="40" cy="22" r="3" fill="#f4a8c8" />
+            <circle cx="48" cy="22" r="3" fill="#f4a8c8" />
+            <path d="M30 28 L40 24" stroke="#fff" strokeWidth="2" opacity=".4" strokeLinecap="round" />
+          </>,
+        );
+
+      case 'wooden_chair':
+        return wrap(
+          <>
+            <ellipse cx="45" cy="71" rx="27" ry="7" fill="rgba(60,38,20,.22)" />
+            <path d="M34 23 L53 12 L59 15 L40 26 Z" fill="#a86d45" stroke={ink} strokeWidth="1" strokeLinejoin="round" />
+            <path d="M37 18 L52 11 M39 22 L55 15" stroke="#7a4a2e" strokeWidth="1" />
+            <path d="M44 55 L66 43 L66 52 L44 65 Z" fill="#8c5839" />
+            <path d="M23 43 L44 55 L44 65 L23 52 Z" fill="#a46843" />
+            <path d="M23 43 L45 30 L66 43 L44 55 Z" fill="#d8a26b" stroke={ink} strokeWidth="1" strokeLinejoin="round" />
+            <path d="M28 45 L46 35 L60 43 L44 52 Z" fill="#f3d1a4" stroke="#d9b07a" strokeWidth="0.8" />
+            <path d="M30 46 L45 38" stroke="#fff" strokeWidth="1.5" opacity=".45" strokeLinecap="round" />
+            <path d="M28 53 L28 67 M60 50 L60 64" stroke="#6e4226" strokeWidth="4" strokeLinecap="round" />
+          </>,
+        );
+
+      case 'flower_pot':
+        return wrap(
+          <>
+            <ellipse cx="43" cy="71" rx="22" ry="6" fill="rgba(60,38,20,.22)" />
+            <path d="M30 47 L57 47 L52 67 L35 67 Z" fill="#c77b48" stroke="#9a5a30" strokeWidth="1" strokeLinejoin="round" />
+            <ellipse cx="43.5" cy="47" rx="14" ry="5.5" fill="#e09b64" stroke="#9a5a30" strokeWidth="1" />
+            <path d="M33 50 L36 64" stroke="#fff" strokeWidth="1.5" opacity=".3" strokeLinecap="round" />
+            <path d="M42 45 C33 31 25 30 22 35 C31 36 37 40 42 45Z" fill="#4f9f5e" stroke="#3d7d49" strokeWidth="0.8" />
+            <path d="M44 44 C46 29 56 25 62 31 C53 34 49 39 44 44Z" fill="#5cb66d" stroke="#3d7d49" strokeWidth="0.8" />
+            <path d="M43 45 C39 28 46 21 52 25 C50 32 47 38 43 45Z" fill="#78c87a" stroke="#3d7d49" strokeWidth="0.8" />
+            <circle cx="30" cy="36" r="3.5" fill="#ffe07a" stroke="#e8b94a" strokeWidth="0.6" />
+            <circle cx="57" cy="34" r="3.5" fill="#ffd0dc" stroke="#e89aac" strokeWidth="0.6" />
+            <circle cx="47" cy="27" r="3" fill="#f4a8c8" stroke="#d97aa0" strokeWidth="0.6" />
+          </>,
+          88, 78,
+        );
+
+      case 'lamp':
+        return wrap(
+          <>
+            <ellipse cx="43" cy="72" rx="23" ry="6" fill="rgba(60,38,20,.22)" />
+            <circle cx="43" cy="30" r="20" fill="rgba(255,232,150,.30)" />
+            <path d="M27 30 L43 14 L60 30 L54 46 L33 46 Z" fill="#ffe89f" stroke="#d9a94f" strokeWidth="1" strokeLinejoin="round" />
+            <path d="M27 30 L33 46 L54 46 L60 30" fill="none" stroke="#c9923f" strokeWidth="1" />
+            <path d="M33 46 L54 46" stroke="#b07e2f" strokeWidth="1.5" />
+            <path d="M30 28 L40 18" stroke="#fff" strokeWidth="2" opacity=".5" strokeLinecap="round" />
+            <path d="M43 46 L43 64" stroke="#8f623d" strokeWidth="4" strokeLinecap="round" />
+            <path d="M34 63 L53 63 L58 71 L29 71 Z" fill="#9b6c45" stroke="#6e4226" strokeWidth="1" strokeLinejoin="round" />
+            <ellipse cx="43.5" cy="63" rx="9.5" ry="3" fill="#b98a5e" />
+          </>,
+          88, 80,
+        );
+
+      case 'rug':
+        return wrap(
+          <>
+            <ellipse cx="44" cy="56" rx="37" ry="18" fill="#f3ead8" stroke="#d9c8a8" strokeWidth="1.5" />
+            <ellipse cx="44" cy="56" rx="30" ry="14" fill="#fffaf0" />
+            <ellipse cx="44" cy="56" rx="36" ry="17" fill="none" stroke="#c9a06a" strokeWidth="1" strokeDasharray="3 4" />
+            <ellipse cx="44" cy="56" rx="22" ry="10" fill="none" stroke="#d9a06a" strokeWidth="0.8" opacity=".5" />
+            <circle cx="44" cy="52" r="4" fill="#77bd72" stroke="#5aa760" strokeWidth="0.6" />
+            <path d="M43 52 C35 47 34 41 38 39 C42 42 43 47 43 52Z" fill="#5aa760" />
+            <path d="M46 52 C52 45 59 45 61 50 C55 51 50 52 46 52Z" fill="#6cbc70" />
+          </>,
+          88, 76,
+        );
+
+      case 'fence':
+        return wrap(
+          <>
+            <ellipse cx="44" cy="71" rx="34" ry="7" fill="rgba(60,38,20,.22)" />
+            <path d="M15 45 L44 29 L73 45" stroke="#9b663f" strokeWidth="7" strokeLinecap="round" fill="none" />
+            <path d="M15 56 L44 40 L73 56" stroke="#bd8354" strokeWidth="7" strokeLinecap="round" fill="none" />
+            {[19, 33, 47, 61].map((x, i) => (
+              <g key={i}>
+                <path d={`M${x} ${36 + i * 2} L${x} ${64 + i * 2}`} stroke="#75482e" strokeWidth="5" strokeLinecap="round" />
+                <path d={`M${x - 1} ${38 + i * 2} L${x - 1} ${50 + i * 2}`} stroke="#9a6240" strokeWidth="1.5" strokeLinecap="round" />
+              </g>
+            ))}
+          </>,
+          88, 78,
+        );
+
+      default:
+        return wrap(
+          <>
+            <ellipse cx="44" cy="70" rx="29" ry="7" fill="rgba(60,38,20,.22)" />
+            <path d="M44 58 L68 42 L68 53 L44 68 Z" fill="#8f5a3b" />
+            <path d="M20 42 L44 58 L44 68 L20 53 Z" fill="#a86d45" />
+            <path d="M20 42 L44 27 L68 42 L44 58 Z" fill="#d9a36e" stroke={ink} strokeWidth="1" strokeLinejoin="round" />
+            <path d="M24 40 L44 29" stroke="#fff" strokeWidth="1.5" opacity=".35" strokeLinecap="round" />
+          </>,
+        );
+    }
+  };
+
+  const FURNITURE_IMG: Record<string, string> = {
+    bed: '/assets/room_assets/02_bed.webp',
+    shelf: '/assets/room_assets/03_bookshelf.webp',
+    wooden_table: '/assets/room_assets/05_coffee_table.webp',
+    rug: '/assets/room_assets/04_round_fluffy_rug.webp',
+    lamp: '/assets/room_assets/08_wooden_cabinet_lamp.webp',
+    wooden_chair: '/assets/room_assets/06_floor_cushion.webp',
+  };
+  const renderFurniture = (recipeId: string, w: number, flip = false) => {
+    const src = FURNITURE_IMG[recipeId];
+    if (src) return <img className="room-furniture-img" src={src} alt="" draggable={false} style={{ width: w, height: 'auto', transform: flip ? 'scaleX(-1)' : undefined }} />;
+    return renderFurnitureSvg(recipeId);
+  };
+
+  const palette = GRID_RECIPES.filter(r => r.category === 'furniture' && (state.inventory[r.id] || 0) > 0 && FURNITURE_LAYOUT[r.id]);
+  const placed = state.roomFurniture || [];
+  const placedIds = new Set(placed.map(f => f.recipeId));
+
+  const toggleFurniture = (recipeId: string) => {
+    const layout = FURNITURE_LAYOUT[recipeId];
+    if (!layout) return;
+    const exist = placed.find(f => f.recipeId === recipeId);
+    if (exist) onRemove(exist.uid);
+    else onPlace(recipeId, layout.tx, layout.ty);
+  };
+
+  const items = placed
+    .map(f => {
+      const layout = FURNITURE_LAYOUT[f.recipeId] || { tx: f.tx, ty: f.ty, w: 76 };
+      const c = centerC(layout.tx, layout.ty);
+      const depth = layout.tx + layout.ty;
+      return { ...f, x: c.x, y: c.y, w: layout.w, depth, z: layout.z ?? (10 + depth), flip: layout.flip, ground: layout.ground, dy: layout.dy };
+    })
+    .sort((a, b) => a.depth - b.depth);
+
+  return (
+    <main className="museum-shell room-shell">
+      <button type="button" className="museum-leave-btn" onClick={onLeave}>← 离开房间</button>
+      <Card className="island-panel museum-head-card">
+        <div className="section-head">
+          <div>
+            <div className="section-title">我的房间</div>
+            <p className="museum-sub">点击下方家具添加到房间，再点家具或按钮收回。家具自动摆放到固定位置。</p>
+          </div>
+        </div>
+      </Card>
+      <Card className="island-panel">
+        <div className="room-stage-wrap" ref={wrapRef}>
+          <div className="room-stage" style={{ width: baseW, height: baseH, transform: `scale(${scale})`, transformOrigin: 'top left', backgroundImage: 'url(/assets/room_assets/01_room_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+          <div className="room-ambient" />
+          <img className="room-wall-deco room-string-lights" src="/assets/room_assets/09_star_string_lights.webp" alt="" draggable={false} />
+          <img className="room-wall-deco room-painting" src="/assets/room_assets/10_framed_painting.webp" alt="" draggable={false} />
+          {items.map(item => (
+            <button
+              key={item.uid}
+              type="button"
+              className="room-sprite room-furniture"
+              style={item.ground ? { left: item.x, top: item.y + (item.dy || 0), transform: 'translate(-50%, -50%)', zIndex: item.z } : { left: item.x, top: item.y + 18 + (item.dy || 0), zIndex: item.z }}
+              onClick={() => onRemove(item.uid)}
+              title="点击收回"
+            >
+              <div className="room-shadow" />
+              {renderFurniture(item.recipeId, item.w, item.flip)}
+            </button>
+          ))}
+          <div className="room-light-overlay" />
+          </div>
+        </div>
+      </Card>
+      <Card className="island-panel">
+        <Title size="small">家具</Title>
+        <div className="room-palette">
+          {palette.length ? palette.map(r => (
+            <button key={r.id} type="button" className={`room-palette-item ${placedIds.has(r.id) ? 'selected' : ''}`} onClick={() => toggleFurniture(r.id)}>
+              <span className="room-palette-preview">{renderFurniture(r.id, 54)}</span>
+              <span>{r.name}</span>
+              <small>{placedIds.has(r.id) ? '已摆放' : `×${state.inventory[r.id]}`}</small>
+            </button>
+          )) : <p className="muted">先去工坊合成家具。</p>}
+        </div>
+      </Card>
+    </main>
+  );
+}
+
 function StorageShell({ state, server, onLeave }: { state: LocalUserState; server: ServerState | null; onLeave: () => void }) {
   const [loading, setLoading] = useState(true);
   const [leaving, setLeaving] = useState(false);
@@ -1290,6 +1596,8 @@ function navIcon(key: ViewKey) {
     gift: '/ui-assets/nav-icons/gift.svg',
     coop: '/ui-assets/nav-icons/contribution.svg',
     storage: '/ui-assets/nav-icons/bag.svg',
+    workshop: '/ui-assets/nav-icons/bag.svg',
+    room: '/ui-assets/nav-icons/bag.svg',
   }[key];
 }
 
@@ -1303,7 +1611,7 @@ function formatMaterialSummary(warehouse: Record<string, number>) {
   return entries.map(([key, value]) => `${ITEMS[key]?.name || key} ${value}`).join(' · ');
 }
 
-function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onViewMuseum, onViewStorage, onViewWorkshop, onSaveBuildingPosition, onSaveCraftPosition }: {
+function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onViewMuseum, onViewStorage, onViewWorkshop, onSaveBuildingPosition, onSaveCraftPosition, onViewRoom }: {
   state: LocalUserState;
   server: ServerState | null;
   onDetail: (value: { title: string; body?: string; lines?: string[]; cards?: BottleCard[] }) => void;
@@ -1314,6 +1622,7 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
   onViewWorkshop: () => void;
   onSaveBuildingPosition: (id: string, x: number, y: number) => void;
   onSaveCraftPosition: (id: string, x: number, y: number) => void;
+  onViewRoom: () => void;
 }) {
   const checkins = countSettledDays(state);
   const minutes = countMinutes(state);
@@ -1385,6 +1694,40 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
       .map((user, idx) => ({ name: user.displayName || user.username || '伙伴', avatar: user.avatar, x: 55 + idx * 8, y: 58, color: RESIDENT_COLORS[(idx + 1) % RESIDENT_COLORS.length] })),
   ];
   const [mapZoom, setMapZoom] = useState(false);
+  // 手机弹框：贴合手机尺寸的独立弹层
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  const [phonePhase, setPhonePhase] = useState<'phone' | 'app'>('phone');
+  const [phoneApp, setPhoneApp] = useState<string>('camera');
+  const [phoneScale, setPhoneScale] = useState(0.6);
+  // 手机 APP（传给本地 NookPhone，自动按 9 个/页分页）
+  const NOOK_APPS: (NookApp & { name: string; emoji: string })[] = [
+    { id: 'camera', name: '相机', emoji: '📷', iconName: 'icon-camera', color: '#B77DEE', hasNewMessage: true },
+    { id: 'miles', name: '里数中心', emoji: '🎫', iconName: 'icon-miles', color: '#889DF0', offset: true },
+    { id: 'critterpedia', name: '生物图鉴', emoji: '🦋', iconName: 'icon-critterpedia', color: '#F7CD67', iconStyle: { width: '82px' } },
+    { id: 'diy', name: 'DIY 手册', emoji: '🔨', iconName: 'icon-diy', color: '#E59266' },
+    { id: 'shopping', name: '购物', emoji: '🛒', iconName: 'icon-design', color: '#F8A6B2' },
+    { id: 'custom', name: '我的设计', emoji: '🎨', iconName: 'icon-map', color: '#82D5BB', hasNewMessage: true, iconStyle: { width: '70px' } },
+    { id: 'design', name: '设计板', emoji: '🖌', iconName: 'icon-variant', color: '#8AC68A', iconStyle: { width: '62px' } },
+    { id: 'map', name: '岛屿地图', emoji: '🗺', iconName: 'icon-helicopter', color: '#FC736D' },
+    { id: 'chat', name: '聊天', emoji: '💬', iconName: 'icon-chat', color: '#D1DA49' },
+    // 第 2 页
+    { id: 'shopping2', name: '购物', emoji: '🛍', iconName: 'icon-shopping', color: '#F8A6B2' },
+    { id: 'rescue', name: '紧急救援', emoji: '🚁', iconName: 'icon-helicopter', color: '#FC736D' },
+    { id: 'custom2', name: '定制设计', emoji: '🎨', iconName: 'icon-variant', color: '#8AC68A' },
+  ];
+  useEffect(() => {
+    if (!phoneOpen) return;
+    const update = () => {
+      const byW = (window.innerWidth - 24) / 527;
+      const byH = (window.innerHeight - 24) / 788;
+      setPhoneScale(Math.max(0.34, Math.min(0.86, byW, byH)));
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [phoneOpen]);
+  const closePhone = () => { setPhoneOpen(false); setPhonePhase('phone'); setPhoneApp('camera'); };
+  const ActivePhoneGame = GAMES[phoneApp];
   const myTodayKey = getDayKey(state.currentDayIndex);
   const myTodayState = state.dayStates[myTodayKey] || state.dayStates[String(state.currentDayIndex)] || {};
   const todayDone = Boolean(myTodayState.settled && !myTodayState.rest && !myTodayState.missed);
@@ -1418,6 +1761,14 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
         aria-label="瓶中信隐藏任务线索"
       >
         💌
+      </button>
+      <button
+        type="button"
+        className="phone-point"
+        onClick={() => setPhoneOpen(true)}
+        aria-label="打开手机进入小游戏"
+      >
+        📱
       </button>
       {Object.values(placedDecor).map(record => {
         const meta = DECOR_ITEMS.find(item => item.id === record.id);
@@ -1496,10 +1847,7 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
             onPointerDown={e => onMapItemPointerDown('craft', craft.id, e)}
             onClick={() => {
               if (justDragged.current) { justDragged.current = false; return; }
-              onDetail({
-              title: recipe.name,
-              lines: [recipe.desc, '🚧 房间内景（伪 3D）开发中，敬请期待。'],
-            });
+              onViewRoom();
             }}
             aria-label={recipe.name}
           >
@@ -1591,6 +1939,36 @@ function IslandView({ state, server, onDetail, bottleStatuses, onDecorPlace, onV
           {renderMapBody(true)}
         </div>
       </Modal>
+      {phoneOpen && (
+        <div className="phone-modal-mask" onClick={closePhone}>
+          <div
+            className="phone-modal"
+            style={{ width: 527 * phoneScale, height: 788 * phoneScale }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button type="button" className="phone-modal-close" onClick={closePhone} aria-label="关闭">×</button>
+            {phonePhase === 'phone' ? (
+              <div className="phone-scaler" style={{ transform: `scale(${phoneScale})`, transformOrigin: 'top left' }}>
+                <NookPhone
+                  apps={NOOK_APPS}
+                  appsPerPage={9}
+                  onAppClick={id => { setPhoneApp(id); setPhonePhase('app'); }}
+                />
+              </div>
+            ) : ActivePhoneGame ? (
+              <ActivePhoneGame onBack={() => setPhonePhase('phone')} player={state.username} />
+            ) : (
+              <div className="phone-game">
+                <div className="phone-game-box">
+                  <span className="phone-game-emoji">{NOOK_APPS.find(a => a.id === phoneApp)?.emoji || '📱'}</span>
+                  <span>{NOOK_APPS.find(a => a.id === phoneApp)?.name || '应用'}页面开发中…</span>
+                </div>
+                <button type="button" className="phone-game-back" onClick={() => setPhonePhase('phone')}>← 返回手机</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -2196,3 +2574,5 @@ function MessageList({ entries }: { entries: MailboxEntry[] }) {
 function Metric({ label, value }: { label: string; value: number }) {
   return <div className="metric"><strong>{value}</strong><span>{label}</span></div>;
 }
+
+

@@ -1468,50 +1468,17 @@ button, input { font: inherit; }
   overflow: hidden;
   border: 4px solid #d8d0c3;
   border-radius: 34px;
-  background:
-    radial-gradient(circle at 12% 18%, rgba(255,255,255,.32) 0 5px, transparent 6px),
-    radial-gradient(circle at 82% 20%, rgba(255,255,255,.24) 0 7px, transparent 8px),
-    linear-gradient(180deg, #78d6e5 0%, #5bc4d5 66%, #43adbf 100%);
+  background: #5bc4d5 url("/assets/animal-island/island-bg.png") center / cover no-repeat;
   box-shadow: inset 0 -8px 0 rgba(34,95,104,.18), 0 8px 0 0 var(--old-shadow), 0 18px 26px rgba(61,52,40,.14);
 }
 
-.island-map::before {
-  content: '';
-  position: absolute;
-  left: 7%;
-  top: 8%;
-  width: 86%;
-  height: 77%;
-  border-radius: 48% 52% 45% 55% / 39% 44% 56% 61%;
-  background:
-    radial-gradient(circle at 22% 20%, rgba(255,255,255,.18), transparent 18%),
-    radial-gradient(circle at 75% 28%, #89d982 0 12%, transparent 13%),
-    radial-gradient(circle at 35% 70%, #75c96f 0 15%, transparent 16%),
-    linear-gradient(135deg, #91d978, #63be70);
-  box-shadow: 0 0 0 18px #f7df91, 0 0 0 25px rgba(255,253,245,.45), 0 16px 22px rgba(43,105,73,.2);
-}
-
-.island-map::after {
-  content: '';
-  position: absolute;
-  left: 37%;
-  top: 5%;
-  width: 18%;
-  height: 82%;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #57cadd, #42afc6);
-  transform: rotate(18deg);
-  box-shadow: inset 7px 0 0 rgba(255,255,255,.18), 0 0 0 5px rgba(247,223,145,.4);
-  opacity: .9;
-}
+/* 插画背景已含沙滩/草地/河流/树/桥，旧的 CSS 伪元素装饰关闭 */
+.island-map::before,
+.island-map::after { display: none; }
 
 .map-tree,
 .map-rock,
-.map-bridge {
-  position: absolute;
-  z-index: 2;
-  pointer-events: none;
-}
+.map-bridge { display: none; }
 
 .map-tree {
   width: 30px;
@@ -1754,6 +1721,27 @@ button, input { font: inherit; }
   box-shadow: 0 4px 0 0 var(--old-shadow);
   font-size: 22px;
   cursor: pointer;
+}
+
+.phone-point {
+  position: absolute;
+  left: 90%;
+  top: 12%;
+  z-index: 6;
+  width: 42px;
+  height: 42px;
+  border: 3px solid #d4c9b4;
+  border-radius: 50%;
+  background: #fffdf5;
+  box-shadow: 0 4px 0 0 var(--old-shadow);
+  font-size: 22px;
+  cursor: pointer;
+  animation: phone-point-pulse 2.4s ease-in-out infinite;
+}
+.phone-point:hover { transform: translateY(-2px); }
+@keyframes phone-point-pulse {
+  0%, 100% { box-shadow: 0 4px 0 0 var(--old-shadow), 0 0 0 0 rgba(136,157,240,.5); }
+  50% { box-shadow: 0 4px 0 0 var(--old-shadow), 0 0 0 7px rgba(136,157,240,0); }
 }
 
 .bottle-clues {
@@ -2557,6 +2545,87 @@ button, input { font: inherit; }
 .museum-shell > .island-panel,
 .museum-shell > .museum-cabinet { width: min(520px, 100%); }
 .museum-head-card .section-head { justify-content: space-between; align-items: flex-start; gap: 12px; }
+
+/* 手机弹框：贴合手机尺寸的独立弹层 */
+.phone-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(40, 32, 22, .55);
+  backdrop-filter: blur(2px);
+  animation: phone-modal-fade .18s ease;
+}
+@keyframes phone-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+.phone-modal {
+  position: relative;
+  border-radius: 36px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+  animation: phone-modal-pop .22s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes phone-modal-pop { from { transform: scale(.86); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.phone-modal-close {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 5;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .82);
+  color: #6b6256;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+}
+.phone-modal-close:hover { background: #fff; }
+.phone-scaler {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 527px;
+  height: 788px;
+  transition: filter .12s ease;
+}
+/* 游戏占位（填满手机屏幕区域） */
+.phone-game {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: linear-gradient(180deg, #fffdf5, #f3ecdd);
+  color: var(--old-muted);
+  text-align: center;
+}
+.phone-game-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  font-weight: 800;
+  font-size: 15px;
+}
+.phone-game-emoji { font-size: 64px; animation: phone-modal-blink 1.6s ease-in-out infinite; }
+@keyframes phone-modal-blink { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.phone-game-back {
+  padding: 8px 18px;
+  border: 2px solid var(--old-border);
+  border-radius: 999px;
+  background: var(--old-card);
+  color: var(--old-text);
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--old-shadow);
+}
+.phone-game-back:hover { transform: translateY(-1px); }
 .museum-sub { margin: 4px 0 0; color: var(--old-muted); font-size: 13px; }
 .museum-total { white-space: nowrap; font-size: 13px; color: var(--old-muted); }
 .museum-total strong { color: var(--old-primary-dark); font-size: 16px; }
@@ -2632,3 +2701,208 @@ button, input { font: inherit; }
 .recipe-tag { font-size: 11px; color: #999; }
 .map-point.dragging { z-index: 30; transform: scale(1.08); cursor: grabbing; box-shadow: 0 8px 20px rgba(0,0,0,0.3); transition: none; }
 .map-point .map-hint { display: block; font-size: 9px; color: #999; margin-top: 1px; }
+
+
+/* 房间内景（伪3D 剖视图）— chatgpt 重做版 */
+.room-shell .island-panel {
+  background: linear-gradient(180deg, #fff9ed, #f3e3c7);
+  border: 1px solid rgba(139, 91, 45, 0.14);
+  box-shadow:
+    0 14px 32px rgba(105, 72, 42, 0.16),
+    inset 0 0 24px rgba(255, 255, 255, 0.55);
+}
+
+.room-shell .room-stage-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  margin: 14px auto;
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 249, 224, 0.92), rgba(242, 218, 181, 0.72) 42%, rgba(208, 164, 112, 0.42) 100%),
+    linear-gradient(180deg, #fff3da, #e5c296);
+  box-shadow:
+    inset 0 0 34px rgba(118, 80, 42, 0.18),
+    0 12px 26px rgba(99, 69, 39, 0.14);
+}
+.room-shell .room-stage { position: absolute; top: 0; left: 0; }
+
+.room-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 16%, rgba(255, 246, 218, 0.34), rgba(255, 246, 218, 0) 58%),
+    radial-gradient(ellipse at 50% 102%, rgba(70, 44, 18, 0.26), rgba(70, 44, 18, 0) 62%);
+}
+
+.room-wall-deco { position: absolute; pointer-events: none; z-index: 3; }
+.room-string-lights {
+  top: 24px; left: 50%; transform: translateX(-50%); width: 240px;
+  filter: drop-shadow(0 0 5px rgba(255, 220, 130, 0.55)) saturate(1.1);
+}
+.room-painting {
+  top: 58px; left: 250px; width: 64px;
+  transform: skewY(-9deg);
+  filter: drop-shadow(3px 5px 4px rgba(60, 38, 20, 0.38));
+}
+
+.room-light-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+  background:
+    radial-gradient(ellipse at 50% 18%, rgba(255, 236, 195, 0.60), rgba(255, 236, 195, 0) 55%),
+    radial-gradient(ellipse at 50% 96%, rgba(95, 58, 26, 0.32), rgba(95, 58, 26, 0) 60%);
+}
+
+.room-tile {
+  position: absolute;
+  z-index: 4;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+  transform: rotateZ(45deg) scale(1, 0.5);
+  transform-origin: center;
+}
+
+.room-tile.placeable {
+  cursor: pointer;
+}
+
+.room-tile.placeable:hover {
+  background: rgba(133, 190, 104, 0.30);
+  box-shadow: inset 0 0 0 2px rgba(170, 215, 140, 0.55);
+}
+
+.room-sprite {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: auto;
+}
+
+.room-furniture {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    filter 0.16s ease;
+}
+
+.room-furniture:hover {
+  transform: translate(-50%, -100%) translateY(-4px);
+  filter: brightness(1.04) saturate(1.05);
+}
+
+.room-furniture-svg {
+  display: block;
+  overflow: visible;
+  filter:
+    drop-shadow(0 5px 4px rgba(83, 56, 33, 0.22))
+    saturate(1.03);
+}
+
+.room-furniture-img {
+  display: block;
+  width: 78px;
+  height: auto;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 5px 7px rgba(50, 32, 16, 0.20))
+    sepia(0.16)
+    saturate(1.05)
+    brightness(1.03);
+}
+
+.room-shadow {
+  width: 42px;
+  height: 11px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(60, 38, 20, 0.18), rgba(60, 38, 20, 0) 72%);
+  pointer-events: none;
+}
+
+.room-character {
+  pointer-events: none;
+}
+
+.room-character-img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 3px rgba(82, 54, 34, 0.25));
+}
+
+.room-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 4px 0;
+}
+
+.room-palette-item {
+  min-width: 104px;
+  border: 1px solid rgba(132, 91, 52, 0.18);
+  border-radius: 18px;
+  padding: 8px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 236, 0.96), rgba(239, 215, 180, 0.92));
+  color: #6d4d32;
+  box-shadow:
+    0 5px 12px rgba(119, 84, 47, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.room-palette-item:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 16px rgba(119, 84, 47, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.room-palette-item.selected {
+  border-color: rgba(104, 161, 77, 0.72);
+  box-shadow:
+    0 0 0 3px rgba(132, 196, 98, 0.25),
+    0 8px 18px rgba(104, 161, 77, 0.18);
+  background:
+    linear-gradient(180deg, #f7ffe8, #e1f2c2);
+}
+
+.room-palette-preview {
+  height: 46px;
+  display: grid;
+  place-items: end center;
+}
+
+.room-palette-item span:not(.room-palette-preview) {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.room-palette-item small {
+  color: #9b7655;
+}

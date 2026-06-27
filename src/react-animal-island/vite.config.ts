@@ -1,6 +1,5 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
-import type { ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'node:fs'
@@ -27,6 +26,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
@@ -71,29 +71,11 @@ export default defineConfig({
 })
 
 function legacyDevApi() {
-  const root = path.resolve(__dirname, '..')
+  const root = __dirname
   const dataDir = path.join(root, 'data')
   const fixedUsers = ['哥哥', '乖宝']
 
-  return {
-    name: 'legacy-dev-api',
-    configureServer(server: ViteDevServer) {
-      server.middlewares.use('/plan.json', (_req: IncomingMessage, res: ServerResponse) => {
-        res.setHeader('Content-Type', 'application/json; charset=utf-8')
-        fs.createReadStream(path.join(root, 'plan.json')).pipe(res)
-      })
-
-      server.middlewares.use('/assets', (req: IncomingMessage, res: ServerResponse) => {
-        const requested = decodeURIComponent(req.url || '/').replace(/^\/+/, '')
-        const file = path.join(root, 'assets', requested)
-        if (!file.startsWith(path.join(root, 'assets')) || !fs.existsSync(file)) {
-          res.statusCode = 404
-          res.end('Not found')
-          return
-        }
-        fs.createReadStream(file).pipe(res)
-      })
-
+  const applyStateApi = (server: any) => {
       server.middlewares.use('/api/state.php', async (req: IncomingMessage, res: ServerResponse) => {
         const url = new URL(req.url || '', 'http://dev.local')
         const room = (url.searchParams.get('room') || 'fitness-island-v1').replace(/[^a-zA-Z0-9_-]/g, '')
@@ -147,7 +129,12 @@ function legacyDevApi() {
           sendJson(res, { ok: false, error: error instanceof Error ? error.message : 'Invalid payload' })
         }
       })
-    },
+  }
+
+  return {
+    name: 'legacy-dev-api',
+    configureServer: applyStateApi,
+    configurePreviewServer: applyStateApi,
   }
 }
 

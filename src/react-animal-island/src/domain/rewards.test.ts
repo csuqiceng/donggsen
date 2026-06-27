@@ -73,7 +73,7 @@ describe('奖励系统', () => {
     expect(computeMaterialCount('challenge', true)).toBe(4);
   });
 
-  it('仓库计数只统计建设类材料(木材/贝壳/石头/铁矿)', () => {
-    expect(warehouseCounts(['wood', 'stone', 'hardwood', 'bells', 'shell'])).toEqual({ wood: 1, stone: 1, shell: 1 });
+  it('仓库计数统计所有原材料(不含铃钱/里数券等货币)', () => {
+    expect(warehouseCounts(['wood', 'stone', 'hardwood', 'bells', 'shell'])).toEqual({ wood: 1, stone: 1, hardwood: 1, shell: 1 });
   });
 });

@@ -1,0 +1,152 @@
+/* 本地版动森手机（移植自 animal-island-ui Phone） */
+.np-phoneContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.np-phone {
+  position: relative;
+  width: 527px;
+  height: 788px;
+  background: #f8f4e8;
+  border-radius: 136px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.np-screenContent { flex: 1; overflow: hidden; }
+.np-homeScreen {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding-top: 40px;
+  background: #f8f4e8;
+  background-size: 100% 200%;
+  animation: np-grasswave 8s ease-in-out infinite;
+}
+@keyframes np-grasswave {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 0% 100%; }
+}
+.np-dateDisplay {
+  text-align: center;
+  width: 100%;
+  padding: 0 70px 31px;
+  font-family: Nunito, "Noto Sans SC", system-ui, sans-serif;
+}
+.np-dateDisplayHeader {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+  font-size: 32px;
+  color: #dddbcc;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+.np-blink {
+  font-size: 32px;
+  font-weight: 800;
+  color: #dddbcc;
+  vertical-align: text-bottom;
+  animation: np-blink 1s steps(1) infinite;
+}
+@keyframes np-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.np-dayText {
+  display: block;
+  font-size: 48px;
+  font-weight: 800;
+  height: 56px;
+  margin-top: 20px;
+  color: #725c4e;
+  letter-spacing: 2px;
+}
+.np-appsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 26px;
+  padding: 8px 40px;
+  flex: 1;
+  align-content: center;
+  justify-items: center;
+  width: 100%;
+}
+.np-appItem {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 36px;
+  position: relative;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.np-appItemOffset { overflow: hidden; }
+.np-appItem:hover .np-appIcon { animation: np-iconBounce 0.3s ease-in-out forwards; }
+.np-appItem:hover .np-appIconOffset { animation: np-iconBounceOffset 0.3s ease-in-out forwards; }
+@keyframes np-iconBounce {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(-5deg); }
+  100% { transform: scale(1.1) rotate(-4deg); }
+}
+@keyframes np-iconBounceOffset {
+  0% { transform: scale(1) rotate(0deg) translateY(15px); }
+  50% { transform: scale(1.2) rotate(-5deg) translateY(15px); }
+  100% { transform: scale(1.1) rotate(-4deg) translateY(15px); }
+}
+.np-appIcon { display: block; width: 100%; height: 100%; }
+.np-appIconOffset { transform: translateY(15px); }
+.np-iconWifi {
+  display: inline-block;
+  width: 79px;
+  height: 29px;
+  background: url("/assets/animal-island/phone-wifi.svg") center / contain no-repeat;
+}
+.np-iconLocation {
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  background: url("/assets/animal-island/phone-location.svg") center / contain no-repeat;
+}
+.np-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #ff544a;
+  border: 5px solid #f8f4e8;
+}
+/* 页码指示器：可点圆点，当前页高亮（青色，仿 page.svg）；始终贴底 */
+.np-pageIndicator {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: auto;
+  margin-bottom: 30px;
+  align-items: center;
+}
+.np-pageDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: #cfcfc5;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease;
+}
+.np-pageDot:hover { transform: scale(1.15); }
+.np-pageDot.active {
+  width: 26px;
+  height: 26px;
+  background: #08b69f;
+  box-shadow: inset 0 0 0 7px #cfcfc5;
+}
